@@ -1,0 +1,95 @@
+<!-- 我的页面：微信"我"页面风格 -->
+<div class="page-settings">
+
+  <!-- 个人信息头部 -->
+  <div class="profile-header">
+    <div class="avatar">
+      <mat-icon>person</mat-icon>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name">投资者</div>
+      <div class="profile-id">账号：invest_user_001</div>
+    </div>
+    <mat-icon class="chevron" style="color: rgba(255,255,255,0.5);">chevron_right</mat-icon>
+  </div>
+
+  <!-- 资产快览 -->
+  <div class="asset-strip wechat-group">
+    <div class="strip-item">
+      <div class="strip-value">532,680</div>
+      <div class="strip-label">总资产（元）</div>
+    </div>
+    <div class="strip-divider"></div>
+    <div class="strip-item">
+      <div class="strip-value stock-up">+3,420</div>
+      <div class="strip-label">今日盈亏</div>
+    </div>
+    <div class="strip-divider"></div>
+    <div class="strip-item">
+      <div class="strip-value stock-up">+0.65%</div>
+      <div class="strip-label">今日收益率</div>
+    </div>
+  </div>
+
+  <!-- 功能组 1 -->
+  <div class="wechat-group-label">我的服务</div>
+  <div class="wechat-group">
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #07c160;"><mat-icon>bar_chart</mat-icon></div>
+      <div class="cell-body"><div class="cell-title">收益报告</div></div>
+      <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+    </div>
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #fa8c16;"><mat-icon>swap_horiz</mat-icon></div>
+      <div class="cell-body"><div class="cell-title">交易记录</div></div>
+      <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+    </div>
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #1890ff;"><mat-icon>favorite</mat-icon></div>
+      <div class="cell-body"><div class="cell-title">自选股</div></div>
+      <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+    </div>
+  </div>
+
+  <!-- 功能组 2：设置 -->
+  <div class="wechat-group-label">设置</div>
+  <div class="wechat-group">
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #52c41a;"><mat-icon>notifications</mat-icon></div>
+      <div class="cell-body"><div class="cell-title">行情通知</div></div>
+      <div class="cell-right">
+        <mat-slide-toggle [(ngModel)]="notifications" color="primary" />
+      </div>
+    </div>
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #722ed1;"><mat-icon>dark_mode</mat-icon></div>
+      <div class="cell-body"><div class="cell-title">深色模式</div></div>
+      <div class="cell-right">
+        <mat-slide-toggle [(ngModel)]="darkMode" color="primary" />
+      </div>
+    </div>
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #13c2c2;"><mat-icon>sync</mat-icon></div>
+      <div class="cell-body">
+        <div class="cell-title">自动刷新</div>
+        <div class="cell-desc">每 {{ refreshInterval }} 秒</div>
+      </div>
+      <div class="cell-right">
+        <mat-slide-toggle [(ngModel)]="autoRefresh" color="primary" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 关于 -->
+  <div class="wechat-group">
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #8c8c8c;"><mat-icon>info</mat-icon></div>
+      <div class="cell-body"><div class="cell-title">关于投资助手</div></div>
+      <div class="cell-right">
+        <span style="font-size: 13px; color: #999;">v0.0.1</span>
+        <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+      </div>
+    </div>
+  </div>
+
+</div>

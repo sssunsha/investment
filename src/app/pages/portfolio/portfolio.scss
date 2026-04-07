@@ -1,0 +1,66 @@
+.page-portfolio {
+  padding-bottom: 16px;
+}
+
+// 汇总条（三格横排）
+.portfolio-summary {
+  display: flex;
+  margin-bottom: 8px;
+
+  .summary-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 8px;
+
+    .s-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--wechat-text);
+    }
+
+    .s-label {
+      font-size: 11px;
+      color: var(--wechat-text-secondary);
+      margin-top: 3px;
+    }
+  }
+
+  .summary-divider {
+    width: 1px;
+    background: var(--wechat-divider);
+    margin: 10px 0;
+  }
+}
+
+// 持仓头像（字母/首字）
+.cell-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+  margin-right: 12px;
+
+  &.avatar-up   { background: #f5222d; }
+  &.avatar-down { background: #07c160; }
+}
+
+.right-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+
+  .right-price {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--wechat-text);
+  }
+}

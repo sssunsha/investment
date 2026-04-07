@@ -1,0 +1,82 @@
+<!-- 持仓页：微信通讯录风格列表 -->
+<div class="page-portfolio">
+
+  <!-- 搜索框 -->
+  <div class="wechat-searchbar">
+    <div class="inner">
+      <mat-icon>search</mat-icon>
+      <input type="text" placeholder="搜索持仓" />
+    </div>
+  </div>
+
+  <!-- 汇总条 -->
+  <div class="portfolio-summary wechat-group">
+    <div class="summary-item">
+      <div class="s-value">{{ totalMarketValue | number: '1.0-0' }}</div>
+      <div class="s-label">持仓市值</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-item">
+      <div class="s-value" [class]="totalPnl >= 0 ? 'stock-up' : 'stock-down'">
+        {{ totalPnl >= 0 ? '+' : '' }}{{ totalPnl | number: '1.0-0' }}
+      </div>
+      <div class="s-label">持仓盈亏</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-item">
+      <div class="s-value" [class]="totalPnlPct >= 0 ? 'stock-up' : 'stock-down'">
+        {{ totalPnlPct >= 0 ? '+' : '' }}{{ totalPnlPct | percent: '1.2-2' }}
+      </div>
+      <div class="s-label">收益率</div>
+    </div>
+  </div>
+
+  <!-- 股票列表 -->
+  <div class="wechat-group-label">股票 {{ stockPositions.length }} 只</div>
+  <div class="wechat-group">
+    @for (p of stockPositions; track p.code) {
+      <div class="wechat-cell position-cell">
+        <div class="cell-avatar" [class]="p.pnlPct >= 0 ? 'avatar-up' : 'avatar-down'">
+          {{ p.name.slice(0, 2) }}
+        </div>
+        <div class="cell-body">
+          <div class="cell-title">{{ p.name }}</div>
+          <div class="cell-desc">{{ p.code }} · {{ p.shares }}股 · 成本 {{ p.costPrice | number: '1.2-2' }}</div>
+        </div>
+        <div class="cell-right">
+          <div class="right-col">
+            <span class="right-price">{{ p.currentPrice | number: '1.2-2' }}</span>
+            <span [class]="p.pnlPct >= 0 ? 'stock-badge up' : 'stock-badge down'">
+              {{ p.pnlPct >= 0 ? '+' : '' }}{{ p.pnlPct | percent: '1.2-2' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- 基金列表 -->
+  <div class="wechat-group-label">基金 {{ fundPositions.length }} 只</div>
+  <div class="wechat-group">
+    @for (p of fundPositions; track p.code) {
+      <div class="wechat-cell position-cell">
+        <div class="cell-avatar" [class]="p.pnlPct >= 0 ? 'avatar-up' : 'avatar-down'">
+          {{ p.name.slice(0, 2) }}
+        </div>
+        <div class="cell-body">
+          <div class="cell-title">{{ p.name }}</div>
+          <div class="cell-desc">{{ p.code }} · {{ p.shares }}份 · 成本 {{ p.costPrice | number: '1.2-2' }}</div>
+        </div>
+        <div class="cell-right">
+          <div class="right-col">
+            <span class="right-price">{{ p.currentPrice | number: '1.2-2' }}</span>
+            <span [class]="p.pnlPct >= 0 ? 'stock-badge up' : 'stock-badge down'">
+              {{ p.pnlPct >= 0 ? '+' : '' }}{{ p.pnlPct | percent: '1.2-2' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+</div>

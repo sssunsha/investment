@@ -1,0 +1,95 @@
+{
+  "name": "investment-assistant",
+  "version": "0.0.1",
+  "main": "electron.js",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "build:compress": "ng build --configuration production && node scripts/compress-build.js",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "deploy": "node scripts/deploy.js",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"ng serve\" \"wait-on http://localhost:4200 && cross-env NODE_ENV=development electron .\"",
+    "electron:pack": "ng build --configuration production && electron-packager . InvestmentAssistant --platform=darwin --arch=arm64 --out=release --overwrite --icon=public/favicon.ico",
+    "android:debug": "node scripts/build-android.js debug",
+    "android:release": "node scripts/build-android.js release",
+    "android:install": "/Users/I340818/Library/Android/sdk/platform-tools/adb install -r cordova-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk",
+    "android:deploy": "npm run android:debug && npm run android:install",
+    "android:run": "cd cordova-app && npx cordova run android",
+    "android:emulate": "cd cordova-app && npx cordova emulate android",
+    "cordova:prepare": "cd cordova-app && cordova platform add android"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
+  },
+  "private": true,
+  "packageManager": "npm@11.7.0",
+  "build": {
+    "appId": "com.investment.assistant",
+    "productName": "InvestmentAssistant",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron.js",
+      "preload.js",
+      "package.json",
+      "public/**/*"
+    ],
+    "mac": {
+      "target": ["dmg"],
+      "icon": "public/favicon.ico",
+      "category": "public.app-category.finance"
+    },
+    "win": {
+      "target": ["nsis", "zip"],
+      "icon": "public/favicon.ico"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "public/favicon.ico",
+      "category": "Finance"
+    }
+  },
+  "dependencies": {
+    "@angular/cdk": "^21.2.5",
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/material": "^21.2.5",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.6",
+    "@angular/cli": "^21.2.6",
+    "@angular/compiler-cli": "^21.2.0",
+    "concurrently": "^9.2.1",
+    "cordova": "^13.0.0",
+    "cordova-android": "^14.0.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
+    "electron-packager": "^17.1.2",
+    "jsdom": "^28.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.8",
+    "wait-on": "^9.0.4"
+  }
+}
