@@ -1,0 +1,82 @@
+@if (strategyResult$ | async; as result) {
+  <div class="strategy-container">
+    <h2>ETF Rotation Strategy</h2>
+    <p class="last-updated">Last Updated: {{ result.last_updated | date:'medium' }}</p>
+
+    @if (result.error) {
+      <div class="error-panel">
+        <h3>Error</h3>
+        <p>{{ result.error }}</p>
+      </div>
+    }
+
+    <div class="section">
+      <h3>
+        <span class="indicator buy"></span>
+        Buy Signals (Top 2 with Close > MA20 & MA60 Rising)
+      </h3>
+      @if (result.to_buy.length > 0) {
+        <table class="etf-table">
+          <thead>
+            <tr>
+              <th>Name (Code)</th>
+              <th>20-Day Return</th>
+              <th>Close</th>
+              <th>MA20</th>
+              <th>MA60</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (etf of result.to_buy; track etf.code) {
+              <tr>
+                <td>{{ etf.name }} ({{ etf.code }})</td>
+                <td class="positive">{{ etf.return_20d | percent:'1.2-2' }}</td>
+                <td>{{ etf.latest_close | number:'1.2-2' }}</td>
+                <td>{{ etf.ma20 | number:'1.2-2' }}</td>
+                <td>{{ etf.ma60 | number:'1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p>No ETFs currently meet the buy criteria. Holding cash is recommended.</p>
+      }
+    </div>
+
+    <div class="section">
+      <h3>Full Ranking (by 20-Day Return)</h3>
+      <table class="etf-table ranking-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name (Code)</th>
+            <th>20-Day Return</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (etf of result.ranking; track etf.code; let i = $index) {
+            <tr [class.is-top-two]="i < 2">
+              <td>{{ i + 1 }}</td>
+              <td>{{ etf.name }} ({{ etf.code }})</td>
+              <td [class.positive]="etf.return_20d > 0" [class.negative]="etf.return_20d < 0">
+                {{ etf.return_20d | percent:'1.2-2' }}
+              </td>
+              <td>
+                @if (etf.latest_close > etf.ma20 && etf.ma60_is_rising) {
+                  <span class="status-pill buy">Buy Candidate</span>
+                } @else if (etf.latest_close < etf.ma20) {
+                  <span class="status-pill sell">Sell Signal</span>
+                } @else {
+                  <span class="status-pill hold">Hold/Wait</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+} @else {
+  <p>Loading strategy data...</p>
+}

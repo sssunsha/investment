@@ -1,0 +1,78 @@
+.page-market {
+  padding-bottom: 16px;
+}
+
+// 指数宫格（支持5格自适应）
+.index-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: none;
+  margin-bottom: 8px;
+
+  .index-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 8px;
+    border-right: 1px solid var(--wechat-divider);
+    border-bottom: 1px solid var(--wechat-divider);
+
+    &:nth-child(even) { border-right: none; }
+    // 最后一行无底部边框（支持奇数/偶数总数）
+    &:nth-last-child(1),
+    &:nth-last-child(2) { border-bottom: none; }
+    // 奇数最后一格占满整行
+    &:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+      border-right: none;
+    }
+
+    .idx-name {
+      font-size: 12px;
+      color: var(--wechat-text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .idx-price {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .idx-badge {
+      font-size: 12px;
+    }
+  }
+}
+
+// 加载/错误状态
+.market-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 16px;
+  color: var(--wechat-text-secondary);
+  font-size: 14px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.market-error {
+  color: #f5222d;
+}
+
+// 旋转动画（加载中图标）
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 1s linear infinite; }
+
+// 最后更新时间
+.market-updated {
+  text-align: center;
+  font-size: 11px;
+  color: var(--wechat-text-secondary);
+  padding: 6px 0 2px;
+}

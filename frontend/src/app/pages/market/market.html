@@ -1,0 +1,41 @@
+<!-- 行情页：指数行情 -->
+<div class="page-market">
+
+  <!-- 加载中 -->
+  @if (loading) {
+    <div class="market-status">
+      <mat-icon class="spin">refresh</mat-icon>
+      <span>加载中…</span>
+    </div>
+  }
+
+  <!-- 错误提示 -->
+  @if (!loading && error) {
+    <div class="market-status market-error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </div>
+  }
+
+  <!-- 指数行情宫格 -->
+  @if (!loading && !error && indices.length > 0) {
+    <div class="index-grid wechat-group">
+      @for (idx of indices; track idx.code) {
+        <div class="index-cell">
+          <div class="idx-name">{{ idx.name }}</div>
+          <div class="idx-price" [class]="idx.changePct >= 0 ? 'stock-up' : 'stock-down'">
+            {{ idx.price | number: '1.2-2' }}
+          </div>
+          <div [class]="idx.changePct >= 0 ? 'stock-badge up' : 'stock-badge down'" class="idx-badge">
+            {{ idx.changePct >= 0 ? '+' : '' }}{{ idx.changePct * 100 | number: '1.2-2' }}%
+          </div>
+        </div>
+      }
+    </div>
+
+    @if (lastUpdated) {
+      <div class="market-updated">更新于 {{ lastUpdated | date: 'HH:mm:ss' }}</div>
+    }
+  }
+
+</div>
