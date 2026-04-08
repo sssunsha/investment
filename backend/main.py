@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import swagger_ui_bundle
 
-from session import ensure_login, heartbeat_task, manual_logout, run_bs
+from session import ensure_login, heartbeat_task, manual_logout, run_bs, mark_disconnected
 from routers import history, sector, evaluation, corpreport, metadata, macroscopic
 from routers import session as session_router
 
@@ -200,6 +200,8 @@ def get_etf_data(etf_code, start_date, end_date):
         adjustflag="2"
     )
     if rs.error_code != '0':
+        if "RECVSOCK" in (rs.error_msg or "") or "socket" in (rs.error_msg or "").lower():
+            mark_disconnected()
         return pd.DataFrame()
 
     data_list = []
@@ -214,7 +216,7 @@ def get_etf_data(etf_code, start_date, end_date):
 
 
 def get_index_quote(index_code: str, name: str) -> dict:
-    """获取指数最新行情"""
+    """获取指数最新行情，SDK 报错时抛出异常"""
     end_date = datetime.now()
     start_date = end_date - timedelta(days=10)
     rs = bs.query_history_k_data_plus(
@@ -224,16 +226,22 @@ def get_index_quote(index_code: str, name: str) -> dict:
         end_date=end_date.strftime('%Y-%m-%d'),
         frequency="d",
     )
+    if rs.error_code != '0':
+        # socket 断开类错误：重置登录态，下次调用自动重连
+        if "RECVSOCK" in (rs.error_msg or "") or "socket" in (rs.error_msg or "").lower():
+            mark_disconnected()
+        raise RuntimeError(f"{index_code} 查询失败: {rs.error_msg}")
+
     rows = []
     while rs.error_code == '0' and rs.next():
         rows.append(rs.get_row_data())
 
-    if len(rows) < 2:
-        return {"name": name, "code": index_code, "price": 0, "change": 0, "changePct": 0}
+    if not rows:
+        raise RuntimeError(f"{index_code} 返回空数据")
 
     latest = rows[-1]
     price = float(latest[1])
-    preclose = float(latest[2])
+    preclose = float(latest[2]) if latest[2] else price
     change = round(price - preclose, 2)
     change_pct = round((price - preclose) / preclose, 6) if preclose else 0
 
@@ -262,7 +270,13 @@ async def get_market_indices():
     ]
 
     def _compute():
-        return [get_index_quote(code, name) for code, name in indices]
+        results = []
+        for code, name in indices:
+            try:
+                results.append(get_index_quote(code, name))
+            except Exception as e:
+                results.append({"name": name, "code": code, "error": str(e)})
+        return results
 
     result = await run_bs(_compute)
     if result is None:

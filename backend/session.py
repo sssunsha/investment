@@ -15,9 +15,11 @@ import asyncio
 import time
 import logging
 import datetime
+import socket as _socket
 from typing import Callable, Any
 
 import baostock as bs
+import baostock.common.context as _bs_ctx
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,9 @@ HEARTBEAT_MIN = 10
 HEARTBEAT_MAX = 3600
 IDLE_MIN = 60
 IDLE_MAX = 86400
+
+# SDK socket 超时：服务端无响应时快速失败，避免挂起数分钟
+BS_SOCKET_TIMEOUT = 15.0   # 秒
 # ─────────────────────────────────────────────
 
 _logged_in: bool = False
@@ -51,6 +56,15 @@ def _do_login() -> bool:
     lg = bs.login()
     if lg.error_code == '0':
         _logged_in = True
+        # 登录成功后立即给 SDK 内部 socket 设置超时，
+        # 避免服务端无响应时 recv() 无限阻塞
+        try:
+            sock = getattr(_bs_ctx, "default_socket", None)
+            if sock is not None:
+                sock.settimeout(BS_SOCKET_TIMEOUT)
+                logger.debug("SDK socket 超时已设为 %.0fs", BS_SOCKET_TIMEOUT)
+        except Exception as e:
+            logger.warning("设置 socket 超时失败（不影响功能）: %s", e)
         logger.info("BaoStock 登录成功")
         return True
     logger.error("BaoStock 登录失败: %s", lg.error_msg)
@@ -80,6 +94,7 @@ async def run_bs(fn: Callable[[], Any]) -> Any:
       2. 非阻塞：在线程池（ThreadPoolExecutor）中执行，不阻塞事件循环
       3. 串行化：持 asyncio.Lock，保证同一时间只有一个线程访问 SDK
       4. 活跃时间更新：每次调用均刷新 idle 计时
+      5. 网络错误检测：socket 断开时重置登录态，下次调用自动重连
     """
     global _logged_in, _last_active
     lock = _get_lock()
@@ -90,7 +105,15 @@ async def run_bs(fn: Callable[[], Any]) -> Any:
             ok = await loop.run_in_executor(None, _do_login)
             if not ok:
                 return None
-        return await loop.run_in_executor(None, fn)
+        try:
+            return await loop.run_in_executor(None, fn)
+        except Exception as exc:
+            # socket 超时或网络断开：重置登录态，下次调用重连
+            err_str = str(exc).lower()
+            if any(k in err_str for k in ("recvsock", "timeout", "connection", "broken pipe", "socket")):
+                logger.warning("检测到 SDK 网络错误，重置登录态以便下次重连: %s", exc)
+                _logged_in = False
+            raise
 
 
 async def ensure_login() -> bool:
@@ -135,6 +158,13 @@ async def manual_logout() -> dict:
         await loop.run_in_executor(None, _do_logout)
         _last_active = 0.0
         return {"status": "logged_out"}
+
+
+def mark_disconnected() -> None:
+    """当 SDK 返回网络错误时，在线程池内调用此函数重置登录态，触发下次自动重连。"""
+    global _logged_in
+    _logged_in = False
+    logger.warning("SDK 网络错误，已重置登录态（下次请求自动重连）")
 
 
 def get_status() -> dict:

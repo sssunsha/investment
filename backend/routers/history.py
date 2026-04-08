@@ -10,7 +10,29 @@ from typing import Optional
 from datetime import datetime, timedelta
 from session import run_bs
 
+# 各频率支持的字段集合
+_DAY_ONLY_FIELDS = {"preclose", "tradestatus", "pctChg", "peTTM", "pbMRQ", "psTTM", "pcfNcfTTM", "isST"}
+_MINUTE_ONLY_FIELDS = {"time"}
+
 router = APIRouter(prefix="/api/security/history", tags=["历史行情数据"])
+
+
+def _filter_fields(fields: str, frequency: str) -> str:
+    """根据 frequency 过滤掉不支持的字段，避免 SDK 参数错误。
+    日K(d)支持全量字段；周/月K(w/m)不支持日线专有字段；
+    分钟K(5/15/30/60)支持 time 字段但不支持日线专有字段。
+    """
+    parts = [f.strip() for f in fields.split(",") if f.strip()]
+    if frequency == "d":
+        # 日线：移除分钟专有字段
+        parts = [f for f in parts if f not in _MINUTE_ONLY_FIELDS]
+    elif frequency in ("w", "m"):
+        # 周/月线：移除日线专有字段和分钟专有字段
+        parts = [f for f in parts if f not in _DAY_ONLY_FIELDS and f not in _MINUTE_ONLY_FIELDS]
+    else:
+        # 分钟线：移除日线专有字段
+        parts = [f for f in parts if f not in _DAY_ONLY_FIELDS]
+    return ",".join(parts)
 
 
 def _collect(rs) -> tuple:
@@ -66,9 +88,11 @@ async def query_history_k_data_plus(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
+    actual_fields = _filter_fields(fields, frequency)
+
     def _query():
         rs = bs.query_history_k_data_plus(
-            code, fields,
+            code, actual_fields,
             start_date=start_date, end_date=end_date,
             frequency=frequency, adjustflag=adjustflag
         )
@@ -80,9 +104,11 @@ async def query_history_k_data_plus(
     data, err = result
     if err:
         return {"error": err}
+    # 倒序：最新交易日排在最前
+    data = list(reversed(data))
     return {
         "code": code,
-        "fields": fields.split(","),
+        "fields": actual_fields.split(","),
         "frequency": frequency,
         "adjustflag": adjustflag,
         "start_date": start_date,

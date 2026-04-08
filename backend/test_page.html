@@ -105,6 +105,23 @@
   .btn-run { background: var(--cyan); color: #000; }
   .btn-clear { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
 
+  .btn-run-single {
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, opacity .15s;
+    line-height: 1.6;
+  }
+  .btn-run-single:hover { background: rgba(6,182,212,.15); }
+  .btn-run-single:active { opacity: .7; }
+  .btn-run-single:disabled { opacity: .35; cursor: not-allowed; }
+
   .test-code-input {
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -155,17 +172,94 @@
 
   /* ── Test Card ── */
   .test-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
     border-radius: 8px;
-    overflow: hidden;
-    transition: border-color .2s;
+    perspective: 1200px;
+    /* height driven by content; flip uses absolute positioning on inner */
   }
 
-  .test-card.pass  { border-left: 3px solid var(--green); }
-  .test-card.fail  { border-left: 3px solid var(--red); }
-  .test-card.running { border-left: 3px solid var(--yellow); }
-  .test-card.idle  { border-left: 3px solid var(--border); }
+  .card-inner {
+    position: relative;
+    width: 100%;
+    transform-style: preserve-3d;
+    transition: transform .55s cubic-bezier(.4,0,.2,1);
+  }
+
+  .test-card.flipped .card-inner { transform: rotateY(180deg); }
+
+  .card-front,
+  .card-back {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  /* front is normal flow; back is absolute so it overlays at same size */
+  .card-front  { position: relative; }
+  .card-back   {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    min-height: 100%;
+    transform: rotateY(180deg);
+  }
+
+  .test-card.pass  .card-front,
+  .test-card.pass  .card-back  { border-left: 3px solid var(--green); }
+  .test-card.fail  .card-front,
+  .test-card.fail  .card-back  { border-left: 3px solid var(--red); }
+  .test-card.running .card-front,
+  .test-card.running .card-back { border-left: 3px solid var(--yellow); }
+  .test-card.idle  .card-front,
+  .test-card.idle  .card-back  { border-left: 3px solid var(--border); }
+
+  /* ── Back side ── */
+  .card-back-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .card-back-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .btn-flip-back {
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-flip-back:hover { background: var(--surface); color: var(--text); }
+
+  .log-area {
+    padding: 12px 14px;
+    font-size: 11px;
+    line-height: 1.7;
+    max-height: 320px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .log-line { display: flex; gap: 8px; }
+  .log-ts   { color: var(--text-dim); flex-shrink: 0; }
+  .log-ok   { color: var(--green); }
+  .log-err  { color: var(--red); }
+  .log-info { color: var(--cyan); }
+  .log-dim  { color: var(--text-dim); }
 
   .card-head {
     display: flex;
@@ -365,7 +459,8 @@ function buildTests(code) {
       group: "会话管理", color: "#06b6d4",
       tests: [
         { id: "session-status", method: "GET",  label: "查询会话状态",  url: "/api/session/status" },
-        { id: "session-login",  method: "POST", label: "手动登录",       url: "/api/session/login", body: {} },
+        { id: "session-login",  method: "POST", label: "手动登录",       url: "/api/session/login",  body: {} },
+        { id: "session-logout", method: "POST", label: "手动登出",       url: "/api/session/logout", body: {} },
       ]
     },
     {
@@ -479,19 +574,33 @@ function renderCard(t) {
     if (r.status === 'pass')     { statusClass = 'pass';    statusLabel = '✓ 通过'; timingStr = `${r.time}ms`; }
     if (r.status === 'fail')     { statusClass = 'fail';    statusLabel = '✗ 失败'; timingStr = `${r.time}ms`; }
   }
+  const isRunning = r && r.status === 'running';
   const urlShort = t.url.split('?')[0].replace('/api', '');
   return `
     <div class="test-card ${statusClass}" id="card-${t.id}">
-      <div class="card-head" onclick="toggleCard('${t.id}')">
-        <span class="badge-method ${methodClass}">${t.method}</span>
-        <span class="card-label">${t.label}</span>
-        <span class="card-url" title="${t.url}">${urlShort}</span>
-        <span class="timing">${timingStr}</span>
-        <span class="status-badge ${statusClass}">${statusLabel}</span>
-        <span class="toggle-icon" id="tog-${t.id}">▾</span>
-      </div>
-      <div class="card-body" id="body-${t.id}">
-        ${r ? renderBody(r) : '<div class="skeleton"></div><div class="skeleton" style="width:70%"></div>'}
+      <div class="card-inner" id="inner-${t.id}">
+        <div class="card-front">
+          <div class="card-head" onclick="toggleCard('${t.id}')">
+            <span class="badge-method ${methodClass}">${t.method}</span>
+            <span class="card-label">${t.label}</span>
+            <span class="card-url" title="${t.url}">${urlShort}</span>
+            <span class="timing">${timingStr}</span>
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+            <button class="btn-run-single" id="runbtn-${t.id}" onclick="event.stopPropagation();runSingle('${t.id}')" ${isRunning ? 'disabled' : ''}>▶ 运行</button>
+            <button class="btn-run-single" style="border-color:var(--purple);color:var(--purple)" onclick="event.stopPropagation();flipCard('${t.id}')">结果</button>
+            <span class="toggle-icon" id="tog-${t.id}">▾</span>
+          </div>
+          <div class="card-body" id="body-${t.id}">
+            ${r ? renderBody(r) : '<div style="color:var(--text-dim);font-size:12px;padding:4px 0">点击 ▶ 运行 执行此测试</div>'}
+          </div>
+        </div>
+        <div class="card-back" id="back-${t.id}">
+          <div class="card-back-head">
+            <span class="card-back-title">📋 ${t.label} — 执行日志</span>
+            <button class="btn-flip-back" onclick="flipCard('${t.id}')">✕ 关闭</button>
+          </div>
+          <div class="log-area" id="log-${t.id}">${renderLog(r)}</div>
+        </div>
       </div>
     </div>`;
 }
@@ -501,6 +610,64 @@ function toggleCard(id) {
   const tog  = document.getElementById(`tog-${id}`);
   body.classList.toggle('collapsed');
   tog.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
+}
+
+function flipCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (!card) return;
+  card.classList.toggle('flipped');
+  // sync back-panel height so absolute back matches front height
+  const front = card.querySelector('.card-front');
+  const inner = card.querySelector('.card-inner');
+  if (card.classList.contains('flipped')) {
+    inner.style.minHeight = front.offsetHeight + 'px';
+  } else {
+    inner.style.minHeight = '';
+  }
+}
+
+function renderLog(r) {
+  if (!r) return `<div class="log-line"><span class="log-dim">— 尚未执行，点击 ▶ 运行 后查看日志 —</span></div>`;
+
+  const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const lines = [];
+
+  if (r.status === 'running') {
+    lines.push(logLine(ts, 'info', '⏳ 请求发送中...'));
+    return lines.join('');
+  }
+
+  // Request info stored in result
+  if (r.url)    lines.push(logLine(ts, 'info',  `URL     ${escHtml(r.url)}`));
+  if (r.method) lines.push(logLine(ts, 'info',  `Method  ${r.method}`));
+
+  if (r.status === 'pass') {
+    lines.push(logLine(ts, 'ok',  `Status  ✓ 通过  (${r.time}ms)`));
+    const d = r.data;
+    if (d) {
+      if (d.total != null)   lines.push(logLine(ts, 'ok',  `Records ${d.total} 条`));
+      if (d.frequency)       lines.push(logLine(ts, 'info', `Freq    ${d.frequency}`));
+      if (d.start_date)      lines.push(logLine(ts, 'dim',  `Range   ${d.start_date} → ${d.end_date}`));
+      if (d.logged_in != null) lines.push(logLine(ts, d.logged_in ? 'ok' : 'err', `Login   ${d.logged_in ? '已登录' : '未登录'}`));
+      if (d.indices)         lines.push(logLine(ts, 'ok',  `Indices ${d.indices.length} 个指数`));
+      if (d.ranking)         lines.push(logLine(ts, 'ok',  `ETFs    ${d.ranking.length} 只，买入信号 ${d.ranking.filter(x=>x.return_20d!=null).length} 只`));
+      // First row of data as sample
+      if (d.data && d.data.length > 0) {
+        const sample = d.data[0];
+        const preview = Object.entries(sample).slice(0, 6).map(([k,v]) => `${k}=${v}`).join('  ');
+        lines.push(logLine(ts, 'dim',  `Sample  ${escHtml(preview)}`));
+      }
+    }
+  } else if (r.status === 'fail') {
+    lines.push(logLine(ts, 'err', `Status  ✗ 失败  (${r.time}ms)`));
+    lines.push(logLine(ts, 'err', `Error   ${escHtml(String(r.error || '未知错误'))}`));
+  }
+
+  return lines.join('');
+}
+
+function logLine(ts, type, text) {
+  return `<div class="log-line"><span class="log-ts">${ts}</span><span class="log-${type}">${text}</span></div>`;
 }
 
 function renderBody(r) {
@@ -555,7 +722,7 @@ function renderBody(r) {
   // Array data
   if (d.data && Array.isArray(d.data)) {
     if (d.data.length === 0) return `<div style="color:var(--text-dim)">暂无数据（共 0 条）</div>`;
-    const rows = d.data.slice(0, 4);
+    const rows = d.data.slice(0, 5);
     const keys = Object.keys(rows[0]).slice(0, 8);
     return `<table class="data-table">
       <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
@@ -578,8 +745,16 @@ function escHtml(s) {
 }
 
 // ── 执行单个测试 ─────────────────────────────────────────
+async function runSingle(id) {
+  const code = document.getElementById('test-code').value.trim() || 'sh.000001';
+  const groups = buildTests(code);
+  const t = groups.flatMap(g => g.tests).find(x => x.id === id);
+  if (!t) return;
+  await runTest(t);
+}
+
 async function runTest(t) {
-  results[t.id] = { status: 'running' };
+  results[t.id] = { status: 'running', url: t.url, method: t.method };
   updateCard(t.id, t);
 
   const t0 = Date.now();
@@ -593,17 +768,17 @@ async function runTest(t) {
     const elapsed = Date.now() - t0;
 
     if (!resp.ok) {
-      results[t.id] = { status: 'fail', time: elapsed, error: `HTTP ${resp.status} ${resp.statusText}` };
+      results[t.id] = { status: 'fail', time: elapsed, url: t.url, method: t.method, error: `HTTP ${resp.status} ${resp.statusText}` };
     } else {
       const data = await resp.json();
       if (data && data.error) {
-        results[t.id] = { status: 'fail', time: elapsed, error: data.error };
+        results[t.id] = { status: 'fail', time: elapsed, url: t.url, method: t.method, error: data.error };
       } else {
-        results[t.id] = { status: 'pass', time: elapsed, data };
+        results[t.id] = { status: 'pass', time: elapsed, url: t.url, method: t.method, data };
       }
     }
   } catch (e) {
-    results[t.id] = { status: 'fail', time: Date.now() - t0, error: e.message };
+    results[t.id] = { status: 'fail', time: Date.now() - t0, url: t.url, method: t.method, error: e.message };
   }
 
   updateCard(t.id, t);
@@ -624,21 +799,28 @@ function updateCard(id, t) {
     if (r.status === 'fail')     { statusClass = 'fail';    statusLabel = '✗ 失败'; timingStr = `${r.time}ms`; }
   }
 
-  card.className = `test-card ${statusClass}`;
+  card.className = `test-card ${statusClass}${card.classList.contains('flipped') ? ' flipped' : ''}`;
 
   const head = card.querySelector('.card-head');
   const urlShort = t.url.split('?')[0].replace('/api', '');
+  const isRunning = r && r.status === 'running';
   head.innerHTML = `
     <span class="badge-method ${methodClass}">${t.method}</span>
     <span class="card-label">${t.label}</span>
     <span class="card-url" title="${t.url}">${urlShort}</span>
     <span class="timing">${timingStr}</span>
     <span class="status-badge ${statusClass}">${statusLabel}</span>
+    <button class="btn-run-single" id="runbtn-${id}" onclick="event.stopPropagation();runSingle('${id}')" ${isRunning ? 'disabled' : ''}>▶ 运行</button>
+    <button class="btn-run-single" style="border-color:var(--purple);color:var(--purple)" onclick="event.stopPropagation();flipCard('${id}')">结果</button>
     <span class="toggle-icon" id="tog-${id}">▾</span>`;
   head.onclick = () => toggleCard(id);
 
   const body = document.getElementById(`body-${id}`);
   if (body) body.innerHTML = r ? renderBody(r) : '';
+
+  // Refresh log panel on back side
+  const logEl = document.getElementById(`log-${id}`);
+  if (logEl) logEl.innerHTML = renderLog(r);
 }
 
 // ── 汇总 ─────────────────────────────────────────────────
@@ -699,8 +881,6 @@ function clearResults() {
 
 // ── 初始化 ───────────────────────────────────────────────
 render();
-// 页面加载后自动运行
-window.addEventListener('load', () => setTimeout(runAll, 300));
 </script>
 </body>
 </html>
