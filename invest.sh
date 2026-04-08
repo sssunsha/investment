@@ -78,7 +78,7 @@ show_help() {
     printf "  %-20s %s\n" "build:electron"  "打包 Electron 桌面应用"
     printf "  %-20s %s\n" "build:android"   "编译 Android 包（debug）"
     printf "  %-20s %s\n" "install"         "安装前后端所有依赖"
-    printf "  %-20s %s\n" "commit"          "提交所有变更并推送到远端（以当前时间为 commit message）"
+    printf "  %-20s %s\n" "commit"          "提交所有变更（以当前时间为 commit message，不 push）"
     printf "  %-20s %s\n" "help"            "显示此帮助"
     echo ""
     echo -e "${BOLD}选项:${NC}"
@@ -93,7 +93,7 @@ show_help() {
     echo "  ./invest.sh frontend --port-fe 4200"
     echo "  ./invest.sh build                # 生产构建前端"
     echo "  ./invest.sh build:electron       # 打包桌面版
-  ./invest.sh commit               # 提交并推送（message: 2026-04-08 14:30:00）"
+  ./invest.sh commit               # 仅本地提交（message: 2026-04-08 14:30:00）"
 }
 
 # ==============================================================================
@@ -266,18 +266,6 @@ git_commit() {
     info "创建提交: $COMMIT_MSG"
     git commit -m "$COMMIT_MSG"
 
-    local REMOTE
-    REMOTE="$(git remote | head -1)"
-    if [ -z "$REMOTE" ]; then
-        warn "未找到远端仓库，跳过 push。"
-        return 0
-    fi
-
-    local BRANCH
-    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-    info "推送到 $REMOTE/$BRANCH ..."
-    git push "$REMOTE" "$BRANCH"
-    success "已推送到 $REMOTE/$BRANCH"
 }
 
 # ==============================================================================
