@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaoStock API 回归测试</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2d3250;
+    --text: #e2e8f0;
+    --text-dim: #8892a4;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --purple: #a855f7;
+    --orange: #f97316;
+  }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--cyan);
+    letter-spacing: .5px;
+    flex-shrink: 0;
+  }
+
+  .summary-bar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex: 1;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .stat-val { font-weight: 700; font-size: 15px; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red   { color: var(--red); }
+  .stat-val.yellow{ color: var(--yellow); }
+  .stat-val.dim   { color: var(--text-dim); }
+
+  .progress-wrap {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    min-width: 80px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--blue));
+    border-radius: 4px;
+    transition: width .3s ease;
+    width: 0%;
+  }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:active { opacity: .7; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-run { background: var(--cyan); color: #000; }
+  .btn-clear { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+
+  .test-code-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    width: 120px;
+  }
+
+  /* ── Main ── */
+  .main { padding: 24px 28px; max-width: 1400px; }
+
+  /* ── Group ── */
+  .group { margin-bottom: 28px; }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .group-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .group-name {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .3px;
+  }
+
+  .group-count {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .tests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(560px, 1fr));
+    gap: 10px;
+  }
+
+  /* ── Test Card ── */
+  .test-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+
+  .test-card.pass  { border-left: 3px solid var(--green); }
+  .test-card.fail  { border-left: 3px solid var(--red); }
+  .test-card.running { border-left: 3px solid var(--yellow); }
+  .test-card.idle  { border-left: 3px solid var(--border); }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .card-head:hover { background: var(--surface2); }
+
+  .badge-method {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    flex-shrink: 0;
+  }
+  .get  { background: #1e3a5f; color: #60a5fa; }
+  .post { background: #1a3320; color: #4ade80; }
+  .patch{ background: #3a2a0e; color: #fcd34d; }
+
+  .card-label {
+    font-weight: 600;
+    font-size: 13px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-url {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .status-badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .status-badge.pass    { background: #14532d; color: var(--green); }
+  .status-badge.fail    { background: #450a0a; color: var(--red); }
+  .status-badge.running { background: #451a03; color: var(--yellow); }
+  .status-badge.idle    { background: var(--surface2); color: var(--text-dim); }
+
+  .timing { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+
+  .card-body {
+    padding: 10px 14px;
+    max-height: 280px;
+    overflow: hidden;
+    transition: max-height .3s ease;
+  }
+
+  .card-body.collapsed { max-height: 0; padding: 0 14px; }
+
+  /* Data table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 6px;
+  }
+
+  .data-table th {
+    background: var(--surface2);
+    color: var(--text-dim);
+    padding: 4px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(45,50,80,.5);
+    color: var(--text);
+    white-space: nowrap;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+
+  .data-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  .error-msg {
+    color: var(--red);
+    font-size: 12px;
+    padding: 6px 10px;
+    background: rgba(239,68,68,.1);
+    border-radius: 4px;
+    margin-top: 4px;
+    word-break: break-all;
+  }
+
+  .kv-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .kv-item {
+    background: var(--surface2);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  .kv-key { color: var(--text-dim); }
+  .kv-val { color: var(--cyan); font-weight: 600; }
+
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--yellow);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toggle-icon { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  /* Skeleton loader */
+  .skeleton {
+    height: 12px;
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: 4px;
+    margin: 4px 0;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ BaoStock API 回归测试</h1>
+  <div class="summary-bar">
+    <div class="stat">
+      <span class="stat-val green" id="stat-pass">0</span>
+      <span style="color:var(--text-dim)">通过</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val red" id="stat-fail">0</span>
+      <span style="color:var(--text-dim)">失败</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val dim" id="stat-total">0</span>
+      <span style="color:var(--text-dim)">/ <span id="stat-count">0</span></span>
+    </div>
+    <div class="stat">
+      <span style="color:var(--text-dim)">耗时</span>
+      <span class="stat-val dim" id="stat-time">-</span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <label style="color:var(--text-dim);font-size:12px;">测试股票：</label>
+  <input class="test-code-input" id="test-code" value="sh.000001" placeholder="sh.000001">
+
+  <button class="btn btn-run" id="btn-run" onclick="runAll()">▶ 运行全部</button>
+  <button class="btn btn-clear" onclick="clearResults()">清空</button>
+</div>
+
+<div class="main" id="main"></div>
+
+<script>
+// ── 测试配置 ──────────────────────────────────────────────
+
+function buildTests(code) {
+  const now = new Date();
+  const fmt = d => d.toISOString().slice(0, 10);
+  const today = fmt(now);
+  const d30 = fmt(new Date(now - 30 * 864e5));
+  const d10 = fmt(new Date(now - 10 * 864e5));
+  const d3y = fmt(new Date(now - 3 * 365 * 864e5));
+
+  return [
+    {
+      group: "会话管理", color: "#06b6d4",
+      tests: [
+        { id: "session-status", method: "GET",  label: "查询会话状态",  url: "/api/session/status" },
+        { id: "session-login",  method: "POST", label: "手动登录",       url: "/api/session/login", body: {} },
+      ]
+    },
+    {
+      group: "历史行情数据", color: "#3b82f6",
+      tests: [
+        {
+          id: "k-data-day", method: "GET", label: `日K线 (${code})`,
+          url: `/api/security/history/query_history_k_data_plus?code=${code}&start_date=${d10}&end_date=${today}&frequency=d&adjustflag=3`
+        },
+        {
+          id: "k-data-week", method: "GET", label: `周K线 (${code})`,
+          url: `/api/security/history/query_history_k_data_plus?code=${code}&start_date=${d30}&end_date=${today}&frequency=w&adjustflag=3`
+        },
+      ]
+    },
+    {
+      group: "板块与指数成分股", color: "#a855f7",
+      tests: [
+        { id: "sector-industry", method: "GET", label: `行业分类 (${code})`,  url: `/api/security/sector/query_stock_industry?code=${code}` },
+        { id: "sector-hs300",    method: "GET", label: "沪深300 成分股",       url: "/api/security/sector/query_hs300_stocks" },
+        { id: "sector-sz50",     method: "GET", label: "上证50 成分股",        url: "/api/security/sector/query_sz50_stocks" },
+        { id: "sector-zz500",    method: "GET", label: "中证500 成分股",       url: "/api/security/sector/query_zz500_stocks" },
+      ]
+    },
+    {
+      group: "季频财务指标", color: "#22c55e",
+      tests: [
+        { id: "eval-profit",   method: "GET", label: `盈利能力 (${code} 2023Q4)`,   url: `/api/evaluation/query_profit_data?code=${code}&year=2023&quarter=4` },
+        { id: "eval-operation",method: "GET", label: `营运能力 (${code} 2023Q4)`,   url: `/api/evaluation/query_operation_data?code=${code}&year=2023&quarter=4` },
+        { id: "eval-growth",   method: "GET", label: `成长能力 (${code} 2023Q4)`,   url: `/api/evaluation/query_growth_data?code=${code}&year=2023&quarter=4` },
+        { id: "eval-balance",  method: "GET", label: `偿债能力 (${code} 2023Q4)`,   url: `/api/evaluation/query_balance_data?code=${code}&year=2023&quarter=4` },
+        { id: "eval-cashflow", method: "GET", label: `现金流量 (${code} 2023Q4)`,   url: `/api/evaluation/query_cash_flow_data?code=${code}&year=2023&quarter=4` },
+        { id: "eval-dupont",   method: "GET", label: `杜邦指数 (${code} 2023Q4)`,   url: `/api/evaluation/query_dupont_data?code=${code}&year=2023&quarter=4` },
+        { id: "eval-dividend", method: "GET", label: `除权除息 (${code} 2023)`,     url: `/api/evaluation/query_dividend_data?code=${code}&year=2023` },
+        { id: "eval-adjust",   method: "GET", label: `复权因子 (${code})`,          url: `/api/evaluation/query_adjust_factor?code=${code}&start_date=${d3y}&end_date=${today}` },
+      ]
+    },
+    {
+      group: "公司业绩报告", color: "#f97316",
+      tests: [
+        { id: "corp-express",  method: "GET", label: `业绩快报 (${code})`, url: `/api/corpreport/query_performance_express_report?code=${code}&start_date=${d3y}&end_date=${today}` },
+        { id: "corp-forecast", method: "GET", label: `业绩预告 (${code})`, url: `/api/corpreport/query_forecast_report?code=${code}&start_date=${d3y}&end_date=${today}` },
+      ]
+    },
+    {
+      group: "证券基础数据", color: "#f59e0b",
+      tests: [
+        { id: "meta-trade",  method: "GET", label: "交易日历（本年）",           url: `/api/metadata/query_trade_dates?start_date=${today.slice(0,4)}-01-01&end_date=${today}` },
+        { id: "meta-stock",  method: "GET", label: "全量证券列表",               url: `/api/metadata/query_all_stock?day=${d10}` },
+        { id: "meta-basic",  method: "GET", label: `证券基本资料 (${code})`,     url: `/api/metadata/query_stock_basic?code=${code}` },
+      ]
+    },
+    {
+      group: "宏观经济数据", color: "#ec4899",
+      tests: [
+        { id: "macro-deposit",  method: "GET", label: "存款利率",         url: "/api/macroscopic/query_deposit_rate_data?start_date=2015-01-01" },
+        { id: "macro-loan",     method: "GET", label: "贷款利率",         url: "/api/macroscopic/query_loan_rate_data?start_date=2010-01-01" },
+        { id: "macro-reserve",  method: "GET", label: "存款准备金率",     url: "/api/macroscopic/query_required_reserve_ratio_data?start_date=2010-01-01" },
+        { id: "macro-m-month",  method: "GET", label: "货币供应量（月）", url: "/api/macroscopic/query_money_supply_data_month?start_date=2022-01" },
+        { id: "macro-m-year",   method: "GET", label: "货币供应量（年）", url: "/api/macroscopic/query_money_supply_data_year?start_date=2010" },
+      ]
+    },
+    {
+      group: "投资策略", color: "#84cc16",
+      tests: [
+        { id: "market-indices", method: "GET", label: "主要指数快照",  url: "/api/market-indices" },
+        { id: "strategy-data",  method: "GET", label: "ETF 轮动策略",  url: "/api/strategy-data" },
+      ]
+    },
+  ];
+}
+
+// ── 状态 ─────────────────────────────────────────────────
+let results = {};  // id → { status, time, data, error }
+let running = false;
+let startTime = 0;
+let timerInterval = null;
+
+// ── DOM 构建 ─────────────────────────────────────────────
+function render() {
+  const code = document.getElementById('test-code').value.trim() || 'sh.000001';
+  const groups = buildTests(code);
+  const totalCount = groups.reduce((s, g) => s + g.tests.length, 0);
+  document.getElementById('stat-count').textContent = totalCount;
+
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  groups.forEach(group => {
+    const div = document.createElement('div');
+    div.className = 'group';
+    div.innerHTML = `
+      <div class="group-header">
+        <div class="group-dot" style="background:${group.color}"></div>
+        <span class="group-name">${group.group}</span>
+        <span class="group-count" id="gc-${group.group.replace(/\s/g,'-')}">${group.tests.length} 个接口</span>
+      </div>
+      <div class="tests-grid">
+        ${group.tests.map(t => renderCard(t)).join('')}
+      </div>`;
+    main.appendChild(div);
+  });
+}
+
+function renderCard(t) {
+  const r = results[t.id];
+  const methodClass = t.method.toLowerCase();
+  let statusClass = 'idle', statusLabel = '待运行', timingStr = '';
+  if (r) {
+    if (r.status === 'running')  { statusClass = 'running'; statusLabel = '<span class="spinner"></span> 运行中'; }
+    if (r.status === 'pass')     { statusClass = 'pass';    statusLabel = '✓ 通过'; timingStr = `${r.time}ms`; }
+    if (r.status === 'fail')     { statusClass = 'fail';    statusLabel = '✗ 失败'; timingStr = `${r.time}ms`; }
+  }
+  const urlShort = t.url.split('?')[0].replace('/api', '');
+  return `
+    <div class="test-card ${statusClass}" id="card-${t.id}">
+      <div class="card-head" onclick="toggleCard('${t.id}')">
+        <span class="badge-method ${methodClass}">${t.method}</span>
+        <span class="card-label">${t.label}</span>
+        <span class="card-url" title="${t.url}">${urlShort}</span>
+        <span class="timing">${timingStr}</span>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+        <span class="toggle-icon" id="tog-${t.id}">▾</span>
+      </div>
+      <div class="card-body" id="body-${t.id}">
+        ${r ? renderBody(r) : '<div class="skeleton"></div><div class="skeleton" style="width:70%"></div>'}
+      </div>
+    </div>`;
+}
+
+function toggleCard(id) {
+  const body = document.getElementById(`body-${id}`);
+  const tog  = document.getElementById(`tog-${id}`);
+  body.classList.toggle('collapsed');
+  tog.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
+}
+
+function renderBody(r) {
+  if (r.status === 'running') return '<div class="skeleton"></div><div class="skeleton" style="width:60%"></div>';
+  if (r.status === 'fail')    return `<div class="error-msg">⚠ ${escHtml(r.error)}</div>`;
+  if (!r.data)                return '<div style="color:var(--text-dim)">无响应数据</div>';
+
+  const d = r.data;
+
+  // Session status
+  if ('logged_in' in d) {
+    return `<div class="kv-list">
+      ${kv('登录状态', d.logged_in ? '✓ 已登录' : '✗ 未登录')}
+      ${d.idle_seconds != null ? kv('空闲', `${d.idle_seconds}s`) : ''}
+      ${kv('心跳间隔', `${d.heartbeat_interval}s`)}
+      ${kv('空闲超时', `${d.idle_timeout}s`)}
+    </div>`;
+  }
+
+  // Session login/logout
+  if ('status' in d && Object.keys(d).length <= 2) {
+    return `<div class="kv-list">${kv('状态', d.status)}${d.message ? kv('消息', d.message) : ''}</div>`;
+  }
+
+  // Market indices
+  if (d.indices) {
+    return `<table class="data-table"><thead><tr><th>名称</th><th>代码</th><th>最新价</th><th>涨跌</th><th>涨跌%</th></tr></thead><tbody>
+      ${d.indices.map(x => `<tr>
+        <td>${x.name}</td><td>${x.code}</td>
+        <td style="color:${x.change>=0?'var(--green)':'var(--red)'}">${x.price}</td>
+        <td style="color:${x.change>=0?'var(--green)':'var(--red)'}">${x.change>0?'+':''}${x.change}</td>
+        <td style="color:${x.change>=0?'var(--green)':'var(--red)'}">${(x.changePct*100).toFixed(2)}%</td>
+      </tr>`).join('')}
+    </tbody></table><div class="data-count">更新: ${d.last_updated ? d.last_updated.slice(0,19) : ''}</div>`;
+  }
+
+  // Strategy
+  if (d.ranking) {
+    const rows = d.ranking.slice(0, 5);
+    return `<table class="data-table"><thead><tr><th>ETF</th><th>最新价</th><th>MA20</th><th>MA60↑</th><th>20日收益</th></tr></thead><tbody>
+      ${rows.map(x => `<tr>
+        <td>${x.name} (${x.code})</td>
+        <td>${typeof x.latest_close==='number'?x.latest_close.toFixed(3):x.latest_close}</td>
+        <td>${typeof x.ma20==='number'?x.ma20.toFixed(3):x.ma20}</td>
+        <td>${x.ma60_is_rising?'<span style="color:var(--green)">↑</span>':'<span style="color:var(--red)">↓</span>'}</td>
+        <td style="color:${x.return_20d>=0?'var(--green)':'var(--red)'}">${(x.return_20d*100).toFixed(2)}%</td>
+      </tr>`).join('')}
+    </tbody></table>
+    <div class="data-count">买入信号: ${d.to_buy.map(x=>x.name).join(', ') || '无'} | 共 ${d.ranking.length} 只</div>`;
+  }
+
+  // Array data
+  if (d.data && Array.isArray(d.data)) {
+    if (d.data.length === 0) return `<div style="color:var(--text-dim)">暂无数据（共 0 条）</div>`;
+    const rows = d.data.slice(0, 4);
+    const keys = Object.keys(rows[0]).slice(0, 8);
+    return `<table class="data-table">
+      <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(row => `<tr>${keys.map(k => `<td title="${escHtml(String(row[k]??''))}">${escHtml(String(row[k]??''))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+    <div class="data-count">显示前 ${rows.length} 条，共 ${d.total ?? d.data.length} 条${d.trading_days_count!=null ? ` | 交易日 ${d.trading_days_count} 天` : ''}</div>`;
+  }
+
+  // Fallback: raw JSON excerpt
+  const json = JSON.stringify(d, null, 2);
+  return `<pre style="font-size:11px;color:var(--text-dim);white-space:pre-wrap;max-height:120px;overflow:auto">${escHtml(json.slice(0, 600))}${json.length > 600 ? '\n...' : ''}</pre>`;
+}
+
+function kv(k, v) {
+  return `<div class="kv-item"><span class="kv-key">${k}：</span><span class="kv-val">${v}</span></div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 执行单个测试 ─────────────────────────────────────────
+async function runTest(t) {
+  results[t.id] = { status: 'running' };
+  updateCard(t.id, t);
+
+  const t0 = Date.now();
+  try {
+    const opts = { method: t.method };
+    if (t.body !== undefined) {
+      opts.headers = { 'Content-Type': 'application/json' };
+      opts.body = JSON.stringify(t.body);
+    }
+    const resp = await fetch(t.url, opts);
+    const elapsed = Date.now() - t0;
+
+    if (!resp.ok) {
+      results[t.id] = { status: 'fail', time: elapsed, error: `HTTP ${resp.status} ${resp.statusText}` };
+    } else {
+      const data = await resp.json();
+      if (data && data.error) {
+        results[t.id] = { status: 'fail', time: elapsed, error: data.error };
+      } else {
+        results[t.id] = { status: 'pass', time: elapsed, data };
+      }
+    }
+  } catch (e) {
+    results[t.id] = { status: 'fail', time: Date.now() - t0, error: e.message };
+  }
+
+  updateCard(t.id, t);
+  updateSummary();
+}
+
+// ── 更新单张卡片（不重绘整页） ───────────────────────────
+function updateCard(id, t) {
+  const card = document.getElementById(`card-${id}`);
+  if (!card) return;
+  const r = results[id];
+  const methodClass = t.method.toLowerCase();
+
+  let statusClass = 'idle', statusLabel = '待运行', timingStr = '';
+  if (r) {
+    if (r.status === 'running')  { statusClass = 'running'; statusLabel = '<span class="spinner"></span> 运行中'; }
+    if (r.status === 'pass')     { statusClass = 'pass';    statusLabel = '✓ 通过'; timingStr = `${r.time}ms`; }
+    if (r.status === 'fail')     { statusClass = 'fail';    statusLabel = '✗ 失败'; timingStr = `${r.time}ms`; }
+  }
+
+  card.className = `test-card ${statusClass}`;
+
+  const head = card.querySelector('.card-head');
+  const urlShort = t.url.split('?')[0].replace('/api', '');
+  head.innerHTML = `
+    <span class="badge-method ${methodClass}">${t.method}</span>
+    <span class="card-label">${t.label}</span>
+    <span class="card-url" title="${t.url}">${urlShort}</span>
+    <span class="timing">${timingStr}</span>
+    <span class="status-badge ${statusClass}">${statusLabel}</span>
+    <span class="toggle-icon" id="tog-${id}">▾</span>`;
+  head.onclick = () => toggleCard(id);
+
+  const body = document.getElementById(`body-${id}`);
+  if (body) body.innerHTML = r ? renderBody(r) : '';
+}
+
+// ── 汇总 ─────────────────────────────────────────────────
+function updateSummary() {
+  const vals = Object.values(results);
+  const pass = vals.filter(r => r.status === 'pass').length;
+  const fail = vals.filter(r => r.status === 'fail').length;
+  const total = vals.filter(r => r.status !== 'running').length;
+  const count = parseInt(document.getElementById('stat-count').textContent);
+
+  document.getElementById('stat-pass').textContent = pass;
+  document.getElementById('stat-fail').textContent = fail;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('progress-bar').style.width = count ? `${(total / count * 100).toFixed(0)}%` : '0%';
+}
+
+// ── 运行全部 ─────────────────────────────────────────────
+async function runAll() {
+  if (running) return;
+  running = true;
+  results = {};
+  document.getElementById('btn-run').disabled = true;
+
+  const code = document.getElementById('test-code').value.trim() || 'sh.000001';
+  const groups = buildTests(code);
+  const allTests = groups.flatMap(g => g.tests);
+
+  render();  // rebuild DOM with current code
+
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    document.getElementById('stat-time').textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+  }, 200);
+
+  // 由于 BaoStock SDK 单 TCP 连接需要序列化，所有接口顺序执行
+  for (const group of groups) {
+    for (const t of group.tests) {
+      await runTest(t);
+    }
+  }
+
+  clearInterval(timerInterval);
+  document.getElementById('stat-time').textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+  document.getElementById('btn-run').disabled = false;
+  running = false;
+}
+
+function clearResults() {
+  results = {};
+  clearInterval(timerInterval);
+  document.getElementById('stat-pass').textContent = '0';
+  document.getElementById('stat-fail').textContent = '0';
+  document.getElementById('stat-total').textContent = '0';
+  document.getElementById('stat-time').textContent = '-';
+  document.getElementById('progress-bar').style.width = '0%';
+  render();
+}
+
+// ── 初始化 ───────────────────────────────────────────────
+render();
+// 页面加载后自动运行
+window.addEventListener('load', () => setTimeout(runAll, 300));
+</script>
+</body>
+</html>

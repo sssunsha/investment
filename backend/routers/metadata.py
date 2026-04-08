@@ -115,7 +115,7 @@ async def query_all_stock(
     """
 )
 async def query_stock_basic(
-    code: Optional[str] = Query(None, description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: Optional[str] = Query(None, description="证券代码，格式：sh.000001", example="sh.000001"),
     code_name: Optional[str] = Query(None, description="证券名称，如：浦发银行", example="浦发银行")
 ):
     if not code and not code_name:

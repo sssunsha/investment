@@ -51,7 +51,7 @@ def _collect(rs) -> tuple:
     """
 )
 async def query_history_k_data_plus(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     fields: str = Query(
         "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",
         description="返回字段，逗号分隔"

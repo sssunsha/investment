@@ -43,7 +43,7 @@ def _collect(rs) -> tuple:
     """
 )
 async def query_profit_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
@@ -70,7 +70,7 @@ async def query_profit_data(
     """
 )
 async def query_operation_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
@@ -97,7 +97,7 @@ async def query_operation_data(
     """
 )
 async def query_growth_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
@@ -124,7 +124,7 @@ async def query_growth_data(
     """
 )
 async def query_balance_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
@@ -151,7 +151,7 @@ async def query_balance_data(
     """
 )
 async def query_cash_flow_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
@@ -178,7 +178,7 @@ async def query_cash_flow_data(
     """
 )
 async def query_dupont_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
@@ -209,7 +209,7 @@ async def query_dupont_data(
     """
 )
 async def query_dividend_data(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     year: str = Query(..., description="查询年份", example="2023"),
     year_type: str = Query("report", alias="yearType", description="年份类型：report/operate")
 ):
@@ -236,7 +236,7 @@ async def query_dividend_data(
     """
 )
 async def query_adjust_factor(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2020-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):

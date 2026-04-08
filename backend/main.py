@@ -16,11 +16,13 @@ API 分类：
 import asyncio
 import baostock as bs
 import pandas as pd
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import swagger_ui_bundle
@@ -31,11 +33,12 @@ from routers import session as session_router
 
 
 # ──────────────────────────────────────────────
-# Lifespan：服务启动时登录并启动心跳，关闭时登出
+# Lifespan：后台发起登录 + 启动心跳，不阻塞服务器接受请求
 # ──────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await ensure_login()
+    # 后台登录，不阻塞 uvicorn 启动（登录完成前的请求由 run_bs 内部自动重试）
+    asyncio.create_task(ensure_login())
     task = asyncio.create_task(heartbeat_task())
     yield
     task.cancel()
@@ -150,6 +153,13 @@ async def custom_redoc():
         # 若仍无法访问，请使用 /docs 替代
         redoc_js_url="https://unpkg.com/redoc@2.1.3/bundles/redoc.standalone.js",
     )
+
+
+@app.get("/test", include_in_schema=False)
+async def api_test_page():
+    """API 回归测试页面：访问时自动调用全部接口并展示真实数据"""
+    html = (Path(__file__).parent / "test_page.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
 
 
 # ──────────────────────────────────────────────

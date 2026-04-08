@@ -38,7 +38,7 @@ performanceExpressOPYOY`
     """
 )
 async def query_performance_express_report(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2020-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):
@@ -71,7 +71,7 @@ profitForcastAbstract, profitForcastChgPctUp, profitForcastChgPctDwn`
     """
 )
 async def query_forecast_report(
-    code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
+    code: str = Query(..., description="证券代码，格式：sh.000001", example="sh.000001"),
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2020-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):

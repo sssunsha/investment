@@ -39,7 +39,7 @@ def _collect(rs) -> tuple:
     """
 )
 async def query_stock_industry(
-    code: Optional[str] = Query(None, description="证券代码，格式：sh.600000，留空返回所有", example="sh.600000"),
+    code: Optional[str] = Query(None, description="证券代码，格式：sh.000001，留空返回所有", example="sh.000001"),
     date: Optional[str] = Query(None, description="查询日期，格式：YYYY-MM-DD，留空为最新", example="2023-12-31")
 ):
     def _query():

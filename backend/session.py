@@ -73,7 +73,7 @@ async def run_bs(fn: Callable[[], Any]) -> Any:
     fn 为无参数可调用对象（通常是 lambda），在其中完成所有 SDK 操作
     （包括 query_* 调用与 ResultSet 遍历），例如：
 
-        rs = await run_bs(lambda: bs.query_stock_industry(code="sh.600000"))
+        rs = await run_bs(lambda: bs.query_stock_industry(code="sh.000001"))
 
     保证：
       1. 自动登录：未登录时先执行 login，失败则返回 None
