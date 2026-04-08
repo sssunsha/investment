@@ -11,18 +11,18 @@
 import baostock as bs
 from fastapi import APIRouter, Query
 from typing import Optional
-from datetime import datetime
+from session import run_bs
 
 router = APIRouter(prefix="/api/security/sector", tags=["板块与指数成分股"])
 
 
-def _collect_rs(rs) -> list:
-    """通用ResultSet收集"""
-    data_list = []
+def _collect(rs) -> tuple:
+    if rs.error_code != '0':
+        return None, rs.error_msg
+    data = []
     while rs.error_code == '0' and rs.next():
-        row = rs.get_row_data()
-        data_list.append(dict(zip(rs.fields, row)))
-    return data_list
+        data.append(dict(zip(rs.fields, rs.get_row_data())))
+    return data, None
 
 
 @router.get(
@@ -38,21 +38,20 @@ def _collect_rs(rs) -> list:
 采用申万一级行业分类。
     """
 )
-def query_stock_industry(
+async def query_stock_industry(
     code: Optional[str] = Query(None, description="证券代码，格式：sh.600000，留空返回所有", example="sh.600000"),
     date: Optional[str] = Query(None, description="查询日期，格式：YYYY-MM-DD，留空为最新", example="2023-12-31")
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_stock_industry(code=code or "", date=date or "")
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_stock_industry(code=code or "", date=date or ""))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"data": data, "total": len(data)}
 
 
 @router.get(
@@ -65,20 +64,19 @@ def query_stock_industry(
 `updateDate, code, code_name`
     """
 )
-def query_hs300_stocks(
+async def query_hs300_stocks(
     date: Optional[str] = Query(None, description="查询日期，格式：YYYY-MM-DD，留空为最新", example="2023-12-31")
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_hs300_stocks(date=date or "")
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_hs300_stocks(date=date or ""))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"data": data, "total": len(data)}
 
 
 @router.get(
@@ -91,20 +89,19 @@ def query_hs300_stocks(
 `updateDate, code, code_name`
     """
 )
-def query_sz50_stocks(
+async def query_sz50_stocks(
     date: Optional[str] = Query(None, description="查询日期，格式：YYYY-MM-DD，留空为最新", example="2023-12-31")
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_sz50_stocks(date=date or "")
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_sz50_stocks(date=date or ""))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"data": data, "total": len(data)}
 
 
 @router.get(
@@ -117,17 +114,16 @@ def query_sz50_stocks(
 `updateDate, code, code_name`
     """
 )
-def query_zz500_stocks(
+async def query_zz500_stocks(
     date: Optional[str] = Query(None, description="查询日期，格式：YYYY-MM-DD，留空为最新", example="2023-12-31")
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_zz500_stocks(date=date or "")
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_zz500_stocks(date=date or ""))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"data": data, "total": len(data)}

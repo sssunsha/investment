@@ -51,9 +51,138 @@
     </div>
   </div>
 
-  <!-- 功能组 2：设置 -->
-  <div class="wechat-group-label">设置</div>
+  <!-- 刷新设置 -->
+  <div class="wechat-group-label">数据刷新</div>
   <div class="wechat-group">
+
+    <!-- 手动刷新 / 自动刷新 切换 -->
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #13c2c2;"><mat-icon>sync</mat-icon></div>
+      <div class="cell-body">
+        <div class="cell-title">自动刷新</div>
+        <div class="cell-desc">
+          @if (isAutoMode) {
+            每 {{ intervalLabel(intervalSeconds) }} 自动更新数据
+          } @else {
+            当前为手动刷新模式（默认）
+          }
+        </div>
+      </div>
+      <div class="cell-right">
+        <mat-slide-toggle [(ngModel)]="isAutoMode" color="primary" />
+      </div>
+    </div>
+
+    <!-- 刷新间隔选择（仅自动模式显示） -->
+    @if (isAutoMode) {
+      <div class="wechat-cell interval-cell">
+        <div class="cell-icon" style="background: #595959;"><mat-icon>timer</mat-icon></div>
+        <div class="cell-body">
+          <div class="cell-title">刷新间隔</div>
+          <div class="interval-chips">
+            @for (s of refreshService.presetIntervals; track s) {
+              <button
+                class="interval-chip"
+                [class.active]="intervalSeconds === s"
+                (click)="setInterval(s)">
+                {{ intervalLabel(s) }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- 立即刷新按钮（手动模式） -->
+    @if (!isAutoMode) {
+      <div class="wechat-cell" (click)="manualRefreshNow()" style="cursor:pointer;">
+        <div class="cell-icon" style="background: #1890ff;"><mat-icon>refresh</mat-icon></div>
+        <div class="cell-body"><div class="cell-title">立即刷新所有数据</div></div>
+        <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+      </div>
+    }
+  </div>
+
+  <!-- 会话管理 -->
+  <div class="wechat-group-label">会话管理（BaoStock）</div>
+  <div class="wechat-group">
+
+    <!-- 登录状态 -->
+    <div class="wechat-cell">
+      <div class="cell-icon" style="background: #13c2c2;"><mat-icon>link</mat-icon></div>
+      <div class="cell-body">
+        <div class="cell-title">连接状态</div>
+        <div class="cell-desc">
+          @if (sessionLoading) {
+            查询中…
+          } @else if (sessionStatus) {
+            @if (sessionStatus.logged_in) {
+              已连接 · 空闲 {{ sessionStatus.idle_seconds ?? 0 }}秒
+            } @else {
+              未连接
+            }
+          } @else {
+            无法获取状态
+          }
+        </div>
+      </div>
+      <div class="cell-right">
+        @if (sessionStatus?.logged_in) {
+          <button class="session-btn logout-btn" (click)="doLogout()">断开</button>
+        } @else {
+          <button class="session-btn login-btn" (click)="doLogin()">连接</button>
+        }
+      </div>
+    </div>
+
+    <!-- 心跳间隔 -->
+    <div class="wechat-cell interval-cell">
+      <div class="cell-icon" style="background: #1890ff;"><mat-icon>favorite</mat-icon></div>
+      <div class="cell-body">
+        <div class="cell-title">心跳保活间隔</div>
+        <div class="cell-desc">服务端每隔此时间发送保活探测，防止连接断开</div>
+        <div class="interval-chips">
+          @for (s of heartbeatPresets; track s) {
+            <button
+              class="interval-chip"
+              [class.active]="sessionStatus?.heartbeat_interval === s"
+              [disabled]="sessionSaving"
+              (click)="setHeartbeat(s)">
+              {{ intervalLabel(s) }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- 空闲自动登出 -->
+    <div class="wechat-cell interval-cell">
+      <div class="cell-icon" style="background: #fa8c16;"><mat-icon>timer_off</mat-icon></div>
+      <div class="cell-body">
+        <div class="cell-title">无操作自动断开</div>
+        <div class="cell-desc">超过此时间无 API 调用则自动登出，下次使用时自动重连</div>
+        <div class="interval-chips">
+          @for (s of idlePresets; track s) {
+            <button
+              class="interval-chip"
+              [class.active]="sessionStatus?.idle_timeout === s"
+              [disabled]="sessionSaving"
+              (click)="setIdleTimeout(s)">
+              {{ idleLabel(s) }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作反馈 -->
+    @if (sessionMsg) {
+      <div class="session-msg">{{ sessionMsg }}</div>
+    }
+  </div>
+
+  <!-- 其他设置 -->
+  <div class="wechat-group-label">偏好设置</div>  <div class="wechat-group">
     <div class="wechat-cell">
       <div class="cell-icon" style="background: #52c41a;"><mat-icon>notifications</mat-icon></div>
       <div class="cell-body"><div class="cell-title">行情通知</div></div>
@@ -66,16 +195,6 @@
       <div class="cell-body"><div class="cell-title">深色模式</div></div>
       <div class="cell-right">
         <mat-slide-toggle [(ngModel)]="darkMode" color="primary" />
-      </div>
-    </div>
-    <div class="wechat-cell">
-      <div class="cell-icon" style="background: #13c2c2;"><mat-icon>sync</mat-icon></div>
-      <div class="cell-body">
-        <div class="cell-title">自动刷新</div>
-        <div class="cell-desc">每 {{ refreshInterval }} 秒</div>
-      </div>
-      <div class="cell-right">
-        <mat-slide-toggle [(ngModel)]="autoRefresh" color="primary" />
       </div>
     </div>
   </div>

@@ -15,6 +15,9 @@ interface NavItem {
   route: string;
 }
 
+// 所有数据页路由均显示刷新按钮
+const REFRESHABLE_ROUTES = ['/dashboard', '/market', '/analysis', '/baostock', '/portfolio'];
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -29,16 +32,13 @@ interface NavItem {
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-// 支持刷新按钮的路由
-const REFRESHABLE_ROUTES = ['/market'];
-
 export class App {
   readonly navItems: NavItem[] = [
-    { label: '总览', icon: 'dashboard', route: '/dashboard' },
-    { label: '持仓', icon: 'account_balance_wallet', route: '/portfolio' },
-    { label: '行情', icon: 'show_chart', route: '/market' },
-    { label: '分析', icon: 'analytics', route: '/analysis' },
-    { label: '我的', icon: 'person', route: '/settings' },
+    { label: '总览',   icon: 'dashboard',               route: '/dashboard' },
+    { label: '行情',   icon: 'show_chart',              route: '/market' },
+    { label: '分析',   icon: 'analytics',               route: '/analysis' },
+    { label: '数据',   icon: 'database',                route: '/baostock' },
+    { label: '我的',   icon: 'person',                  route: '/settings' },
   ];
 
   currentTitle = '总览';
@@ -57,7 +57,6 @@ export class App {
         shareReplay(),
       );
 
-    // 路由变化时自动同步标题和刷新按钮可见性
     this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe((e) => {

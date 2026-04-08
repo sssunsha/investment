@@ -1,12 +1,12 @@
 .page-analysis {
-  padding-bottom: 16px;
+  padding-bottom: 24px;
 }
 
-// 分类标签栏
+// 主 Tab 栏
 .tab-bar {
   display: flex;
   padding: 0;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   border-bottom: none;
 
   .tab-btn {
@@ -23,7 +23,7 @@
 
     &.active {
       color: var(--wechat-green);
-      font-weight: 500;
+      font-weight: 600;
 
       &::after {
         content: '';
@@ -39,52 +39,180 @@
   }
 }
 
-// 分析文章行
-.analysis-cell {
-  align-items: flex-start;
-  padding: 14px 16px;
-  cursor: pointer;
+// 子 Tab（横向滚动 chip）
+.sub-tabs {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--wechat-group-bg);
+  scrollbar-width: none;
 
-  &:active { background: #f0f0f0; }
+  &::-webkit-scrollbar { display: none; }
 }
 
-.analysis-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--wechat-text);
-  margin-bottom: 5px;
-  line-height: 1.4;
-}
-
-.analysis-summary {
-  font-size: 13px;
+.sub-tab {
+  flex-shrink: 0;
+  padding: 5px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--wechat-divider);
+  background: var(--wechat-bg);
   color: var(--wechat-text-secondary);
-  line-height: 1.5;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &.active {
+    background: var(--wechat-green);
+    border-color: var(--wechat-green);
+    color: #fff;
+    font-weight: 500;
+  }
 }
 
-.analysis-meta {
+// 查询参数面板
+.query-panel {
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.query-row {
   display: flex;
   align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--wechat-divider);
+  gap: 12px;
+
+  &:last-child { border-bottom: none; }
+
+  &.query-action {
+    justify-content: flex-end;
+    padding: 10px 16px;
+  }
+}
+
+.query-label {
+  flex-shrink: 0;
+  width: 72px;
+  font-size: 14px;
+  color: var(--wechat-text);
+}
+
+.query-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--wechat-text);
+  background: transparent;
+  text-align: right;
+
+  &::placeholder { color: var(--wechat-text-placeholder); }
+}
+
+.chip-group {
+  display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 1;
 }
 
-.sentiment-tag {
-  font-size: 11px;
-  padding: 2px 7px;
-  border-radius: 3px;
+.interval-chip {
+  padding: 4px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--wechat-divider);
+  background: var(--wechat-bg);
+  color: var(--wechat-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &.active {
+    background: var(--wechat-green);
+    border-color: var(--wechat-green);
+    color: #fff;
+    font-weight: 500;
+  }
+}
+
+.query-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 20px;
+  background: var(--wechat-green);
+  color: #fff;
+  font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
 
-  &.tag-positive { background: #fff1f0; color: #f5222d; }
-  &.tag-neutral  { background: #f0f0f0; color: #888; }
-  &.tag-negative { background: #d2f5e3; color: #07c160; }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
 
-.meta-time {
+// 加载/错误状态
+.analysis-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 40px 16px;
+  color: var(--wechat-text-secondary);
+  font-size: 14px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.analysis-error { color: #f5222d; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 1s linear infinite; }
+
+// 结果区
+.result-count {
   font-size: 12px;
-  color: var(--wechat-text-placeholder);
+  color: var(--wechat-text-secondary);
+  padding: 6px 16px 4px;
+}
+
+.result-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 0 16px;
+  background: var(--wechat-bg);
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+
+  th {
+    background: var(--wechat-group-bg);
+    color: var(--wechat-text-secondary);
+    font-weight: 500;
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--wechat-divider);
+    position: sticky;
+    top: 0;
+  }
+
+  td {
+    padding: 8px 10px;
+    color: var(--wechat-text);
+    border-bottom: 1px solid var(--wechat-divider);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--wechat-group-bg); }
 }

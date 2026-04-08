@@ -8,29 +8,19 @@ import baostock as bs
 from fastapi import APIRouter, Query
 from typing import Optional
 from datetime import datetime, timedelta
+from session import run_bs
 
 router = APIRouter(prefix="/api/security/history", tags=["历史行情数据"])
 
 
-def _fetch_k_data(code: str, fields: str, start_date: str, end_date: str,
-                  frequency: str, adjustflag: str) -> list:
-    """通用K线数据抓取"""
-    rs = bs.query_history_k_data_plus(
-        code, fields,
-        start_date=start_date,
-        end_date=end_date,
-        frequency=frequency,
-        adjustflag=adjustflag
-    )
+def _collect(rs) -> tuple:
+    """在线程池内收集 ResultSet，返回 (data, error_msg)"""
     if rs.error_code != '0':
         return None, rs.error_msg
-
-    data_list = []
+    data = []
     while rs.error_code == '0' and rs.next():
-        row = rs.get_row_data()
-        data_list.append(dict(zip(rs.fields, row)))
-
-    return data_list, None
+        data.append(dict(zip(rs.fields, rs.get_row_data())))
+    return data, None
 
 
 @router.get(
@@ -60,7 +50,7 @@ def _fetch_k_data(code: str, fields: str, start_date: str, end_date: str,
 `date, time, code, open, high, low, close, volume, amount, adjustflag`
     """
 )
-def query_history_k_data_plus(
+async def query_history_k_data_plus(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     fields: str = Query(
         "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",
@@ -76,23 +66,27 @@ def query_history_k_data_plus(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
+    def _query():
+        rs = bs.query_history_k_data_plus(
+            code, fields,
+            start_date=start_date, end_date=end_date,
+            frequency=frequency, adjustflag=adjustflag
+        )
+        return _collect(rs)
 
-    try:
-        data, err = _fetch_k_data(code, fields, start_date, end_date, frequency, adjustflag)
-        if err:
-            return {"error": err}
-        return {
-            "code": code,
-            "fields": fields.split(","),
-            "frequency": frequency,
-            "adjustflag": adjustflag,
-            "start_date": start_date,
-            "end_date": end_date,
-            "data": data,
-            "total": len(data)
-        }
-    finally:
-        bs.logout()
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {
+        "code": code,
+        "fields": fields.split(","),
+        "frequency": frequency,
+        "adjustflag": adjustflag,
+        "start_date": start_date,
+        "end_date": end_date,
+        "data": data,
+        "total": len(data)
+    }

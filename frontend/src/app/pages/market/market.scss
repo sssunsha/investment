@@ -18,10 +18,8 @@
     border-bottom: 1px solid var(--wechat-divider);
 
     &:nth-child(even) { border-right: none; }
-    // 最后一行无底部边框（支持奇数/偶数总数）
     &:nth-last-child(1),
     &:nth-last-child(2) { border-bottom: none; }
-    // 奇数最后一格占满整行
     &:last-child:nth-child(odd) {
       grid-column: 1 / -1;
       border-right: none;
@@ -37,10 +35,6 @@
       font-size: 17px;
       font-weight: 600;
       margin-bottom: 5px;
-    }
-
-    .idx-badge {
-      font-size: 12px;
     }
   }
 }
@@ -58,21 +52,128 @@
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
-.market-error {
-  color: #f5222d;
-}
+.market-error { color: #f5222d; }
 
-// 旋转动画（加载中图标）
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 .spin { animation: spin 1s linear infinite; }
 
-// 最后更新时间
 .market-updated {
   text-align: center;
   font-size: 11px;
   color: var(--wechat-text-secondary);
   padding: 6px 0 2px;
+}
+
+// 板块 Tab 切换
+.sector-tabs {
+  display: flex;
+  padding: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sector-tab {
+  flex: 1;
+  min-width: 72px;
+  padding: 10px 4px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--wechat-text-secondary);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+
+  &.active {
+    color: var(--wechat-green);
+    border-bottom-color: var(--wechat-green);
+    font-weight: 600;
+  }
+}
+
+// 行业查询过滤栏
+.industry-filter {
+  padding: 10px 12px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.filter-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--wechat-divider);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: var(--wechat-bg);
+  color: var(--wechat-text);
+  outline: none;
+
+  &:focus { border-color: var(--wechat-green); }
+}
+
+.filter-btn {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--wechat-green);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+// 成分股数量提示
+.sector-count {
+  font-size: 12px;
+  color: var(--wechat-text-secondary);
+  padding: 6px 16px 2px;
+}
+
+// 股票列表
+.stock-list {
+  .stock-cell {
+    .neutral-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #e6f7ff;
+      color: #1890ff;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .update-date {
+      font-size: 11px;
+      color: var(--wechat-text-secondary);
+    }
+
+    .industry-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .industry-tag {
+      font-size: 11px;
+      background: #f0f0f0;
+      color: #595959;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+  }
 }

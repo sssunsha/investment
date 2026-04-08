@@ -8,24 +8,33 @@
 
 ```
 investment/
-├── backend/                  # Python FastAPI 后端
-│   ├── main.py               # 应用入口，注册所有路由
-│   ├── requirements.txt      # Python 依赖
-│   └── routers/              # 按 BaoStock 文档分类的路由模块
-│       ├── history.py        # 历史行情数据
-│       ├── sector.py         # 板块与指数成分股
-│       ├── evaluation.py     # 季频财务指标
-│       ├── corpreport.py     # 公司业绩报告
-│       ├── metadata.py       # 证券基础数据
-│       └── macroscopic.py    # 宏观经济数据
-├── frontend/                 # Angular 前端
+├── backend/                    # Python FastAPI 后端
+│   ├── main.py                 # 应用入口，注册所有路由
+│   ├── requirements.txt        # Python 依赖
+│   └── routers/                # 按 BaoStock 文档分类的路由模块
+│       ├── history.py          # 历史行情数据
+│       ├── sector.py           # 板块与指数成分股
+│       ├── evaluation.py       # 季频财务指标
+│       ├── corpreport.py       # 公司业绩报告
+│       ├── metadata.py         # 证券基础数据
+│       └── macroscopic.py      # 宏观经济数据
+├── frontend/                   # Angular 前端
 │   ├── src/app/
-│   │   ├── pages/            # 页面：dashboard / market / analysis / portfolio / settings
-│   │   ├── services/         # API 服务层
-│   │   └── components/       # 共享组件
-│   ├── electron.js           # Electron 主进程
-│   └── cordova-app/          # Cordova / Android 工程
-└── invest.sh                 # 一键管理脚本
+│   │   ├── pages/
+│   │   │   ├── dashboard/      # 资产总览
+│   │   │   ├── market/         # 指数行情 + 板块成分股
+│   │   │   ├── analysis/       # 财务指标 / 业绩报告 / 宏观经济
+│   │   │   ├── baostock/       # BaoStock 数据查询（K线/证券/交易日历）
+│   │   │   ├── portfolio/      # 持仓管理
+│   │   │   └── settings/       # 设置（含刷新频率配置）
+│   │   ├── services/
+│   │   │   ├── api.service.ts  # 全量 BaoStock API 封装（25 个端点）
+│   │   │   └── refresh.service.ts  # 刷新管理（手动/自动/间隔/持久化）
+│   │   └── components/         # 共享组件（ETF 策略视图）
+│   ├── electron.js             # Electron 主进程
+│   └── cordova-app/            # Cordova / Android 工程
+├── invest.sh                   # 一键管理脚本
+└── README.md
 ```
 
 ---
@@ -35,29 +44,43 @@ investment/
 | 层 | 技术 |
 |---|---|
 | 后端 | Python 3.12 · FastAPI · BaoStock · Pandas · Uvicorn |
-| 前端 | Angular 21 · TypeScript |
+| 前端 | Angular 21 · TypeScript · Angular Material |
 | 桌面端 | Electron 41 |
 | 移动端 | Cordova / Android |
-| API 文档 | Swagger UI（FastAPI 自动生成）|
+| API 文档 | Swagger UI · ReDoc（FastAPI 自动生成）|
 
 ---
 
 ## 功能特性
 
-- **行情看板**：主要指数（上证、深证、沪深300、创业板、科创50）实时快照
-- **ETF 轮动策略**：基于20日收益率排名 + MA20/MA60 趋势过滤，自动输出买入信号
-- **BaoStock 全量 API 封装**：结构与官方文档目录完全对应，共 25 个 RESTful 端点
+### 前端页面
 
-### 后端 API 分类
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 总览 | `/dashboard` | 资产汇总、持仓分类快览 |
+| 行情 | `/market` | 主要指数快照 + 沪深300/上证50/中证500/行业分类成分股查询 |
+| 分析 | `/analysis` | 季频财务指标（8类）、公司业绩报告、宏观经济数据（5类），含完整查询表单 |
+| 数据 | `/baostock` | K线数据查询（日/周/月/分钟）、证券基本资料、全量证券列表、交易日历 |
+| 持仓 | `/portfolio` | 股票/基金持仓列表，盈亏统计 |
+| 我的 | `/settings` | 刷新频率设置、偏好配置 |
+
+### 数据刷新机制
+
+- **默认手动刷新**：进入数据页自动触发一次，后续由用户主动刷新
+- **自动刷新**：在设置页开启，支持 10秒 / 30秒 / 1分钟 / 2分钟 / 5分钟 五档间隔
+- **顶栏刷新按钮**：所有数据页均可一键手动触发
+- **设置持久化**：刷新模式与间隔保存至 `localStorage`，重启后生效
+
+### 后端 API（共 25 个端点）
 
 | 分类 | 路径前缀 | 主要接口 |
 |------|----------|---------|
-| 历史行情 | `/api/security/history` | K线数据（日/周/月/分钟） |
+| 历史行情 | `/api/security/history` | K线数据（日/周/月/分钟，支持复权） |
 | 板块成分 | `/api/security/sector` | 行业分类、沪深300、上证50、中证500成分股 |
 | 季频财务 | `/api/evaluation` | 盈利/营运/成长/偿债/现金流/杜邦/分红/复权因子 |
 | 业绩报告 | `/api/corpreport` | 业绩快报、业绩预告 |
 | 基础数据 | `/api/metadata` | 交易日历、全量证券列表、证券基本资料 |
-| 宏观经济 | `/api/macroscopic` | 存贷款利率、存款准备金率、货币供应量 |
+| 宏观经济 | `/api/macroscopic` | 存贷款利率、存款准备金率、货币供应量（月/年） |
 | 自定义策略 | `/api` | 指数快照、ETF 轮动策略 |
 
 ---
@@ -128,61 +151,25 @@ npm start -- --port 9000
 
 ## 其他运行模式
 
-### 仅启动后端
-
 ```bash
-./invest.sh backend
-```
-
-### 仅启动前端
-
-```bash
-./invest.sh frontend
-```
-
-### 指定端口
-
-```bash
-./invest.sh dev --port-be 8000 --port-fe 4200
+./invest.sh backend                        # 仅启动后端
+./invest.sh frontend                       # 仅启动前端
+./invest.sh dev --port-be 8000 --port-fe 4200  # 指定端口
 ```
 
 ---
 
 ## 构建与打包
 
-### 生产构建（Web）
-
 ```bash
-./invest.sh build
-# 输出目录：frontend/dist
-```
-
-### 桌面应用（Electron）
-
-```bash
-./invest.sh build:electron
-# 输出目录：frontend/release
-```
-
-### Android 包
-
-```bash
-./invest.sh build:android
-# 需要已安装 Android SDK 和 Cordova
+./invest.sh build           # 生产构建（Web），输出：frontend/dist
+./invest.sh build:electron  # 桌面应用（Electron），输出：frontend/release
+./invest.sh build:android   # Android debug 包（需安装 Android SDK 和 Cordova）
 ```
 
 ---
 
-## 依赖安装
-
-```bash
-# 一次性安装前后端所有依赖
-./invest.sh install
-```
-
----
-
-## invest.sh 完整命令参考
+## invest.sh 命令参考
 
 | 命令 | 说明 |
 |------|------|

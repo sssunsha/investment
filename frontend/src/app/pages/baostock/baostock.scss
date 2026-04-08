@@ -1,0 +1,243 @@
+.page-baostock {
+  padding-bottom: 24px;
+}
+
+// Tab 切换栏
+.bs-tabs {
+  display: flex;
+  padding: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.bs-tab {
+  flex: 1;
+  min-width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--wechat-text-secondary);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+  font-family: inherit;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+  &.active {
+    color: var(--wechat-green);
+    border-bottom-color: var(--wechat-green);
+    font-weight: 600;
+  }
+}
+
+// 查询参数面板（与 analysis 共享风格）
+.query-panel {
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.query-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--wechat-divider);
+  gap: 12px;
+
+  &:last-child { border-bottom: none; }
+  &.query-action { justify-content: flex-end; }
+  &.fields-row .query-input { font-size: 12px; }
+}
+
+.query-label {
+  flex-shrink: 0;
+  width: 72px;
+  font-size: 14px;
+  color: var(--wechat-text);
+}
+
+.query-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--wechat-text);
+  background: transparent;
+  text-align: right;
+  &::placeholder { color: var(--wechat-text-placeholder); }
+}
+
+.chip-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+.interval-chip {
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--wechat-divider);
+  background: var(--wechat-bg);
+  color: var(--wechat-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &.active {
+    background: var(--wechat-green);
+    border-color: var(--wechat-green);
+    color: #fff;
+    font-weight: 500;
+  }
+}
+
+.query-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 20px;
+  background: var(--wechat-green);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// 结果元信息
+.result-meta {
+  font-size: 12px;
+  color: var(--wechat-text-secondary);
+  padding: 6px 16px 4px;
+}
+
+// 表格
+.result-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--wechat-bg);
+  margin-bottom: 16px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+
+  th {
+    background: var(--wechat-group-bg);
+    color: var(--wechat-text-secondary);
+    font-weight: 500;
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--wechat-divider);
+    position: sticky;
+    top: 0;
+  }
+
+  td {
+    padding: 8px 10px;
+    color: var(--wechat-text);
+    border-bottom: 1px solid var(--wechat-divider);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--wechat-group-bg); }
+}
+
+// 证券资料 / 全量证券列表
+.stock-basic-list {
+  .neutral-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #e6f7ff;
+    color: #1890ff;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .type-tag {
+    font-size: 11px;
+    background: #f0f5ff;
+    color: #2f54eb;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-bottom: 2px;
+  }
+
+  .status-up { font-size: 11px; color: #07c160; }
+  .status-down { font-size: 11px; color: #f5222d; }
+}
+
+.list-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--wechat-text-placeholder);
+  padding: 12px;
+}
+
+// 交易日历网格
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  padding: 8px 12px 16px;
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--wechat-text-placeholder);
+  background: var(--wechat-group-bg);
+
+  &.trading {
+    background: #f6ffed;
+    color: #389e0d;
+    font-weight: 600;
+  }
+}
+
+// 加载 / 错误
+.bs-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 40px 16px;
+  color: var(--wechat-text-secondary);
+  font-size: 14px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.bs-error { color: #f5222d; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 1s linear infinite; }

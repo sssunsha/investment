@@ -4,3 +4,5 @@ baostock==0.8.9
 pandas==2.2.3
 python-dotenv==1.0.1
 requests==2.32.3
+swagger-ui-bundle==1.1.0
+aiofiles==23.2.1

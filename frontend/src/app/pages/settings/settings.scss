@@ -77,3 +77,76 @@
     margin: 10px 0;
   }
 }
+
+// 刷新间隔 chip 选择器
+.interval-cell {
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+
+  .cell-body {
+    flex: 1;
+  }
+}
+
+.interval-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.interval-chip {
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--wechat-divider);
+  background: var(--wechat-bg);
+  color: var(--wechat-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &.active {
+    background: var(--wechat-green);
+    border-color: var(--wechat-green);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// 会话操作按钮
+.session-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity 0.15s;
+
+  &:active { opacity: 0.7; }
+}
+
+.login-btn {
+  background: var(--wechat-green);
+  color: #fff;
+}
+
+.logout-btn {
+  background: #f5f5f5;
+  color: #ff4d4f;
+  border: 1px solid #ffa39e;
+}
+
+// 操作反馈消息
+.session-msg {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--wechat-text-secondary);
+  border-top: 1px solid var(--wechat-divider);
+}

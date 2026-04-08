@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:pypi.org)"
+      "WebFetch(domain:pypi.org)",
+      "Read(//Users/I340818/workspace/personal/workspace/investment/BEGIN { print \"frontend/src/app/\" }\n{\n  depth = gsub\\(/\\\\/, \"/\", $0\\)\n  indent = \"\"\n  for \\(i = 0; i < depth; i++\\) indent = indent \"  \"\n  split\\($0, arr, \"/**)"
     ]
   }
 }

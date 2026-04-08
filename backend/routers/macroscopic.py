@@ -13,16 +13,18 @@ import baostock as bs
 from fastapi import APIRouter, Query
 from typing import Optional
 from datetime import datetime
+from session import run_bs
 
 router = APIRouter(prefix="/api/macroscopic", tags=["宏观经济数据"])
 
 
-def _collect_rs(rs) -> list:
-    data_list = []
+def _collect(rs) -> tuple:
+    if rs.error_code != '0':
+        return None, rs.error_msg
+    data = []
     while rs.error_code == '0' and rs.next():
-        row = rs.get_row_data()
-        data_list.append(dict(zip(rs.fields, row)))
-    return data_list
+        data.append(dict(zip(rs.fields, rs.get_row_data())))
+    return data, None
 
 
 @router.get(
@@ -33,13 +35,9 @@ def _collect_rs(rs) -> list:
 
 **返回字段：**
 `date, depositRateType, rate`
-
-**depositRateType 说明：**
-- 活期存款利率
-- 定期存款利率（3个月/6个月/1年/2年/3年/5年）
     """
 )
-def query_deposit_rate_data(
+async def query_deposit_rate_data(
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2015-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):
@@ -48,17 +46,16 @@ def query_deposit_rate_data(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_deposit_rate_data(start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_deposit_rate_data(start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
 
 
 @router.get(
@@ -69,14 +66,9 @@ def query_deposit_rate_data(
 
 **返回字段：**
 `date, loanRateType, rate`
-
-**loanRateType 说明：**
-- 短期贷款利率（6个月/1年）
-- 中长期贷款利率（1-3年/3-5年/5年以上）
-- 个人住房公积金贷款利率
     """
 )
-def query_loan_rate_data(
+async def query_loan_rate_data(
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2010-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):
@@ -85,17 +77,16 @@ def query_loan_rate_data(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_loan_rate_data(start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_loan_rate_data(start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
 
 
 @router.get(
@@ -108,7 +99,7 @@ def query_loan_rate_data(
 `date, ratioInLargeBank, ratioInSmallBank`
     """
 )
-def query_required_reserve_ratio_data(
+async def query_required_reserve_ratio_data(
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2010-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):
@@ -117,17 +108,16 @@ def query_required_reserve_ratio_data(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_required_reserve_ratio_data(start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_required_reserve_ratio_data(start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
 
 
 @router.get(
@@ -142,7 +132,7 @@ def query_required_reserve_ratio_data(
 `statYear, statMonth, m0MonthAdd, m0YoY, m1MonthAdd, m1YoY, m2MonthAdd, m2YoY`
     """
 )
-def query_money_supply_data_month(
+async def query_money_supply_data_month(
     start_date: Optional[str] = Query(None, description="起始月份，格式：YYYY-MM", example="2020-01"),
     end_date: Optional[str] = Query(None, description="终止月份，格式：YYYY-MM", example="2023-12")
 ):
@@ -151,17 +141,16 @@ def query_money_supply_data_month(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_money_supply_data_month(start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_money_supply_data_month(start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
 
 
 @router.get(
@@ -176,7 +165,7 @@ def query_money_supply_data_month(
 `statYear, m0, m0YoY, m1, m1YoY, m2, m2YoY`
     """
 )
-def query_money_supply_data_year(
+async def query_money_supply_data_year(
     start_date: Optional[str] = Query(None, description="起始年份，格式：YYYY", example="2010"),
     end_date: Optional[str] = Query(None, description="终止年份，格式：YYYY", example="2023")
 ):
@@ -185,14 +174,13 @@ def query_money_supply_data_year(
     if not end_date:
         end_date = datetime.now().strftime('%Y')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_money_supply_data_year(start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_money_supply_data_year(start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}

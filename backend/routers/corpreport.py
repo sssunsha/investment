@@ -10,16 +10,18 @@ import baostock as bs
 from fastapi import APIRouter, Query
 from typing import Optional
 from datetime import datetime, timedelta
+from session import run_bs
 
 router = APIRouter(prefix="/api/corpreport", tags=["公司业绩报告"])
 
 
-def _collect_rs(rs) -> list:
-    data_list = []
+def _collect(rs) -> tuple:
+    if rs.error_code != '0':
+        return None, rs.error_msg
+    data = []
     while rs.error_code == '0' and rs.next():
-        row = rs.get_row_data()
-        data_list.append(dict(zip(rs.fields, row)))
-    return data_list
+        data.append(dict(zip(rs.fields, rs.get_row_data())))
+    return data, None
 
 
 @router.get(
@@ -35,7 +37,7 @@ performanceExpressROEWa, performanceExpressEPSDiluted, performanceExpressGRYOY,
 performanceExpressOPYOY`
     """
 )
-def query_performance_express_report(
+async def query_performance_express_report(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2020-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
@@ -45,17 +47,16 @@ def query_performance_express_report(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_performance_express_report(code, start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_performance_express_report(code, start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
 
 
 @router.get(
@@ -69,7 +70,7 @@ def query_performance_express_report(
 profitForcastAbstract, profitForcastChgPctUp, profitForcastChgPctDwn`
     """
 )
-def query_forecast_report(
+async def query_forecast_report(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2020-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
@@ -79,14 +80,13 @@ def query_forecast_report(
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_forecast_report(code, start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_forecast_report(code, start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "start_date": start_date, "end_date": end_date, "data": data, "total": len(data)}

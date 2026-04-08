@@ -1,57 +1,148 @@
-<!-- 分析页：微信文章列表风格 -->
+<!-- 分析页：财务指标 / 业绩报告 / 宏观经济 -->
 <div class="page-analysis">
 
-  <!-- 分类标签 -->
+  <!-- 主 Tab -->
   <div class="tab-bar wechat-group">
-    @for (tab of tabs; track tab) {
-      <button class="tab-btn" [class.active]="activeTab === tab" (click)="activeTab = tab">
-        {{ tab }}
+    @for (t of mainTabs; track t.key) {
+      <button class="tab-btn" [class.active]="activeTab === t.key" (click)="switchTab(t.key)">
+        {{ t.label }}
       </button>
     }
   </div>
 
-  <!-- 分析文章列表 -->
-  <div class="wechat-group-label">最新分析</div>
-  <div class="wechat-group">
-    @for (item of analysisItems; track item.title) {
-      <div class="wechat-cell analysis-cell">
-        <div class="cell-body">
-          <div class="analysis-title">{{ item.title }}</div>
-          <div class="analysis-summary">{{ item.summary }}</div>
-          <div class="analysis-meta">
-            <span class="sentiment-tag"
-                  [class]="'tag-' + item.sentiment">{{ sentimentLabel(item.sentiment) }}</span>
-            <span class="meta-time">{{ item.time }}</span>
-          </div>
-        </div>
-        <mat-icon class="chevron" style="color: #c8c8cd; flex-shrink: 0;">chevron_right</mat-icon>
+  <!-- 财务指标子 Tab -->
+  @if (activeTab === 'financial') {
+    <div class="sub-tabs">
+      @for (t of financialSubTabs; track t.key) {
+        <button class="sub-tab" [class.active]="activeFinancialSub === t.key"
+                (click)="switchFinancialSub(t.key)">{{ t.label }}</button>
+      }
+    </div>
+  }
+
+  <!-- 业绩报告子 Tab -->
+  @if (activeTab === 'corpreport') {
+    <div class="sub-tabs">
+      @for (t of corpSubTabs; track t.key) {
+        <button class="sub-tab" [class.active]="activeCorpSub === t.key"
+                (click)="switchCorpSub(t.key)">{{ t.label }}</button>
+      }
+    </div>
+  }
+
+  <!-- 宏观经济子 Tab -->
+  @if (activeTab === 'macro') {
+    <div class="sub-tabs">
+      @for (t of macroSubTabs; track t.key) {
+        <button class="sub-tab" [class.active]="activeMacroSub === t.key"
+                (click)="switchMacroSub(t.key)">{{ t.label }}</button>
+      }
+    </div>
+  }
+
+  <!-- 查询参数区 -->
+  <div class="query-panel wechat-group">
+
+    @if (activeTab === 'financial' || activeTab === 'corpreport') {
+      <div class="query-row">
+        <span class="query-label">证券代码</span>
+        <input class="query-input" [(ngModel)]="code" placeholder="如 sh.600000" />
       </div>
     }
+
+    @if (needsCodeYear) {
+      <div class="query-row">
+        <span class="query-label">年份</span>
+        <input class="query-input" type="number" [(ngModel)]="year" />
+      </div>
+      <div class="query-row">
+        <span class="query-label">季度</span>
+        <div class="chip-group">
+          @for (q of quarterOptions; track q) {
+            <button class="interval-chip" [class.active]="quarter === q" (click)="quarter = q">Q{{ q }}</button>
+          }
+        </div>
+      </div>
+    }
+
+    @if (needsDividend) {
+      <div class="query-row">
+        <span class="query-label">年份</span>
+        <input class="query-input" [(ngModel)]="dividendYear" placeholder="如 2023" />
+      </div>
+      <div class="query-row">
+        <span class="query-label">年份类型</span>
+        <div class="chip-group">
+          @for (yt of yearTypeOptions; track yt.value) {
+            <button class="interval-chip" [class.active]="yearType === yt.value"
+                    (click)="yearType = yt.value">{{ yt.label }}</button>
+          }
+        </div>
+      </div>
+    }
+
+    @if (needsCodeDateRange || needsMacroDates) {
+      <div class="query-row">
+        <span class="query-label">起始日期</span>
+        <input class="query-input" [(ngModel)]="startDate" placeholder="YYYY-MM-DD（可选）" />
+      </div>
+      <div class="query-row">
+        <span class="query-label">终止日期</span>
+        <input class="query-input" [(ngModel)]="endDate" placeholder="YYYY-MM-DD（可选）" />
+      </div>
+    }
+
+    <div class="query-row query-action">
+      <button class="query-btn" (click)="query()">
+        <mat-icon>search</mat-icon>查询
+      </button>
+    </div>
   </div>
 
-  <!-- AI 分析入口 -->
-  <div class="wechat-group-label">AI 助手</div>
-  <div class="wechat-group">
-    <div class="wechat-cell">
-      <div class="cell-icon" style="background: #07c160;">
-        <mat-icon>psychology</mat-icon>
-      </div>
-      <div class="cell-body">
-        <div class="cell-title">智能投资顾问</div>
-        <div class="cell-desc">向 AI 提问，获取个性化投资建议</div>
-      </div>
-      <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+  <!-- 加载中 -->
+  @if (currentLoading) {
+    <div class="analysis-status">
+      <mat-icon class="spin">refresh</mat-icon><span>加载中…</span>
     </div>
-    <div class="wechat-cell">
-      <div class="cell-icon" style="background: #1890ff;">
-        <mat-icon>assessment</mat-icon>
-      </div>
-      <div class="cell-body">
-        <div class="cell-title">组合诊断</div>
-        <div class="cell-desc">分析持仓风险与优化建议</div>
-      </div>
-      <mat-icon class="chevron" style="color: #c8c8cd;">chevron_right</mat-icon>
+  }
+
+  <!-- 错误 -->
+  @if (!currentLoading && currentError) {
+    <div class="analysis-status analysis-error">
+      <mat-icon>error_outline</mat-icon><span>{{ currentError }}</span>
     </div>
-  </div>
+  }
+
+  <!-- 数据表格 -->
+  @if (!currentLoading && !currentError && currentData.length > 0) {
+    <div class="result-count">共 {{ currentData.length }} 条记录</div>
+    <div class="result-table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            @for (f of displayFields; track f) {
+              <th>{{ f }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of currentData; track $index) {
+            <tr>
+              @for (f of displayFields; track f) {
+                <td>{{ row[f] }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- 空状态 -->
+  @if (!currentLoading && !currentError && currentData.length === 0) {
+    <div class="analysis-status">
+      <mat-icon>inbox</mat-icon><span>暂无数据，请调整查询条件后重新查询</span>
+    </div>
+  }
 
 </div>

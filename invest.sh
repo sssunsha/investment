@@ -78,6 +78,7 @@ show_help() {
     printf "  %-20s %s\n" "build:electron"  "打包 Electron 桌面应用"
     printf "  %-20s %s\n" "build:android"   "编译 Android 包（debug）"
     printf "  %-20s %s\n" "install"         "安装前后端所有依赖"
+    printf "  %-20s %s\n" "kill"            "释放前后端占用的端口（默认 9001/9000）"
     printf "  %-20s %s\n" "commit"          "提交所有变更（以当前时间为 commit message，不 push）"
     printf "  %-20s %s\n" "help"            "显示此帮助"
     echo ""
@@ -169,6 +170,23 @@ setup_frontend() {
 }
 
 # ==============================================================================
+# 端口管理：释放占用指定端口的进程
+# ==============================================================================
+kill_port() {
+    local port="$1"
+    local pids
+    pids=$(lsof -ti tcp:"$port" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        warn "端口 $port 被占用 (PID: $pids)，正在释放..."
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        sleep 1
+        success "端口 $port 已释放"
+    else
+        info "端口 $port 未被占用"
+    fi
+}
+
+# ==============================================================================
 # 清理后台进程
 # ==============================================================================
 BACKEND_PID=""
@@ -189,6 +207,7 @@ trap cleanup SIGINT SIGTERM
 # ==============================================================================
 start_backend() {
     step "启动后端服务 (端口 $PORT_BE)"
+    kill_port "$PORT_BE"
     source "$VENV_DIR/bin/activate"
     (cd "$BACKEND_DIR" && uvicorn main:app --reload --port "$PORT_BE") &
     BACKEND_PID=$!
@@ -203,6 +222,7 @@ start_backend() {
 # ==============================================================================
 start_frontend() {
     step "启动前端服务 (端口 $PORT_FE)"
+    kill_port "$PORT_FE"
     (cd "$FRONTEND_DIR" && npm start -- --port "$PORT_FE")
 }
 
@@ -325,6 +345,13 @@ case "$COMMAND" in
         setup_backend
         setup_frontend
         success "所有依赖安装完毕"
+        ;;
+
+    kill)
+        step "释放端口"
+        kill_port "$PORT_BE"
+        kill_port "$PORT_FE"
+        success "端口清理完成"
         ;;
 
     commit)

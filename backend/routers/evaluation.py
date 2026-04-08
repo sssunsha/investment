@@ -15,17 +15,19 @@
 import baostock as bs
 from fastapi import APIRouter, Query
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from session import run_bs
 
 router = APIRouter(prefix="/api/evaluation", tags=["季频财务指标数据"])
 
 
-def _collect_rs(rs) -> list:
-    data_list = []
+def _collect(rs) -> tuple:
+    if rs.error_code != '0':
+        return None, rs.error_msg
+    data = []
     while rs.error_code == '0' and rs.next():
-        row = rs.get_row_data()
-        data_list.append(dict(zip(rs.fields, row)))
-    return data_list
+        data.append(dict(zip(rs.fields, rs.get_row_data())))
+    return data, None
 
 
 @router.get(
@@ -40,22 +42,21 @@ def _collect_rs(rs) -> list:
 **quarter 说明：** 1=Q1(1-3月), 2=Q2(1-6月), 3=Q3(1-9月), 4=Q4(1-12月)
     """
 )
-def query_profit_data(
+async def query_profit_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_profit_data(code=code, year=year, quarter=quarter)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "quarter": quarter, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_profit_data(code=code, year=year, quarter=quarter))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "quarter": quarter, "data": data}
 
 
 @router.get(
@@ -68,22 +69,21 @@ def query_profit_data(
 `code, pubDate, statDate, NRTurnRatio, NRTurnDays, INVTurnRatio, INVTurnDays, CATurnRatio, AssetTurnRatio`
     """
 )
-def query_operation_data(
+async def query_operation_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_operation_data(code=code, year=year, quarter=quarter)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "quarter": quarter, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_operation_data(code=code, year=year, quarter=quarter))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "quarter": quarter, "data": data}
 
 
 @router.get(
@@ -96,22 +96,21 @@ def query_operation_data(
 `code, pubDate, statDate, YOYEps, YOYAsset, YOYROE, YOYEquity, YOYBizIncome, YOYProfit`
     """
 )
-def query_growth_data(
+async def query_growth_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_growth_data(code=code, year=year, quarter=quarter)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "quarter": quarter, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_growth_data(code=code, year=year, quarter=quarter))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "quarter": quarter, "data": data}
 
 
 @router.get(
@@ -124,22 +123,21 @@ def query_growth_data(
 `code, pubDate, statDate, currentRatio, quickRatio, cashRatio, YOYLiability, liabilityToAsset, assetToEquity`
     """
 )
-def query_balance_data(
+async def query_balance_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_balance_data(code=code, year=year, quarter=quarter)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "quarter": quarter, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_balance_data(code=code, year=year, quarter=quarter))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "quarter": quarter, "data": data}
 
 
 @router.get(
@@ -152,22 +150,21 @@ def query_balance_data(
 `code, pubDate, statDate, CAToAsset, NCAToAsset, tangibleAssetToAsset, ebitToInterest, CFOToOR, CFOToNP, CFOToGr`
     """
 )
-def query_cash_flow_data(
+async def query_cash_flow_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_cash_flow_data(code=code, year=year, quarter=quarter)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "quarter": quarter, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_cash_flow_data(code=code, year=year, quarter=quarter))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "quarter": quarter, "data": data}
 
 
 @router.get(
@@ -180,22 +177,21 @@ def query_cash_flow_data(
 `code, pubDate, statDate, dupontROE, dupontAssetStoEquity, dupontAssetTurn, dupontPnitoni, dupontNitoni, dupontTaxBurden, dupontInterestBurden, dupontEbitmrg`
     """
 )
-def query_dupont_data(
+async def query_dupont_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: int = Query(..., description="统计年份", example=2023),
     quarter: int = Query(..., description="统计季度：1/2/3/4", example=4)
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_dupont_data(code=code, year=year, quarter=quarter)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "quarter": quarter, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_dupont_data(code=code, year=year, quarter=quarter))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "quarter": quarter, "data": data}
 
 
 @router.get(
@@ -209,25 +205,24 @@ def query_dupont_data(
 - `operate`：除权除息实施日期
 
 **返回字段：**
-`code, dividPreNoticeDate, dividAgmPumDate, dividPlanAnnounceDate, dividPlanDate, dividRegistDate, dividExDate, dividPayDate, dividStockMarketDate, dividCashPsBeforeTax, dividCashPsAfterTax, dividStocksPs, dividCashStockPs, dividCancelStockPs, dividCashPs, dividShareEventId, dividPlanProgress, dividEventId, dividEventId2, dividEventId3, dividEventId4, dividEventId5, dividEventId6`
+`code, dividPreNoticeDate, dividAgmPumDate, dividPlanAnnounceDate, dividPlanDate, dividRegistDate, dividExDate, dividPayDate, dividStockMarketDate, dividCashPsBeforeTax, dividCashPsAfterTax, dividStocksPs, dividCashStockPs, dividCancelStockPs, dividCashPs, dividShareEventId, dividPlanProgress`
     """
 )
-def query_dividend_data(
+async def query_dividend_data(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     year: str = Query(..., description="查询年份", example="2023"),
     year_type: str = Query("report", alias="yearType", description="年份类型：report/operate")
 ):
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_dividend_data(code=code, year=year, yearType=year_type)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "year": year, "yearType": year_type, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_dividend_data(code=code, year=year, yearType=year_type))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "year": year, "yearType": year_type, "data": data}
 
 
 @router.get(
@@ -240,25 +235,23 @@ def query_dividend_data(
 `divdendRatio, foreAdjustFactor, backAdjustFactor, code, dividOperateDate`
     """
 )
-def query_adjust_factor(
+async def query_adjust_factor(
     code: str = Query(..., description="证券代码，格式：sh.600000", example="sh.600000"),
     start_date: Optional[str] = Query(None, description="起始日期，格式：YYYY-MM-DD", example="2020-01-01"),
     end_date: Optional[str] = Query(None, description="终止日期，格式：YYYY-MM-DD", example="2023-12-31")
 ):
-    from datetime import datetime, timedelta
     if not start_date:
         start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
     if not end_date:
         end_date = datetime.now().strftime('%Y-%m-%d')
 
-    lg = bs.login()
-    if lg.error_code != '0':
-        return {"error": f"登录失败: {lg.error_msg}"}
-    try:
-        rs = bs.query_adjust_factor(code=code, start_date=start_date, end_date=end_date)
-        if rs.error_code != '0':
-            return {"error": rs.error_msg}
-        data = _collect_rs(rs)
-        return {"code": code, "start_date": start_date, "end_date": end_date, "data": data}
-    finally:
-        bs.logout()
+    def _query():
+        return _collect(bs.query_adjust_factor(code=code, start_date=start_date, end_date=end_date))
+
+    result = await run_bs(_query)
+    if result is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+    data, err = result
+    if err:
+        return {"error": err}
+    return {"code": code, "start_date": start_date, "end_date": end_date, "data": data}

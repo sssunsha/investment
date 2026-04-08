@@ -1,24 +1,18 @@
-<!-- 行情页：指数行情 -->
+<!-- 行情页：指数行情 + 板块成分股查询 -->
 <div class="page-market">
 
-  <!-- 加载中 -->
-  @if (loading) {
+  <!-- ── 指数行情 ───────────────────────────── -->
+  @if (indicesLoading) {
     <div class="market-status">
-      <mat-icon class="spin">refresh</mat-icon>
-      <span>加载中…</span>
+      <mat-icon class="spin">refresh</mat-icon><span>加载中…</span>
     </div>
   }
-
-  <!-- 错误提示 -->
-  @if (!loading && error) {
+  @if (!indicesLoading && indicesError) {
     <div class="market-status market-error">
-      <mat-icon>error_outline</mat-icon>
-      <span>{{ error }}</span>
+      <mat-icon>error_outline</mat-icon><span>{{ indicesError }}</span>
     </div>
   }
-
-  <!-- 指数行情宫格 -->
-  @if (!loading && !error && indices.length > 0) {
+  @if (!indicesLoading && !indicesError && indices.length > 0) {
     <div class="index-grid wechat-group">
       @for (idx of indices; track idx.code) {
         <div class="index-cell">
@@ -26,16 +20,119 @@
           <div class="idx-price" [class]="idx.changePct >= 0 ? 'stock-up' : 'stock-down'">
             {{ idx.price | number: '1.2-2' }}
           </div>
-          <div [class]="idx.changePct >= 0 ? 'stock-badge up' : 'stock-badge down'" class="idx-badge">
+          <div [class]="idx.changePct >= 0 ? 'stock-badge up' : 'stock-badge down'">
             {{ idx.changePct >= 0 ? '+' : '' }}{{ idx.changePct * 100 | number: '1.2-2' }}%
           </div>
         </div>
       }
     </div>
-
     @if (lastUpdated) {
       <div class="market-updated">更新于 {{ lastUpdated | date: 'HH:mm:ss' }}</div>
     }
+  }
+
+  <!-- ── 板块 / 成分股 ─────────────────────── -->
+  <div class="wechat-group-label">板块成分股</div>
+
+  <!-- Tab 切换 -->
+  <div class="sector-tabs wechat-group">
+    @for (tab of sectorTabs; track tab.key) {
+      <button class="sector-tab" [class.active]="activeSectorTab === tab.key"
+              (click)="switchSectorTab(tab.key)">
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  <!-- 行业查询条件（仅行业分类 tab） -->
+  @if (activeSectorTab === 'industry') {
+    <div class="wechat-group industry-filter">
+      <div class="filter-row">
+        <input class="filter-input" [(ngModel)]="industryCode"
+               placeholder="证券代码（可选）如 sh.600000" />
+        <input class="filter-input" [(ngModel)]="industryDate"
+               placeholder="日期（可选）如 2023-12-31" />
+        <button class="filter-btn" (click)="queryIndustry()">查询</button>
+      </div>
+    </div>
+  }
+
+  <!-- 搜索框 -->
+  @if (!sectorLoading) {
+    <div class="wechat-searchbar" style="margin: 0 0 4px;">
+      <div class="inner">
+        <mat-icon>search</mat-icon>
+        <input type="text" [(ngModel)]="sectorSearch"
+               placeholder="搜索代码或名称{{ activeSectorTab === 'industry' ? ' / 行业' : '' }}" />
+      </div>
+    </div>
+  }
+
+  <!-- 加载中 -->
+  @if (sectorLoading) {
+    <div class="market-status">
+      <mat-icon class="spin">refresh</mat-icon><span>加载中…</span>
+    </div>
+  }
+
+  <!-- 错误 -->
+  @if (!sectorLoading && sectorError) {
+    <div class="market-status market-error">
+      <mat-icon>error_outline</mat-icon><span>{{ sectorError }}</span>
+    </div>
+  }
+
+  <!-- 成分股列表（hs300 / sz50 / zz500） -->
+  @if (!sectorLoading && !sectorError && activeSectorTab !== 'industry') {
+    <div class="sector-count">共 {{ filteredSectorStocks.length }} 只
+      @if (sectorSearch) { (过滤自 {{ sectorTotal }} 只) }
+    </div>
+    <div class="wechat-group stock-list">
+      @for (s of filteredSectorStocks; track s.code) {
+        <div class="wechat-cell stock-cell">
+          <div class="cell-avatar neutral-avatar">{{ s.code_name.slice(0, 2) }}</div>
+          <div class="cell-body">
+            <div class="cell-title">{{ s.code_name }}</div>
+            <div class="cell-desc">{{ s.code }}</div>
+          </div>
+          <div class="cell-right">
+            <span class="update-date">{{ s.updateDate }}</span>
+          </div>
+        </div>
+      }
+      @if (filteredSectorStocks.length === 0) {
+        <div class="market-status">
+          <mat-icon>search_off</mat-icon><span>无匹配结果</span>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 行业分类列表 -->
+  @if (!sectorLoading && !sectorError && activeSectorTab === 'industry') {
+    <div class="sector-count">共 {{ filteredIndustryStocks.length }} 条
+      @if (sectorSearch) { (过滤自 {{ sectorTotal }} 条) }
+    </div>
+    <div class="wechat-group stock-list">
+      @for (s of filteredIndustryStocks; track s.code) {
+        <div class="wechat-cell stock-cell">
+          <div class="cell-avatar neutral-avatar">{{ s.code_name.slice(0, 2) }}</div>
+          <div class="cell-body">
+            <div class="cell-title">{{ s.code_name }}</div>
+            <div class="cell-desc">{{ s.code }}</div>
+          </div>
+          <div class="cell-right industry-right">
+            <span class="industry-tag">{{ s.industry }}</span>
+            <span class="update-date">{{ s.updateDate }}</span>
+          </div>
+        </div>
+      }
+      @if (filteredIndustryStocks.length === 0 && !sectorLoading) {
+        <div class="market-status">
+          <mat-icon>search_off</mat-icon><span>无数据，请输入查询条件后点击查询</span>
+        </div>
+      }
+    </div>
   }
 
 </div>
