@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统设置 — BaoStock API</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2d3250;
+    --text: #e2e8f0;
+    --text-dim: #8892a4;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --purple: #a855f7;
+  }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header a {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+  .header a:hover { color: var(--cyan); }
+
+  .btn-home {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color .15s, color .15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .btn-home:hover { border-color: var(--cyan); color: var(--cyan); }
+
+
+
+  .header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .3px;
+  }
+
+  /* ── Main ── */
+  .main {
+    padding: 40px;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-icon { font-size: 16px; }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .panel-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  .panel-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* ── Status Row ── */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-dim);
+  }
+  .status-dot.online  { background: var(--green);  box-shadow: 0 0 6px var(--green); }
+  .status-dot.offline { background: var(--red); }
+
+  .kv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+
+  .kv-item {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+  }
+
+  .kv-key {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 4px;
+  }
+
+  .kv-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--cyan);
+  }
+
+  /* ── Button Row ── */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: opacity .15s, background .15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:active { opacity: .7; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-primary  { background: var(--cyan);    color: #000; }
+  .btn-danger   { background: var(--red);     color: #fff; }
+  .btn-ghost    { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+  /* ── Form ── */
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .form-hint {
+    font-size: 10px;
+    color: var(--border);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .form-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .form-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    width: 120px;
+    transition: border-color .15s;
+  }
+  .form-input:focus { outline: none; border-color: var(--cyan); }
+
+  .form-unit {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .form-range {
+    font-size: 10px;
+    color: var(--border);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 4px 0;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    box-shadow: 0 4px 24px rgba(0,0,0,.5);
+    transform: translateY(12px);
+    opacity: 0;
+    transition: all .25s ease;
+    pointer-events: none;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok   { border-color: var(--green); color: var(--green); }
+  .toast.err  { border-color: var(--red);   color: var(--red); }
+  .toast.info { border-color: var(--cyan);  color: var(--cyan); }
+
+  /* ── Mode Toggle ── */
+  .mode-toggle {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    width: fit-content;
+  }
+
+  .mode-btn {
+    padding: 9px 20px;
+    border: none;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-right: 1px solid var(--border);
+  }
+  .mode-btn:last-child { border-right: none; }
+  .mode-btn.active-per-call  { background: var(--cyan);    color: #000; }
+  .mode-btn.active-persistent { background: var(--purple); color: #fff; }
+  .mode-btn:not([class*="active"]):hover { background: var(--border); color: var(--text); }
+
+  .mode-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .mode-desc strong { color: var(--text); }
+
+
+  .log-area {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 11px;
+    line-height: 1.7;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .log-line { display: flex; gap: 8px; }
+  .log-ts   { color: var(--border); flex-shrink: 0; }
+  .log-ok   { color: var(--green); }
+  .log-err  { color: var(--red); }
+  .log-info { color: var(--cyan); }
+  .log-dim  { color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="btn-home" href="/">← 主页</a>
+  <span class="breadcrumb-sep">/</span>
+  <h1>⚙️ 系统设置</h1>
+</div>
+
+<div class="main">
+
+  <!-- BaoStock 连接状态 -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-icon">🔌</span>
+      <span class="panel-title">BaoStock 连接状态</span>
+      <span class="panel-desc" id="last-refresh">–</span>
+    </div>
+    <div class="panel-body">
+      <div class="status-row">
+        <div class="status-badge">
+          <span class="status-dot" id="conn-dot"></span>
+          <span id="conn-label">检测中...</span>
+        </div>
+        <button class="btn btn-ghost" onclick="refreshStatus()">↻ 刷新</button>
+      </div>
+
+      <div class="kv-grid" id="kv-grid">
+        <div class="kv-item">
+          <div class="kv-key">空闲时间</div>
+          <div class="kv-val" id="kv-idle">–</div>
+        </div>
+        <div class="kv-item">
+          <div class="kv-key">心跳间隔</div>
+          <div class="kv-val" id="kv-heartbeat">–</div>
+        </div>
+        <div class="kv-item">
+          <div class="kv-key">空闲超时</div>
+          <div class="kv-val" id="kv-timeout">–</div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-login"  onclick="doLogin()">▶ 手动登录</button>
+        <button class="btn btn-danger"  id="btn-logout" onclick="doLogout()">⏹ 手动登出</button>
+      </div>
+
+      <div class="log-area" id="conn-log">
+        <div class="log-line"><span class="log-dim">— 操作日志将显示在此处 —</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 连接模式 -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-icon">⚡</span>
+      <span class="panel-title">连接模式</span>
+      <span class="panel-desc">修改立即生效</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="mode-toggle" id="mode-toggle">
+        <button class="mode-btn" id="btn-mode-per-call"   onclick="setMode('per_call')">
+          ⚡ 按需模式 <small style="opacity:.7">per_call</small>
+        </button>
+        <button class="mode-btn" id="btn-mode-persistent" onclick="setMode('persistent')">
+          🔗 长连接模式 <small style="opacity:.7">persistent</small>
+        </button>
+      </div>
+
+      <div class="mode-desc" id="mode-desc">–</div>
+
+    </div>
+  </div>
+
+  <!-- 会话参数配置 -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-icon">🕐</span>
+      <span class="panel-title">会话参数配置</span>
+      <span class="panel-desc">修改立即生效，无需重启</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="form-row">
+        <label class="form-label">
+          心跳保活间隔
+          <span class="form-hint">范围 10 – 3600 秒</span>
+        </label>
+        <div class="form-input-row">
+          <input class="form-input" id="cfg-heartbeat" type="number" min="10" max="3600" placeholder="60">
+          <span class="form-unit">秒</span>
+          <span class="form-range" id="cur-heartbeat"></span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">
+          空闲自动登出阈值
+          <span class="form-hint">范围 60 – 86400 秒</span>
+        </label>
+        <div class="form-input-row">
+          <input class="form-input" id="cfg-timeout" type="number" min="60" max="86400" placeholder="600">
+          <span class="form-unit">秒</span>
+          <span class="form-range" id="cur-timeout"></span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+        <button class="btn btn-ghost"   onclick="resetForm()">↺ 重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快速导航 -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-icon">🧭</span>
+      <span class="panel-title">快速导航</span>
+    </div>
+    <div class="panel-body" style="flex-direction:row;flex-wrap:wrap;gap:10px;padding:16px 20px">
+      <a class="btn btn-ghost" href="/">🏠 主页</a>
+      <a class="btn btn-ghost" href="/test">⚡ 回归测试</a>
+      <a class="btn btn-ghost" href="/docs">📄 Swagger UI</a>
+      <a class="btn btn-ghost" href="/redoc">📘 ReDoc</a>
+      <a class="btn btn-ghost" href="/openapi.json" target="_blank">🔗 OpenAPI JSON</a>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+let currentStatus = null;
+
+const MODE_DESC = {
+  per_call: `<strong>⚡ 按需模式（per_call）— 默认</strong><br>
+    每次 API 调用前自动 login，调用完成后立即 logout，无论成功与否。<br>
+    无需心跳保活，连接更轻量，不受服务器空闲断连影响，适合日常使用。`,
+  persistent: `<strong>🔗 长连接模式（persistent）</strong><br>
+    维持全局登录态，空闲超时自动登出，心跳任务定期发送保活探测。<br>
+    适合高频连续调用场景，但需要服务器连接稳定。`,
+};
+
+function applyMode(mode) {
+  const btnPer  = document.getElementById('btn-mode-per-call');
+  const btnPers = document.getElementById('btn-mode-persistent');
+  btnPer.className  = 'mode-btn' + (mode === 'per_call'   ? ' active-per-call'   : '');
+  btnPers.className = 'mode-btn' + (mode === 'persistent' ? ' active-persistent' : '');
+  document.getElementById('mode-desc').innerHTML = MODE_DESC[mode] || '';
+}
+
+async function setMode(mode) {
+  try {
+    const r = await fetch('/api/session/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connection_mode: mode }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      applyMode(d.connection_mode);
+      showToast('ok', `✓ 已切换为 ${mode === 'per_call' ? '按需模式' : '长连接模式'}`);
+      appendLog('ok', `连接模式已切换为 ${d.connection_mode}`);
+      await refreshStatus();
+    } else {
+      showToast('err', `✗ 切换失败`);
+    }
+  } catch (e) {
+    showToast('err', `✗ 请求失败: ${e.message}`);
+  }
+}
+
+// ── 状态刷新 ──────────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/session/status');
+    const d = await r.json();
+    currentStatus = d;
+    applyStatus(d);
+    document.getElementById('last-refresh').textContent =
+      '最后刷新：' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  } catch (e) {
+    document.getElementById('conn-dot').className   = 'status-dot offline';
+    document.getElementById('conn-label').textContent = '服务不可达';
+  }
+}
+
+function applyStatus(d) {
+  const dot   = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  if (d.logged_in) {
+    dot.className    = 'status-dot online';
+    label.textContent = '已连接';
+  } else {
+    dot.className    = 'status-dot offline';
+    label.textContent = d.connection_mode === 'per_call' ? '未连接（按需模式）' : '未连接';
+  }
+
+  document.getElementById('kv-idle').textContent      = d.idle_seconds != null ? `${d.idle_seconds}s` : '–';
+  document.getElementById('kv-heartbeat').textContent = `${d.heartbeat_interval}s`;
+  document.getElementById('kv-timeout').textContent   = `${d.idle_timeout}s`;
+
+  // 填入表单当前值（占位提示）
+  document.getElementById('cur-heartbeat').textContent = `当前: ${d.heartbeat_interval}s`;
+  document.getElementById('cur-timeout').textContent   = `当前: ${d.idle_timeout}s`;
+  document.getElementById('cfg-heartbeat').placeholder = String(d.heartbeat_interval);
+  document.getElementById('cfg-timeout').placeholder   = String(d.idle_timeout);
+
+  // 更新连接模式 UI
+  applyMode(d.connection_mode || 'per_call');
+}
+
+// ── 登录 / 登出 ───────────────────────────────────────────
+async function doLogin() {
+  setBtn('btn-login', true);
+  appendLog('info', '发送登录请求...');
+  try {
+    const r = await fetch('/api/session/login', { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'logged_in')         { appendLog('ok',  '登录成功'); showToast('ok',  '✓ 登录成功'); }
+    else if (d.status === 'already_logged_in') { appendLog('ok',  '已处于登录状态'); showToast('info', '已登录'); }
+    else                                  { appendLog('err', `登录失败: ${d.message || d.status}`); showToast('err', '✗ 登录失败'); }
+    await refreshStatus();
+  } catch (e) {
+    appendLog('err', `请求失败: ${e.message}`);
+    showToast('err', '✗ 请求失败');
+  }
+  setBtn('btn-login', false);
+}
+
+async function doLogout() {
+  setBtn('btn-logout', true);
+  appendLog('info', '发送登出请求...');
+  try {
+    const r = await fetch('/api/session/logout', { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'logged_out')             { appendLog('ok',  '登出成功'); showToast('ok', '✓ 登出成功'); }
+    else if (d.status === 'already_logged_out') { appendLog('dim', '已处于登出状态'); showToast('info', '已登出'); }
+    else                                        { appendLog('err', `登出失败: ${JSON.stringify(d)}`); }
+    await refreshStatus();
+  } catch (e) {
+    appendLog('err', `请求失败: ${e.message}`);
+    showToast('err', '✗ 请求失败');
+  }
+  setBtn('btn-logout', false);
+}
+
+// ── 配置保存 ──────────────────────────────────────────────
+async function saveConfig() {
+  const hbVal = document.getElementById('cfg-heartbeat').value.trim();
+  const toVal = document.getElementById('cfg-timeout').value.trim();
+
+  if (!hbVal && !toVal) { showToast('info', '请填写至少一个配置项'); return; }
+
+  const body = {};
+  if (hbVal) {
+    const v = parseInt(hbVal);
+    if (isNaN(v) || v < 10 || v > 3600) { showToast('err', '心跳间隔范围 10–3600'); return; }
+    body.heartbeat_interval = v;
+  }
+  if (toVal) {
+    const v = parseInt(toVal);
+    if (isNaN(v) || v < 60 || v > 86400) { showToast('err', '空闲超时范围 60–86400'); return; }
+    body.idle_timeout = v;
+  }
+
+  try {
+    const r = await fetch('/api/session/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      showToast('ok', '✓ 配置已保存');
+      appendLog('ok', `配置更新 → 心跳 ${d.heartbeat_interval}s，空闲超时 ${d.idle_timeout}s`);
+      document.getElementById('cfg-heartbeat').value = '';
+      document.getElementById('cfg-timeout').value   = '';
+      await refreshStatus();
+    } else {
+      showToast('err', `✗ 保存失败: ${JSON.stringify(d)}`);
+    }
+  } catch (e) {
+    showToast('err', `✗ 请求失败: ${e.message}`);
+  }
+}
+
+function resetForm() {
+  document.getElementById('cfg-heartbeat').value = '';
+  document.getElementById('cfg-timeout').value   = '';
+  showToast('info', '表单已重置');
+}
+
+// ── 工具函数 ──────────────────────────────────────────────
+function setBtn(id, disabled) {
+  document.getElementById(id).disabled = disabled;
+}
+
+function appendLog(type, msg) {
+  const area = document.getElementById('conn-log');
+  const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  // 清除占位
+  if (area.querySelector('.log-dim')) {
+    const placeholder = area.querySelector('.log-line');
+    if (placeholder && placeholder.querySelector('.log-dim')?.textContent.includes('操作日志')) {
+      area.innerHTML = '';
+    }
+  }
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-${type}">${msg}</span>`;
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+}
+
+let toastTimer = null;
+function showToast(type, msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = `toast ${type}`; }, 3000);
+}
+
+// ── 初始化 ────────────────────────────────────────────────
+refreshStatus();
+setInterval(refreshStatus, 15000);
+</script>
+</body>
+</html>

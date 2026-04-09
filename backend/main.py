@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 import swagger_ui_bundle
 
 from session import ensure_login, heartbeat_task, manual_logout, run_bs, mark_disconnected
-from routers import history, sector, evaluation, corpreport, metadata, macroscopic
+from routers import history, sector, evaluation, corpreport, metadata, macroscopic, strategy as strategy_router
 from routers import session as session_router
 
 
@@ -102,6 +102,7 @@ app = FastAPI(
         {"name": "宏观经济数据", "description": "存款利率、贷款利率、存款准备金率、货币供应量（月度/年度）"},
         {"name": "会话管理", "description": "BaoStock 登录/登出，以及心跳保活状态查询"},
         {"name": "投资策略", "description": "市场指数快照、ETF轮动策略（原有业务接口）"},
+        {"name": "策略分析", "description": "全天候配置动态平衡、ETF行业动量CTA轮动策略"},
     ]
 )
 
@@ -155,6 +156,27 @@ async def custom_redoc():
     )
 
 
+@app.get("/", include_in_schema=False)
+async def home_page():
+    """统一主页：所有页面入口 + API 接口目录"""
+    html = (Path(__file__).parent / "home_page.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
+@app.get("/settings", include_in_schema=False)
+async def settings_page():
+    """系统设置页：会话状态、心跳配置、手动登录/登出"""
+    html = (Path(__file__).parent / "settings_page.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
+@app.get("/strategy", include_in_schema=False)
+async def strategy_page():
+    """策略分析页：全天候配置动态平衡 + ETF行业动量CTA轮动"""
+    html = (Path(__file__).parent / "strategy_page.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
 @app.get("/test", include_in_schema=False)
 async def api_test_page():
     """API 回归测试页面：访问时自动调用全部接口并展示真实数据"""
@@ -176,13 +198,14 @@ app.add_middleware(
 # ──────────────────────────────────────────────
 # 注册路由 - 与 BaoStock 文档目录结构对应
 # ──────────────────────────────────────────────
-app.include_router(history.router)           # 历史行情数据
-app.include_router(sector.router)            # 板块与指数成分股
-app.include_router(evaluation.router)        # 季频财务指标
-app.include_router(corpreport.router)        # 公司业绩报告
-app.include_router(metadata.router)          # 证券基础数据
-app.include_router(macroscopic.router)       # 宏观经济数据
-app.include_router(session_router.router)    # 会话管理
+app.include_router(history.router)               # 历史行情数据
+app.include_router(sector.router)                # 板块与指数成分股
+app.include_router(evaluation.router)            # 季频财务指标
+app.include_router(corpreport.router)            # 公司业绩报告
+app.include_router(metadata.router)              # 证券基础数据
+app.include_router(macroscopic.router)           # 宏观经济数据
+app.include_router(session_router.router)        # 会话管理
+app.include_router(strategy_router.router)       # 策略分析
 
 
 # ──────────────────────────────────────────────

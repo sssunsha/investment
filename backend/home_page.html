@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaoStock API — 主页</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2d3250;
+    --text: #e2e8f0;
+    --text-dim: #8892a4;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --purple: #a855f7;
+    --orange: #f97316;
+    --pink: #ec4899;
+    --lime: #84cc16;
+  }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-icon {
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .header-text h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--cyan);
+    letter-spacing: .5px;
+  }
+
+  .header-text p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+
+  .header-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    display: inline-block;
+  }
+  .status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.offline { background: var(--red); }
+
+  /* ── Main ── */
+  .main {
+    padding: 40px;
+    max-width: 1200px;
+  }
+
+  .section { margin-bottom: 40px; }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  /* ── Nav Card ── */
+  .nav-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color .2s, background .2s, transform .15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent, var(--border));
+    transition: opacity .2s;
+  }
+
+  .nav-card:hover {
+    border-color: var(--accent, var(--border));
+    background: var(--surface2);
+    transform: translateY(-2px);
+  }
+
+  .nav-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-icon {
+    font-size: 22px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .nav-card-title {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .nav-card-badge {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--surface2);
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .nav-card-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .nav-card-url {
+    font-size: 10px;
+    color: var(--border);
+    margin-top: auto;
+    transition: color .15s;
+  }
+
+  .nav-card:hover .nav-card-url { color: var(--accent, var(--cyan)); }
+
+  /* ── API Group Table ── */
+  .api-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .api-table th {
+    background: var(--surface2);
+    color: var(--text-dim);
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: .3px;
+  }
+
+  .api-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(45,50,80,.4);
+    vertical-align: top;
+  }
+
+  .api-table tr:last-child td { border-bottom: none; }
+  .api-table tr:hover td { background: var(--surface2); }
+
+  .api-prefix {
+    font-family: inherit;
+    color: var(--cyan);
+    white-space: nowrap;
+  }
+
+  .api-name {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .api-desc {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 4px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin: 60px 40px 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 24px;
+    color: var(--text-dim);
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+
+  .footer a { color: var(--text-dim); text-decoration: none; }
+  .footer a:hover { color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">📈</div>
+  <div class="header-text">
+    <h1>BaoStock RESTful API</h1>
+    <p>投资分析系统 · 基于 BaoStock 数据封装 · v2.0.0</p>
+  </div>
+  <div class="header-status">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">检测中...</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- 工具页面 -->
+  <div class="section">
+    <div class="section-title">工具页面</div>
+    <div class="cards-grid">
+
+      <a class="nav-card" href="/test" style="--accent: var(--cyan)">
+        <div class="nav-card-head">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-card-title">API 回归测试</span>
+          <span class="nav-card-badge">TEST</span>
+        </div>
+        <div class="nav-card-desc">可视化测试面板，一键运行全部接口或单独测试某个接口，实时查看请求结果与执行日志。</div>
+        <div class="nav-card-url">/test</div>
+      </a>
+
+      <a class="nav-card" href="/docs" style="--accent: var(--blue)">
+        <div class="nav-card-head">
+          <span class="nav-icon">📄</span>
+          <span class="nav-card-title">Swagger UI</span>
+          <span class="nav-card-badge">DOCS</span>
+        </div>
+        <div class="nav-card-desc">交互式 API 文档，支持在线调试。所有接口参数、响应结构一览无余。</div>
+        <div class="nav-card-url">/docs</div>
+      </a>
+
+      <a class="nav-card" href="/redoc" style="--accent: var(--purple)">
+        <div class="nav-card-head">
+          <span class="nav-icon">📘</span>
+          <span class="nav-card-title">ReDoc</span>
+          <span class="nav-card-badge">DOCS</span>
+        </div>
+        <div class="nav-card-desc">三栏式 API 参考文档，阅读体验更佳，适合查阅完整接口规格。</div>
+        <div class="nav-card-url">/redoc</div>
+      </a>
+
+      <a class="nav-card" href="/strategy" style="--accent: var(--lime)">
+        <div class="nav-card-head">
+          <span class="nav-icon">📊</span>
+          <span class="nav-card-title">策略分析</span>
+          <span class="nav-card-badge">STRATEGY</span>
+        </div>
+        <div class="nav-card-desc">全天候配置动态平衡（权重漂移监控 + 再平衡建议）与 ETF 行业动量 CTA 轮动策略（多周期动量 + 均线过滤）。</div>
+        <div class="nav-card-url">/strategy</div>
+      </a>
+
+      <a class="nav-card" href="/settings" style="--accent: var(--yellow)">
+        <div class="nav-card-head">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-card-title">系统设置</span>
+          <span class="nav-card-badge">SETTINGS</span>
+        </div>
+        <div class="nav-card-desc">配置 BaoStock 会话心跳间隔、空闲超时，查看实时连接状态，手动控制登录/登出。</div>
+        <div class="nav-card-url">/settings</div>
+      </a>
+
+      <a class="nav-card" href="/openapi.json" style="--accent: var(--text-dim)" target="_blank">
+        <div class="nav-card-head">
+          <span class="nav-icon">🔗</span>
+          <span class="nav-card-title">OpenAPI Schema</span>
+          <span class="nav-card-badge">JSON</span>
+        </div>
+        <div class="nav-card-desc">原始 OpenAPI 3.0.3 规范文件，可导入 Postman、Insomnia 等工具。</div>
+        <div class="nav-card-url">/openapi.json</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- API 接口目录 -->
+  <div class="section">
+    <div class="section-title">API 接口目录</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th style="width:200px">路径前缀</th>
+            <th style="width:160px">分类</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code class="api-prefix">/api/security/history</code></td>
+            <td><span class="api-name">历史行情数据</span></td>
+            <td class="api-desc">A股、指数、ETF 的日/周/月/分钟K线数据，支持复权处理</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/security/sector</code></td>
+            <td><span class="api-name">板块与指数成分</span></td>
+            <td class="api-desc">行业分类、沪深300、上证50、中证500 成分股查询</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/evaluation</code></td>
+            <td><span class="api-name">季频财务指标</span></td>
+            <td class="api-desc">盈利能力、营运能力、成长能力、偿债能力、现金流量、杜邦指数、复权因子、分红</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/corpreport</code></td>
+            <td><span class="api-name">公司业绩报告</span></td>
+            <td class="api-desc">公司业绩快报、业绩预告</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/metadata</code></td>
+            <td><span class="api-name">证券基础数据</span></td>
+            <td class="api-desc">交易日历、全量证券列表、证券基本资料</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/macroscopic</code></td>
+            <td><span class="api-name">宏观经济数据</span></td>
+            <td class="api-desc">存款/贷款利率、存款准备金率、货币供应量（月度/年度）</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/session</code></td>
+            <td><span class="api-name">会话管理</span></td>
+            <td class="api-desc">BaoStock 登录/登出、心跳状态查询、连接参数配置</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/strategy</code></td>
+            <td><span class="api-name">策略分析</span></td>
+            <td class="api-desc">全天候配置动态平衡（权重漂移 + 再平衡建议）、ETF 行业动量 CTA 轮动（多周期动量 + 均线确认）</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/market-indices</code></td>
+            <td><span class="api-name">投资策略</span></td>
+            <td class="api-desc">主要市场指数快照（上证、深证、沪深300、创业板、科创50）</td>
+          </tr>
+          <tr>
+            <td><code class="api-prefix">/api/strategy-data</code></td>
+            <td><span class="api-name">投资策略</span></td>
+            <td class="api-desc">ETF 轮动策略，基于20日收益率排名 + MA20/MA60 趋势过滤</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <span>BaoStock RESTful API v2.0.0</span>
+  <a href="/docs">Swagger UI</a>
+  <a href="/redoc">ReDoc</a>
+  <a href="/test">回归测试</a>
+  <a href="/strategy">策略分析</a>
+  <a href="/settings">系统设置</a>
+  <a href="http://baostock.com" target="_blank">BaoStock 官网</a>
+</div>
+
+<script>
+async function checkStatus() {
+  try {
+    const r = await fetch('/api/session/status');
+    const d = await r.json();
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    if (d.logged_in) {
+      dot.className = 'status-dot online';
+      txt.textContent = `BaoStock 已连接 · ${d.connection_mode === 'per_call' ? '按需模式' : '长连接'} · 空闲 ${d.idle_seconds ?? '-'}s`;
+    } else {
+      dot.className = 'status-dot offline';
+      txt.textContent = d.connection_mode === 'per_call' ? 'BaoStock 按需模式（未持久连接）' : 'BaoStock 未连接';
+    }
+  } catch {
+    document.getElementById('status-dot').className = 'status-dot offline';
+    document.getElementById('status-text').textContent = '服务不可达';
+  }
+}
+
+checkStatus();
+setInterval(checkStatus, 10000);
+</script>
+</body>
+</html>
