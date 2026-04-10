@@ -5,7 +5,15 @@
       "WebFetch(domain:pypi.org)",
       "Read(//Users/I340818/workspace/personal/workspace/investment/BEGIN { print \"frontend/src/app/\" }\n{\n  depth = gsub\\(/\\\\/, \"/\", $0\\)\n  indent = \"\"\n  for \\(i = 0; i < depth; i++\\) indent = indent \"  \"\n  split\\($0, arr, \"/**)",
       "Bash(kill -9 76735 76737)",
-      "Bash(timeout 5 bash -c 'echo > /dev/tcp/www.baostock.com/10030')"
+      "Bash(timeout 5 bash -c 'echo > /dev/tcp/www.baostock.com/10030')",
+      "WebFetch(domain:www.morningstar.cn)",
+      "WebFetch(domain:www.jisilu.cn)",
+      "WebFetch(domain:www.howbuy.com)",
+      "WebFetch(domain:etf.eastmoney.com)",
+      "WebFetch(domain:finance.sina.com.cn)",
+      "WebFetch(domain:danjuanfunds.com)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:www.ssefund.com)"
     ]
   }
 }

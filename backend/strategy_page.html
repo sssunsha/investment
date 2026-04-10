@@ -641,8 +641,8 @@
   <button class="tab-btn active" onclick="switchTab('aw')" id="tab-aw">
     <span class="tab-dot"></span>全天候配置动态平衡
   </button>
-  <button class="tab-btn" onclick="switchTab('sr')" id="tab-sr">
-    <span class="tab-dot"></span>ETF 行业动量 CTA 轮动
+  <button class="tab-btn" onclick="switchTab('mdtfr')" id="tab-mdtfr">
+    <span class="tab-dot"></span>动量趋势双重过滤轮动策略
   </button>
 </div>
 
@@ -665,11 +665,12 @@
 
       <div class="section-body">
         <!-- 总资产输入 -->
-        <div style="margin-bottom:14px">
-          <div class="form-field" style="max-width:300px">
+        <div style="margin-bottom:14px; display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap">
+          <div class="form-field" style="min-width:260px">
             <label class="form-label" style="color:var(--cyan)">组合总市值（元）</label>
-            <input class="form-input" id="total-assets" type="number" placeholder="例：1000000" min="0">
+            <input class="form-input" id="total-assets" type="number" placeholder="可不填，自动从各类别加总">
           </div>
+          <div id="total-hint" style="font-size:13px; color:var(--text-dim); padding-bottom:6px; line-height:1.5"></div>
         </div>
 
         <!-- 各资产类别（按类别分行，动态生成） -->
@@ -746,15 +747,15 @@
 </div>
 
 <!-- ══════════════════════════════════════════════
-     Tab Panel：ETF 行业动量 CTA 轮动
+     Tab Panel：动量趋势双重过滤轮动策略
 ════════════════════════════════════════════════ -->
-<div class="tab-panel" id="panel-sr">
+<div class="tab-panel" id="panel-mdtfr">
   <div class="sr-layout">
     <div class="strategy-card">
       <div class="card-header">
         <div class="card-icon">🔄</div>
         <div class="card-meta">
-          <div class="card-title">ETF 行业动量 CTA 轮动策略</div>
+          <div class="card-title">动量趋势双重过滤轮动策略</div>
           <div class="card-subtitle">
             动量 + 均线趋势双重过滤 · 14 只行业 ETF<br>
             买入条件：动量排名前 N 且收盘 &gt; MA短 且 MA长上行
@@ -763,7 +764,7 @@
         <div class="card-controls">
           <div class="param-group">
             <span class="param-label">动量周期</span>
-            <select class="param-select" id="sr-mdays">
+            <select class="param-select" id="mdtfr-mdays">
               <option value="10">10 天</option>
               <option value="20" selected>20 天</option>
               <option value="40">40 天</option>
@@ -772,7 +773,7 @@
           </div>
           <div class="param-group">
             <span class="param-label">持仓数</span>
-            <select class="param-select" id="sr-topn">
+            <select class="param-select" id="mdtfr-topn">
               <option value="2">Top 2</option>
               <option value="3" selected>Top 3</option>
               <option value="4">Top 4</option>
@@ -781,14 +782,14 @@
           </div>
           <div class="param-group">
             <span class="param-label">MA</span>
-            <input class="param-input" id="sr-mas" type="number" value="20" min="5" max="60" style="width:55px">
+            <input class="param-input" id="mdtfr-mas" type="number" value="20" min="5" max="60" style="width:55px">
             <span class="param-label">/</span>
-            <input class="param-input" id="sr-mal" type="number" value="60" min="20" max="250" style="width:55px">
+            <input class="param-input" id="mdtfr-mal" type="number" value="60" min="20" max="250" style="width:55px">
           </div>
-          <button class="btn btn-run" id="sr-btn" onclick="runSectorRotation()">▶ 运行</button>
+          <button class="btn btn-run" id="mdtfr-btn" onclick="runSectorRotation()">▶ 运行</button>
         </div>
       </div>
-      <div class="card-body" id="sr-body">
+      <div class="card-body" id="mdtfr-body">
         <div class="empty-state">点击 ▶ 运行 加载行业动量排行</div>
       </div>
     </div>
@@ -1058,16 +1059,46 @@ function clearHighlights() {
 let lastCalcResult = null;
 
 function calcRebalance() {
-  const total = parseFloat(document.getElementById('total-assets').value);
-  if (!total || total <= 0) { alert('请输入组合总市值'); return; }
+  const inputTotal = parseFloat(document.getElementById('total-assets').value) || 0;
 
   const assets = {};
   for (const a of PORTFOLIO) {
     assets[a.id] = parseFloat(document.getElementById('inp-' + a.id).value) || 0;
   }
 
+  // ── 确定有效总市值 ──
+  const assetSum = Object.values(assets).reduce((s, v) => s + v, 0);
+
+  let total, totalMode;
+  if (assetSum > 0) {
+    // 各类别市值之和优先（无论总市值框是否填写）
+    total = assetSum;
+    if (inputTotal > 0 && Math.abs(inputTotal - assetSum) > 1) {
+      // 两者都填且不一致：提示已用各类别之和修正
+      totalMode = `⚠ 已用各类别市值之和修正：${fmtMoney(total)}（原填 ${fmtMoney(inputTotal)}）`;
+      document.getElementById('total-assets').value = total.toFixed(2);
+    } else if (inputTotal <= 0) {
+      totalMode = `✦ 总市值由各类别自动加总：${fmtMoney(total)}`;
+      document.getElementById('total-assets').value = total.toFixed(2);
+    } else {
+      totalMode = `✓ 各类别加总与填写总市值一致：${fmtMoney(total)}`;
+    }
+  } else if (inputTotal > 0) {
+    // 仅填了总市值，没有任何类别值
+    total = inputTotal;
+    totalMode = `各类别均未填写市值，按填写总额计算：${fmtMoney(total)}`;
+  } else {
+    document.getElementById('total-hint').innerHTML = '<span style="color:var(--red)">⚠ 请至少填写一项资产市值或组合总市值</span>';
+    return;
+  }
+
+  // 显示总市值来源提示
+  document.getElementById('total-hint').innerHTML =
+    `<span style="color:var(--text-dim)">${totalMode}</span>`;
+
   const weights = {};
   for (const a of PORTFOLIO) { weights[a.id] = assets[a.id] / total; }
+
 
   // ── Trigger checks ──
   const hs300w  = weights['hs300'];
@@ -1320,6 +1351,7 @@ function calcRebalance() {
 
 function resetCalc() {
   document.getElementById('total-assets').value = '';
+  document.getElementById('total-hint').innerHTML = '';
   PORTFOLIO.forEach(a => { document.getElementById('inp-' + a.id).value = ''; });
   document.getElementById('calc-result').style.display = 'none';
   clearHighlights();
@@ -1444,10 +1476,10 @@ function setBtn(id,loading) { const b=document.getElementById(id); b.disabled=lo
 function skeletonRows(c,n=5) { return Array.from({length:n},()=>`<tr>${Array.from({length:c},()=>`<td><div class="skeleton" style="width:${40+Math.random()*40}%"></div></td>`).join('')}</tr>`).join(''); }
 
 async function runSectorRotation() {
-  setBtn('sr-btn', true);
-  const mdays=document.getElementById('sr-mdays').value, topn=document.getElementById('sr-topn').value;
-  const mas=document.getElementById('sr-mas').value, mal=document.getElementById('sr-mal').value;
-  const body=document.getElementById('sr-body');
+  setBtn('mdtfr-btn', true);
+  const mdays=document.getElementById('mdtfr-mdays').value, topn=document.getElementById('mdtfr-topn').value;
+  const mas=document.getElementById('mdtfr-mas').value, mal=document.getElementById('mdtfr-mal').value;
+  const body=document.getElementById('mdtfr-body');
   body.innerHTML=`<div class="table-wrap"><table class="data-table"><thead><tr>${['#','名称','代码','最新价','动量','5日','60日',`MA${mas}↑`,`MA${mal}↑`,'信号'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${skeletonRows(10)}</tbody></table></div>`;
   try {
     const r=await fetch(`/api/strategy/sector-rotation?momentum_days=${mdays}&top_n=${topn}&ma_short=${mas}&ma_long=${mal}`);
@@ -1455,7 +1487,7 @@ async function runSectorRotation() {
     if(d.error){body.innerHTML=`<div style="color:var(--red);padding:12px">⚠ ${escHtml(d.error)}</div>`;return;}
     renderSectorRotation(d,body,mas,mal);
   } catch(e) { body.innerHTML=`<div style="color:var(--red);padding:12px">⚠ ${escHtml(e.message)}</div>`; }
-  finally { setBtn('sr-btn',false); }
+  finally { setBtn('mdtfr-btn',false); }
 }
 
 function renderSectorRotation(d,body,mas,mal) {
