@@ -515,6 +515,16 @@
   .rank-top { background: rgba(34,197,94,.2); color: var(--green); }
   .rank-mid { background: var(--surface2); color: var(--text-dim); }
 
+  /* 持仓下拉 */
+  .pos-select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 5px; padding: 3px 6px; font-size: 13px; font-family: inherit; cursor: pointer;
+    width: 68px; outline: none; transition: border-color .15s;
+  }
+  .pos-select:hover, .pos-select:focus { border-color: var(--cyan); }
+  .pos-select option { background: var(--surface2); }
+  .pos-select[data-held="true"] { border-color: var(--yellow); color: var(--yellow); font-weight: 700; }
+
   /* ── 操作建议卡片 ── */
   .advice-mode-badge {
     display: inline-flex; align-items: center; gap: 8px;
@@ -1080,8 +1090,8 @@ const MDTFR_GUIDE_MD = `# 动量趋势双重过滤轮动策略
 
 ### 1. 趋势破位
 
-- 持仓 ETF 连续 2 日收盘价有效跌破 20 日均线 → **立即减仓 70%**，减仓资金转入货币基金
-- 若价格继续跌破 60 日均线 → **清仓剩余 30%**
+- 持仓 ETF 连续 2 日收盘价有效跌破 20 日均线 → **立即减仓至 15%**，减仓资金转入货币基金
+- 若价格继续跌破 60 日均线 → **清仓**
 
 ### 2. 排名过滤
 
@@ -1931,13 +1941,14 @@ function mdtfrInitTable(skeleton = false) {
     <td id="mdtfr-ret-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td>${mkPosSelect(def.code_c)}</td>
   </tr>`;
   body.innerHTML = `
     <div class="mdtfr-table-wrap">
       <table class="data-table">
         <thead><tr>
           <th>排名</th><th>属性</th><th>名称</th><th>C类代码</th><th>A类代码</th><th>场内ETF</th>
-          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th>
+          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th><th>持仓情况(%)</th>
         </tr></thead>
         <tbody>${MDTFR_POOL_DEF.map(mkRow).join('')}</tbody>
       </table>
@@ -2003,56 +2014,105 @@ function mdtfrFillRanks(items) {
 // 防守模式可选标的（C类代码）
 const DEFENSE_CODES = new Set(['006131','006382','007467','000217']);
 
+// ── 持仓状态（localStorage 持久化）────────────────────────
+const _pos = (() => {
+  try { return JSON.parse(localStorage.getItem('mdtfr_pos') || '{}'); } catch { return {}; }
+})();
+let _lastMdtfrItems = null;
+
+function getPosVal(code_c) { return _pos[code_c] || '0'; }
+
+function onPosChange(code_c, val) {
+  const newVal = parseInt(val) || 0;
+  const oldVal = parseInt(_pos[code_c] || '0');
+  // 计算其他标的当前总仓位（不含本标的）
+  const otherTotal = MDTFR_POOL_DEF
+    .filter(d => d.code_c !== code_c)
+    .reduce((sum, d) => sum + (parseInt(_pos[d.code_c] || '0')), 0);
+  if (otherTotal + newVal > 100) {
+    const max = Math.max(0, 100 - otherTotal);
+    // 回退到不超限的最大合法值
+    const allowed = ['50','35','15','0'].find(v => parseInt(v) <= max) || '0';
+    // 重置 select DOM
+    const sel = document.querySelector(`select.pos-select[data-code="${code_c}"]`);
+    if (sel) { sel.value = allowed; sel.dataset.held = allowed !== '0'; }
+    // 提示用户
+    const cur = _pos[code_c] || '0';
+    alert(`总仓位不能超过 100%。其他标的已占 ${otherTotal}%，本标的最多可设置 ${max}%，已自动调整为 ${allowed}%。`);
+    _pos[code_c] = allowed;
+  } else {
+    _pos[code_c] = String(newVal);
+  }
+  try { localStorage.setItem('mdtfr_pos', JSON.stringify(_pos)); } catch {}
+  if (_lastMdtfrItems) mdtfrRenderAdvice(_lastMdtfrItems);
+}
+
+function mkPosSelect(code_c) {
+  const cur = getPosVal(code_c);
+  const opts = ['0','15','35','50'].map(v =>
+    `<option value="${v}"${cur===v?' selected':''}>${v}</option>`
+  ).join('');
+  const held = cur !== '0';
+  return `<select class="pos-select" data-code="${code_c}" data-held="${held}" onchange="onPosChange('${code_c}',this.value);this.dataset.held=this.value!=='0'">${opts}</select>`;
+}
+
 function mdtfrBuildAdvice(items) {
   const valid = items.filter(x => !x.error && x.ret_20d != null && x.latest_close != null);
   if (valid.length === 0) return null;
 
-  // ── 市场模式判断 ──────────────────────────────────────
-  // 主条件：沪深300 收盘 > MA60
+  // ── 市场模式判断（两个独立 OR 条件）────────────────────
   const hs300 = valid.find(x => x.code_c === '006131');
-  const hs300AboveMa60 = hs300 && hs300.ma60 != null && hs300.latest_close > hs300.ma60;
-  // 辅助条件：≥80% 标的收盘站上 MA20
+  const cond1 = !!(hs300 && hs300.ma60 != null && hs300.latest_close > hs300.ma60);
   const aboveMa20Count = valid.filter(x => x.above_ma20).length;
   const aboveMa20Pct   = valid.length > 0 ? aboveMa20Count / valid.length : 0;
-  const isAttack = hs300AboveMa60 || aboveMa20Pct >= 0.8;
+  const cond2 = aboveMa20Pct >= 0.8;
+  const isAttack = cond1 || cond2;
 
-  // ── 模式说明 ─────────────────────────────────────────
-  const modeReasons = [];
-  if (hs300 && hs300.ma60 != null) {
-    modeReasons.push(
-      `沪深300 收盘 ${hs300.latest_close.toFixed(3)} ${hs300AboveMa60 ? '>' : '≤'} MA60 ${hs300.ma60.toFixed(3)}`
-    );
-  }
-  modeReasons.push(
-    `${aboveMa20Count}/${valid.length} 只标的收盘站上MA20（${(aboveMa20Pct*100).toFixed(0)}%，阈值≥80%）`
-  );
+  // 两个条件的文字说明（供 condRow 使用）
+  const modeCond1Text = `沪深300 收盘价 > 60日均线（主条件）`;
+  const modeCond1Note = hs300 && hs300.ma60 != null
+    ? `收盘 ${hs300.latest_close?.toFixed(3)} ${cond1?'>':'≤'} MA60 ${hs300.ma60?.toFixed(3)}`
+    : '数据不足';
+  const modeCond2Text = `≥ 80% 标的收盘价站在20日均线上方（辅助条件）`;
+  const modeCond2Note = `${aboveMa20Count}/${valid.length} 只站上MA20（${(aboveMa20Pct*100).toFixed(0)}%，阈值80%）`;
 
-  // ── 候选池 ───────────────────────────────────────────
+  // ── 候选池（基于模式筛选）────────────────────────────
   const pool = isAttack ? valid : valid.filter(x => DEFENSE_CODES.has(x.code_c));
-
-  // 按近20日涨幅排名
   const ranked = [...pool].sort((a, b) => b.ret_20d - a.ret_20d);
   ranked.forEach((x, i) => { x._poolRank = i + 1; });
 
-  // ── 买入筛选（四条须同时满足）─────────────────────────
-  // 1. 动量排名前 2    2. 近20日涨幅 ≥ 3%
-  // 3. 收盘站上 MA20  4. MA60 向上
-  const buyCandidates = ranked.filter(x =>
-    x._poolRank <= 2 &&
-    x.ret_20d >= 0.03 &&
-    x.above_ma20 === true &&
-    x.ma60_rising === true
-  );
+  // ── 买入筛选（只取前2，四条须同时满足）────────────────
+  const top2 = ranked.slice(0, 2);
+  top2.forEach(x => {
+    x._c1 = x._poolRank <= 2;
+    x._c2 = x.ret_20d != null && x.ret_20d >= 0.03;
+    x._c3 = x.above_ma20 === true;
+    x._c4 = x.ma60_rising === true;
+    x._allPass = x._c1 && x._c2 && x._c3 && x._c4;
+  });
+  const buyCandidates = top2.filter(x => x._allPass);
 
-  // ── 卖出参考 ─────────────────────────────────────────
-  // 跌破MA20（趋势破位预警，持仓者关注）
-  const belowMa20 = valid.filter(x => x.above_ma20 === false);
-  // 排名跌出前6（全体12只排名）
+  // ── 全局排名（先于持仓计算，确保 _globalRank 写入原对象）──
   const allRanked = [...valid].sort((a,b) => b.ret_20d - a.ret_20d);
   allRanked.forEach((x, i) => { x._globalRank = i + 1; });
-  const outsideTop6 = valid.filter(x => x._globalRank > 6);
 
-  return { isAttack, modeReasons, pool, ranked, buyCandidates, belowMa20, outsideTop6, valid };
+  // ── 持仓（从全局 _pos 读取；此时 valid 对象已含 _globalRank）──
+  const holdings = valid.filter(x => parseInt(getPosVal(x.code_c)) > 0)
+    .map(x => ({ ...x, _posVal: parseInt(getPosVal(x.code_c)) }));
+
+  // 条件1：趋势破位（跌破MA20）
+  const sellBelowMa20 = holdings.filter(x => x.above_ma20 === false);
+  // 条件2：排名跌出前6
+  const sellOutTop6   = holdings.filter(x => x._globalRank > 6);
+  // 条件3/4：仓位/止损需人工确认
+
+  return {
+    isAttack, cond1, cond2,
+    modeCond1Text, modeCond1Note, modeCond2Text, modeCond2Note,
+    pool, ranked, top2, buyCandidates,
+    holdings, sellBelowMa20, sellOutTop6,
+    valid, aboveMa20Count, aboveMa20Pct, hs300,
+  };
 }
 
 function mdtfrRenderAdvice(items) {
@@ -2061,100 +2121,257 @@ function mdtfrRenderAdvice(items) {
   const tspan = document.getElementById('mdtfr-advice-time');
   if (!card || !body) return;
 
+  _lastMdtfrItems = items;
   const advice = mdtfrBuildAdvice(items);
   if (!advice) { card.style.display = 'none'; return; }
 
   tspan.textContent = `分析时间: ${new Date().toTimeString().slice(0,8)}`;
-  const { isAttack, modeReasons, ranked, buyCandidates, belowMa20, outsideTop6 } = advice;
+  const {
+    isAttack, cond1, cond2,
+    modeCond1Text, modeCond1Note, modeCond2Text, modeCond2Note,
+    pool, ranked, top2, buyCandidates,
+    holdings, sellBelowMa20, sellOutTop6, valid,
+  } = advice;
 
-  const retStr = (r) => r != null ? (r>0?'<span style="color:var(--red)">+':'<span style="color:var(--green)">') + (r*100).toFixed(2) + '%</span>' : '–';
+  const fmtRet  = (r) => r != null ? (r>0?'+':'') + (r*100).toFixed(2) + '%' : '–';
+  const rclr    = (r) => r == null ? 'var(--text-dim)' : r > 0 ? 'var(--red)' : 'var(--green)';
 
-  const mkTag = (pass, text) =>
-    `<span class="advice-tag ${pass===true?'pass':pass===false?'fail':'na'}">${text}</span>`;
-
-  const mkCandidate = (x, cls) => {
-    const retColor = x.ret_20d > 0 ? 'var(--red)' : 'var(--green)';
-    return `<div class="advice-candidate ${cls}">
-      <div class="cand-rank" style="color:${retColor}">#${x._poolRank}</div>
-      <div class="cand-info">
-        <div class="cand-name">${escHtml(x.name)}</div>
-        <div class="cand-code">${x.code_c} · ${x.code_a}</div>
-        <div class="cand-tags">
-          ${mkTag(x._poolRank<=2, `排名 #${x._poolRank}`)}
-          ${mkTag(x.ret_20d>=0.03, `近20日 ${retStr(x.ret_20d)}`)}
-          ${mkTag(x.above_ma20, x.above_ma20?'MA20 站上':'MA20 跌破')}
-          ${mkTag(x.ma60_rising===true?true:x.ma60_rising===false?false:null,
-            x.ma60_trend ? `MA60 ${x.ma60_trend}` : 'MA60 N/A')}
-        </div>
+  // 条款行：✓ 白色 / ✗ 灰色 / ○ 灰色
+  const condRow = (pass, docText, note) => {
+    const icon = pass === true ? '✓' : pass === false ? '✗' : '○';
+    const iclr = pass === true ? 'var(--green)' : pass === false ? 'var(--red)' : 'var(--text-dim)';
+    const tclr = pass === true ? 'var(--text)' : 'var(--text-dim)';
+    return `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start">
+      <span style="color:${iclr};font-size:14px;flex-shrink:0;width:16px;margin-top:1px">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <span style="color:${tclr};font-size:13px">${docText}</span>
+        ${note ? `<span style="color:var(--text-dim);font-size:12px;margin-left:6px">— ${note}</span>` : ''}
       </div>
     </div>`;
   };
 
-  // ── 市场模式区块 ──
-  let html = `
-    <div style="margin-bottom:6px">
-      <span class="advice-mode-badge ${isAttack?'attack':'defend'}">
-        ${isAttack ? '⚔ 进攻模式' : '🛡 防守模式'}
-      </span>
+  // ── 1. 综合操作结论（合并买入+卖出信号）──────────────────
+  // 判断持仓标的是否已是买入候选（无需换仓）
+  const holdingCodes  = new Set(holdings.map(x => x.code_c));
+  const buyCodes      = new Set(buyCandidates.map(x => x.code_c));
+  const urgentSell    = sellOutTop6;                                     // 排名跌出前6：立即卖出
+  const watchSell     = sellBelowMa20.filter(x => !sellOutTop6.includes(x)); // 仅跌破MA20（非前6触发）：关注
+  const alreadyHeld   = buyCandidates.filter(x => holdingCodes.has(x.code_c));
+  const toBuy         = buyCandidates.filter(x => !holdingCodes.has(x.code_c));
+  const toSellUrgent  = urgentSell.filter(x => !buyCodes.has(x.code_c));  // 需卖出且不在买入候选
+  const toSwap        = urgentSell.filter(x => buyCodes.has(x.code_c));   // 需卖出但恰好是买入候选（罕见）
+
+  // 确定综合结论的 type
+  let finalType, finalTitle, finalColor, finalBg, finalBorder, finalLines = [];
+
+  const hasSell    = urgentSell.length > 0;
+  const hasBuy     = buyCandidates.length > 0;
+  const holdingMatch = holdings.length > 0
+    && buyCandidates.length > 0
+    && buyCandidates.every(x => holdingCodes.has(x.code_c))
+    && holdings.length === buyCandidates.length;
+
+  if (!hasSell && holdingMatch) {
+    // 持仓与买入候选完全一致，无需操作
+    finalType   = 'hold';
+    finalTitle  = '维持现仓，无需操作';
+    finalColor  = 'var(--cyan)';
+    finalBg     = 'rgba(6,182,212,.06)';
+    finalBorder = 'rgba(6,182,212,.25)';
+    finalLines  = [`持仓标的 ${holdings.map(x=>`${x.name}(${x._posVal}%)`).join('、')} 仍满足所有买入条件，且无卖出信号`];
+  } else if (hasSell && hasBuy) {
+    // 有卖出信号，也有新的买入候选 → 换仓
+    finalType   = 'swap';
+    finalTitle  = `换仓操作`;
+    finalColor  = 'var(--yellow)';
+    finalBg     = 'rgba(245,158,11,.06)';
+    finalBorder = 'rgba(245,158,11,.3)';
+    urgentSell.forEach(x => finalLines.push(`① 卖出 ${x.name}（排名跌至 #${x._globalRank}，超出前6）`));
+    watchSell.forEach(x => finalLines.push(`⚠ 关注 ${x.name}（跌破MA20，确认连续2日后减仓至15%）`));
+    buyCandidates.forEach((x,i) => finalLines.push(`${['②','③'][i]||'→'} 买入 ${x.name} · ${x.code_c}，仓位 50%`));
+  } else if (hasSell && !hasBuy) {
+    // 有卖出信号，无买入候选 → 卖出转货币基金
+    finalType   = 'sell';
+    finalTitle  = `卖出，转货币基金`;
+    finalColor  = 'var(--red)';
+    finalBg     = 'rgba(239,68,68,.06)';
+    finalBorder = 'rgba(239,68,68,.3)';
+    urgentSell.forEach(x => finalLines.push(`① 卖出 ${x.name}（排名跌至 #${x._globalRank}）→ 转入货币基金`));
+    watchSell.forEach(x => finalLines.push(`⚠ 关注 ${x.name}（跌破MA20，确认连续2日后减仓至15%）`));
+    finalLines.push('当前无满足条件的买入标的，卖出资金转入货币基金等待');
+  } else if (!hasSell && hasBuy && toBuy.length > 0) {
+    // 无卖出，有新的买入目标（当前未持仓 or 换标的）
+    finalType   = 'buy';
+    finalTitle  = buyCandidates.length >= 2
+      ? `买入 ${buyCandidates.map(x=>x.name).join(' + ')}`
+      : `买入 ${buyCandidates[0].name}（单仓 50%）`;
+    finalColor  = 'var(--green)';
+    finalBg     = 'rgba(34,197,94,.06)';
+    finalBorder = 'rgba(34,197,94,.3)';
+    buyCandidates.forEach((x,i) =>
+      finalLines.push(`${['①','②'][i]||'→'} 买入 ${x.name} · ${x.code_c}，仓位 50%`));
+    if (buyCandidates.length === 1)
+      finalLines.push('仅1只满足条件，余50%仓位转入货币基金');
+  } else if (!hasSell && watchSell.length > 0) {
+    finalType   = 'watch';
+    finalTitle  = '持仓观察，关注MA20';
+    finalColor  = 'var(--yellow)';
+    finalBg     = 'rgba(245,158,11,.06)';
+    finalBorder = 'rgba(245,158,11,.2)';
+    watchSell.forEach(x => finalLines.push(`⚠ ${x.name} 跌破MA20，若连续2日有效跌破则减仓至15%`));
+  } else {
+    finalType   = 'wait';
+    finalTitle  = holdings.length > 0 ? '持仓等待，无操作信号' : '空仓等待';
+    finalColor  = 'var(--text-dim)';
+    finalBg     = 'rgba(255,255,255,.03)';
+    finalBorder = 'rgba(255,255,255,.1)';
+    finalLines  = [holdings.length > 0
+      ? '持仓标的无卖出信号，当前买入候选未满足全部条件，继续持有等待下次复盘'
+      : '当前无满足买入条件的标的，保持空仓，资金转入货币基金'];
+  }
+
+  const finalHtml = `
+    <div style="background:${finalBg};border:1px solid ${finalBorder};border-radius:10px;padding:16px 18px;margin-top:4px">
+      <div style="font-size:20px;font-weight:800;color:${finalColor};line-height:1.4;margin-bottom:10px">${finalTitle}</div>
+      ${finalLines.map(l => `<div style="font-size:13px;color:var(--text);line-height:1.8;padding-left:2px">${l}</div>`).join('')}
+      ${holdings.length > 0 ? `<div style="font-size:12px;color:var(--text-dim);margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">当前持仓：${holdings.map(x=>`${x.name} ${x._posVal}%`).join('、')}　总仓位：${holdings.reduce((s,x)=>s+x._posVal,0)}%</div>` : ''}
+    </div>`;
+
+  // ── 2. 选股规则 ───────────────────────────────────────────
+  // 2a 模式判断（两行 OR 条件）
+  const modeSummary = isAttack
+    ? `→ <b style="color:var(--red)">进攻模式</b>（任一满足即可）`
+    : `→ <b style="color:var(--blue)">防守模式</b>（两条均不满足）`;
+  const modeHtml = `
+    ${condRow(cond1, modeCond1Text, modeCond1Note)}
+    ${condRow(cond2, modeCond2Text, modeCond2Note)}
+    <div style="padding:6px 0 6px 26px;font-size:13px">${modeSummary}</div>`;
+
+  // 2b 基于模式筛选候选池
+  const poolText = isAttack
+    ? `进攻模式：12只标的全部纳入候选，正常执行动量轮动选股`
+    : `防守模式：仅可从沪深300、中证500、红利低波动、黄金（4只）中选择买入`;
+  const poolNote = `候选池 ${pool.length} 只` + (isAttack ? '' : `（防御标的）`) +
+    `，动量最高：${ranked[0]?.name||'–'} ${fmtRet(ranked[0]?.ret_20d)}`;
+  const stockRulesHtml = modeHtml + condRow(null, poolText, poolNote);
+
+  // ── 3. 买入条件（只分析前2，标的名称前打✓✗）──────────────
+  const buyDetailHtml = top2.map(x => {
+    const pass = x._allPass;
+    const nameIcon = pass ? '✓' : '✗';
+    const nameClr  = pass ? 'var(--green)' : 'var(--red)';
+    const border   = pass ? 'rgba(34,197,94,.3)'   : 'rgba(255,255,255,.1)';
+    const bg       = pass ? 'rgba(34,197,94,.06)'  : 'rgba(255,255,255,.03)';
+    return `<div style="margin:8px 0;padding:10px 14px;border-radius:8px;background:${bg};border:1px solid ${border}">
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">
+        <span style="color:${nameClr};margin-right:6px">${nameIcon}</span>
+        <span style="color:var(--text)">${escHtml(x.name)}</span>
+        <span style="color:var(--text-dim);font-weight:400;font-size:12px;margin-left:8px">${x.code_c} · 候选池排名 #${x._poolRank}</span>
+      </div>
+      ${condRow(x._c1, '过去20个交易日涨跌幅排名前2', `排名 #${x._poolRank}`)}
+      ${condRow(x._c2, '过去20个交易日涨幅 ≥ 3%（绝对动量门槛，过滤弱势标的）',
+        `近20日 <span style="color:${rclr(x.ret_20d)}">${fmtRet(x.ret_20d)}</span>`)}
+      ${condRow(x._c3, '收盘价站上20日均线',
+        `收盘 ${x.latest_close?.toFixed(3)} ${x._c3?'>':'≤'} MA20 ${x.ma20?.toFixed(3)}`)}
+      ${condRow(x._c4, '60日均线向上（中长期趋势向好，避免逆势买入）',
+        `${x.ma60_trend||'N/A'}${x.ma60_rate!=null?' '+(x.ma60_rate>0?'+':'')+x.ma60_rate.toFixed(2)+'%':''}`)}
+    </div>`;
+  }).join('');
+
+  const opBoxHtml = buyCandidates.length >= 2
+    ? `<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:6px;padding:9px 14px;font-size:13px;margin-top:6px">✓ 满足2只 — 等金额买入，各仓位约 <b>50%</b></div>`
+    : buyCandidates.length === 1
+    ? `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:9px 14px;font-size:13px;margin-top:6px">△ 满足1只 — 买入该只，仓位 <b>50%</b>，剩余转货币基金</div>`
+    : `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:9px 14px;font-size:13px;color:var(--text-dim);margin-top:6px">✗ 满足0只 — 保持空仓，等待下次复盘</div>`;
+
+  // ── 4. 卖出条件（按持仓标的逐条判断）────────────────────
+  let sellHtml;
+  if (holdings.length === 0) {
+    sellHtml = `<div style="color:var(--text-dim);font-size:13px;padding:10px 0">暂无持仓记录，请在表格中设置「持仓情况(%)」</div>`;
+  } else {
+    // sellCondRow: ✓(green)=条件触发(需卖出)  ✗(gray)=未触发(安全)  ○=无法自动判断
+    const sellCondRow = (triggered, warnText, safeText, note) => {
+      const icon = triggered === true ? '✓' : triggered === false ? '✗' : '○';
+      const iclr = triggered === true ? 'var(--green)' : triggered === false ? 'var(--text-dim)' : 'var(--text-dim)';
+      const tclr = triggered === true ? 'var(--text)' : 'var(--text-dim)';
+      const text = triggered === true ? warnText : safeText;
+      return `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start">
+        <span style="color:${iclr};font-size:14px;flex-shrink:0;width:16px;margin-top:1px">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <span style="color:${tclr};font-size:13px">${text}</span>
+          ${note ? `<span style="color:var(--text-dim);font-size:12px;margin-left:6px">— ${note}</span>` : ''}
+        </div>
+      </div>`;
+    };
+
+    sellHtml = holdings.map(x => {
+      // triggered=true 表示该卖出条件已触发，需要操作
+      const rankTriggered = x._globalRank > 6;
+      const ma20Triggered = x.above_ma20 === false;
+      const posTriggered  = null;   // 需人工确认
+      const lossTriggered = null;   // 需人工确认
+
+      const rankNote = rankTriggered
+        ? `当前全局排名 #${x._globalRank}，已跌出前6 → 建议立即卖出`
+        : `当前全局排名 #${x._globalRank}，仍在前6`;
+      const ma20Note = ma20Triggered
+        ? `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)} → 确认连续2日后减仓至15%`
+        : `收盘 ${x.latest_close?.toFixed(3)} > MA20 ${x.ma20?.toFixed(3)}`;
+
+      const anyTriggered = rankTriggered || ma20Triggered;
+      const border = anyTriggered ? 'rgba(34,197,94,.3)'  : 'rgba(255,255,255,.08)';
+      const bg     = anyTriggered ? 'rgba(34,197,94,.06)' : 'rgba(255,255,255,.02)';
+      const nameClr = anyTriggered ? 'var(--green)' : 'var(--text-dim)';
+      const nameIcon = anyTriggered ? '✓' : '✗';
+
+      return `<div style="margin:8px 0;padding:10px 14px;border-radius:8px;background:${bg};border:1px solid ${border}">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <span style="color:${nameClr}">${nameIcon}</span>
+          <span style="color:var(--text)">${escHtml(x.name)}</span>
+          <span style="color:var(--text-dim);font-size:12px;font-weight:400">${x.code_c}</span>
+          <span style="font-size:12px;color:var(--yellow);font-weight:600;margin-left:auto">持仓 ${x._posVal}%</span>
+        </div>
+        ${sellCondRow(rankTriggered,
+          '排名过滤：近20日涨幅排名跌出前6名 → 立即卖出该ETF，找到替代标的则换仓，否则转货币基金',
+          '排名过滤：近20日涨幅排名仍在前6名内，无需操作',
+          rankNote)}
+        ${sellCondRow(ma20Triggered,
+          '趋势破位：收盘价已跌破20日均线 → 若连续2日有效跌破则立即减仓至15%；若继续跌破MA60 → 清仓',
+          '趋势完好：收盘价站上20日均线，暂无破位信号',
+          ma20Note)}
+        ${sellCondRow(posTriggered,
+          '仓位控制：仓位已超过50% → 立即卖出超额部分，补入另一只或转货币基金',
+          '仓位控制：仓位未超过50%，无需操作',
+          `持仓 ${x._posVal}%，需人工确认是否因涨幅超过50%`)}
+        ${sellCondRow(lossTriggered,
+          '止损强制减仓：持仓亏损超过10% → 强制减仓50%，无论其他条件是否触发',
+          '止损强制减仓：持仓亏损未超过10%，无需操作',
+          '需人工对比买入成本价确认是否亏损超10%')}
+      </div>`;
+    }).join('');
+  }
+
+  // ── 组装 ────────────────────────────────────────────────
+  const mod = (icon, title, content) => `
+    <div style="margin-top:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:4px;display:flex;align-items:center;gap:6px">
+        <span>${icon}</span><span>${title}</span>
+      </div>${content}
+    </div>`;
+
+  body.innerHTML = `
+    <div style="padding:20px 20px 16px;border-bottom:1px solid var(--border)">
+      <div style="margin-bottom:12px">
+        <span class="advice-mode-badge ${isAttack?'attack':'defend'}">${isAttack?'⚔ 进攻模式':'🛡 防守模式'}</span>
+      </div>
+      ${finalHtml}
     </div>
-    <div class="advice-mode-reason">${modeReasons.map(r=>`· ${r}`).join('<br>')}</div>`;
-
-  if (!isAttack) {
-    html += `<div class="advice-mode-reason" style="color:var(--blue);margin-top:-12px;margin-bottom:16px">
-      · 防守模式下候选池仅限：沪深300、中证500、红利低波动、黄金（4只）
+    <div style="padding:4px 20px 24px">
+      ${mod('📋', '选股规则', stockRulesHtml)}
+      ${mod('✅', '买入条件（四条须同时满足）', buyDetailHtml + opBoxHtml)}
+      ${mod('⚠',  '卖出条件（任意触发立即执行）', sellHtml)}
     </div>`;
-  }
 
-  // ── 买入建议区块 ──
-  html += `<hr class="advice-divider"><div class="advice-section-title">💰 买入建议</div>`;
-
-  if (buyCandidates.length > 0) {
-    html += buyCandidates.map(x => mkCandidate(x, 'buy-item')).join('');
-    const op = buyCandidates.length === 2
-      ? '等额买入，各持仓约 <strong>50%</strong>'
-      : '买入该标的，持仓约 <strong>50%</strong>，剩余资金转入货币基金';
-    html += `<div class="advice-action-box">✅ 操作方案：${op}</div>`;
-  } else {
-    // 展示前2候选及其未通过的原因
-    const top2 = ranked.slice(0, 2);
-    if (top2.length > 0) html += top2.map(x => mkCandidate(x, '')).join('');
-    html += `<div class="advice-action-box empty">🚫 当前无满足全部买入条件的标的，建议空仓等待，资金转入货币基金</div>`;
-  }
-
-  // ── 卖出参考区块 ──
-  const sellAlerts = [];
-  belowMa20.forEach(x => {
-    sellAlerts.push(`<div class="advice-candidate watch-item">
-      <div class="cand-rank" style="color:var(--yellow)">⚠</div>
-      <div class="cand-info">
-        <div class="cand-name">${escHtml(x.name)} <span style="font-size:12px;color:var(--text-dim)">${x.code_c}</span></div>
-        <div class="cand-tags">${mkTag(false,'收盘跌破MA20')}${mkTag(x.ma60_rising===true?true:x.ma60_rising===false?false:null, x.ma60_trend ? `MA60 ${x.ma60_trend}` : 'MA60 N/A')}</div>
-        <div class="cand-code" style="margin-top:4px">若持仓：关注是否连续2日有效跌破，触发则减仓70%</div>
-      </div>
-    </div>`);
-  });
-  outsideTop6.filter(x => !belowMa20.includes(x)).forEach(x => {
-    sellAlerts.push(`<div class="advice-candidate watch-item">
-      <div class="cand-rank" style="color:var(--yellow)">#${x._globalRank}</div>
-      <div class="cand-info">
-        <div class="cand-name">${escHtml(x.name)} <span style="font-size:12px;color:var(--text-dim)">${x.code_c}</span></div>
-        <div class="cand-tags">${mkTag(false,`全局排名跌出前6（当前#${x._globalRank}）`)}${mkTag(x.above_ma20,'MA20 '+(x.above_ma20?'站上':'跌破'))}</div>
-        <div class="cand-code" style="margin-top:4px">若持仓：排名跌出前6，建议立即卖出换仓</div>
-      </div>
-    </div>`);
-  });
-
-  html += `<hr class="advice-divider"><div class="advice-section-title">⚠ 卖出参考（持仓者关注）</div>`;
-  if (sellAlerts.length > 0) {
-    html += sellAlerts.join('');
-    html += `<div class="advice-action-box warn" style="font-size:12px;color:var(--text-dim)">
-      以上为触发卖出信号的标的。止损规则：单只亏损 &gt;10% 强制减仓50%；单只仓位超50% 卖出超额部分。
-    </div>`;
-  } else {
-    html += `<div class="advice-action-box" style="font-size:13px">✅ 当前无触发卖出信号的标的</div>`;
-  }
-
-  body.innerHTML = html;
   card.style.display = '';
 }
 
