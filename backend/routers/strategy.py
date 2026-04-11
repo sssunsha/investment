@@ -5,8 +5,12 @@
 1. GET /api/strategy/all-weather       全天候配置动态平衡
 2. GET /api/strategy/sector-rotation   ETF行业动量CTA轮动
 """
+import asyncio
+import json
+import time
 import baostock as bs
 from fastapi import APIRouter, Query
+from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 from session import run_bs
 
@@ -39,6 +43,51 @@ SECTOR_ETFS = [
     {"name": "地产",     "code": "sh.512200"},
     {"name": "黄金",     "code": "sh.518880"},
 ]
+
+
+def _calc_ma60(closes: list) -> tuple:
+    """计算 MA60 值、5日变化率及趋势分级。
+
+    返回 (ma60, ma60_rising, ma60_change_rate, ma60_trend)
+
+    变化率 = (今日MA60 / N日前MA60 − 1) × 100%
+    趋势分级：
+      > +1%         → 明确上行  rising=True
+      +0.3% ~ +1%   → 温和上行  rising=True
+      −0.3% ~ +0.3% → 走平      rising=None
+      −1% ~ −0.3%   → 温和下行  rising=False
+      < −1%         → 明确下行  rising=False
+
+    数据适配（n = len(closes)）：
+      n >= 65 : 5日前MA60（标准）
+      n >= 63 : 3日前MA60（降级，BaoStock 仅返回约63个交易日）
+      n >= 60 : 只返回MA60值，其余置 None
+      n <  60 : 全部置 None
+    """
+    n = len(closes)
+    if n < 60:
+        return None, None, None, None
+    ma60 = round(sum(closes[-60:]) / 60, 4)
+    if n >= 65:
+        ma60_prev = sum(closes[-65:-5]) / 60   # 5日前 MA60
+    elif n >= 63:
+        ma60_prev = sum(closes[-63:-3]) / 60   # 3日前 MA60（降级）
+    else:
+        return round(ma60, 3), None, None, None
+
+    rate = (ma60 / ma60_prev - 1)
+    if rate > 0.01:
+        trend, rising = "明确上行", True
+    elif rate > 0.003:
+        trend, rising = "温和上行", True
+    elif rate >= -0.003:
+        trend, rising = "走平", None
+    elif rate >= -0.01:
+        trend, rising = "温和下行", False
+    else:
+        trend, rising = "明确下行", False
+
+    return round(ma60, 3), rising, round(rate * 100, 4), trend
 
 
 def _fetch_close_series(code: str, start_date: str, end_date: str) -> list[dict]:
@@ -126,6 +175,177 @@ async def all_weather(
         "needs_rebalance": any(x["action"] in ("买入", "卖出") for x in items),
         "last_updated": datetime.now().isoformat(),
     }
+
+
+# ── 动量趋势双重过滤轮动策略 ETF 池 ──────────────────────────
+MDTFR_ETFS = [
+    # 宽基（5 只）
+    {"name": "沪深300",   "code": "sh.510300", "code_c": "006131", "code_a": "460300", "group": "宽基"},
+    {"name": "中证500",   "code": "sh.512500", "code_c": "006382", "code_a": "001052", "group": "宽基"},
+    {"name": "创业板",    "code": "sz.159915", "code_c": "004744", "code_a": "110026", "group": "宽基"},
+    {"name": "中证1000",  "code": "sh.512100", "code_c": "011861", "code_a": "011860", "group": "宽基"},
+    {"name": "科创50",    "code": "sh.588080", "code_c": "011609", "code_a": "011608", "group": "宽基"},
+    # 行业（6 只）
+    {"name": "半导体",    "code": "sh.512480", "code_c": "007301", "code_a": "007300", "group": "行业"},
+    {"name": "医药卫生",  "code": "sz.159929", "code_c": "007077", "code_a": "007076", "group": "行业"},
+    {"name": "证券公司",  "code": "sh.512880", "code_c": "012363", "code_a": "012362", "group": "行业"},
+    {"name": "数字经济",  "code": "sh.560800", "code_c": "015788", "code_a": "015787", "group": "行业"},
+    {"name": "主要消费",  "code": "sz.159928", "code_c": "012857", "code_a": "000248", "group": "行业"},
+    {"name": "红利低波动","code": "sh.512890", "code_c": "007467", "code_a": "007466", "group": "行业"},
+    # 防御（1 只）
+    {"name": "黄金",      "code": "sh.518880", "code_c": "000217", "code_a": "000216", "group": "防御"},
+]
+
+
+@router.get("/mdtfr-pool", summary="动量趋势双重过滤轮动策略标的池（批量）")
+async def mdtfr_pool():
+    end_date   = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+
+    def _compute():
+        results = []
+        for etf in MDTFR_ETFS:
+            rows = _fetch_close_series(etf["code"], start_date, end_date)
+            n = len(rows)
+            if n < 21:
+                results.append({**etf, "error": f"数据不足（{n} 条）",
+                                 "latest_close": None, "latest_date": None})
+                continue
+            closes = [r["close"] for r in rows]
+            ma20 = round(sum(closes[-20:]) / 20, 3)
+            ma60, ma60_rising, ma60_rate, ma60_trend = _calc_ma60(closes)
+            results.append({
+                **etf,
+                "latest_close":   round(closes[-1], 3),
+                "latest_date":    rows[-1]["date"],
+                "ret_20d":        round((closes[-1] - closes[-21]) / closes[-21], 6),
+                "ma20": ma20, "ma60": ma60,
+                "above_ma20":     closes[-1] > ma20,
+                "ma60_rising":    ma60_rising,
+                "ma60_rate":      ma60_rate,
+                "ma60_trend":     ma60_trend,
+                "error":          None,
+            })
+        return results
+
+    raw = await run_bs(_compute)
+    if raw is None:
+        return {"error": "BaoStock 登录失败，请稍后重试"}
+
+    valid   = [x for x in raw if not x.get("error") and x.get("ret_20d") is not None]
+    invalid = [x for x in raw if x.get("error")]
+    sorted_valid = sorted(valid, key=lambda x: x["ret_20d"], reverse=True)
+    for i, x in enumerate(sorted_valid):
+        x["rank"] = i + 1
+
+    return {"items": sorted_valid + invalid, "last_updated": datetime.now().isoformat()}
+
+
+@router.get("/mdtfr-pool/stream", summary="动量趋势双重过滤轮动策略标的池（SSE逐条流式）")
+async def mdtfr_pool_stream(
+    codes: str = Query(None, description="逗号分隔的 code_c 列表，为空则处理全部")
+):
+    """逐只 ETF 处理，每完成一只即通过 SSE 推送结果，前端可实时逐行填充。
+    codes 参数可指定只处理特定标的（用于补全缓存中不完整的行）。"""
+    end_date   = datetime.now().strftime('%Y-%m-%d')
+    # 180 天确保有足够交易日（≥68）用于 MA60 趋势判断
+    start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+
+    # 过滤需要处理的 ETF
+    target_codes = set(codes.split(',')) if codes else None
+    etfs_to_process = [e for e in MDTFR_ETFS if target_codes is None or e['code_c'] in target_codes]
+
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _run():
+        import baostock as _bs
+        ev = lambda d: loop.call_soon_threadsafe(queue.put_nowait, json.dumps(d, ensure_ascii=False))
+
+        def _login() -> bool:
+            lg = _bs.login()
+            if lg.error_code != '0':
+                ev({"type": "error", "msg": f"BaoStock 登录失败: {lg.error_msg}"})
+                return False
+            return True
+
+        def _query_with_retry(code: str, max_retries: int = 2):
+            """查询单只 ETF，网络错误时重新登录并重试"""
+            for attempt in range(max_retries + 1):
+                rs = _bs.query_history_k_data_plus(
+                    code, "date,close",
+                    start_date=start_date, end_date=end_date,
+                    frequency="d", adjustflag="2"
+                )
+                # 10002007 = 网络接收错误，重新登录后重试
+                if rs.error_code == '10002007' and attempt < max_retries:
+                    _bs.logout()
+                    time.sleep(1.0)
+                    if not _login():
+                        return rs  # 重连失败，返回错误 rs
+                    continue
+                return rs
+
+        if not _login():
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+            return
+        try:
+            for etf in etfs_to_process:
+                ev({"type": "progress", "name": etf["name"], "msg": "获取数据中..."})
+                try:
+                    rs = _query_with_retry(etf["code"])
+                    if rs.error_code != '0':
+                        ev({"type": "item", **etf,
+                            "error": f"查询失败(code={rs.error_code}): {rs.error_msg}",
+                            "latest_close": None, "latest_date": None})
+                        continue
+                    rows = []
+                    while rs.error_code == '0' and rs.next():
+                        row = rs.get_row_data()
+                        if row[1]:
+                            rows.append({"date": row[0], "close": float(row[1])})
+                    n = len(rows)
+                    if n < 21:
+                        ev({"type": "item", **etf,
+                            "error": f"数据不足（{n} 条，需至少 21 条）",
+                            "latest_close": None, "latest_date": None})
+                        continue
+                    closes = [r["close"] for r in rows]
+                    ma20 = round(sum(closes[-20:]) / 20, 3)
+                    ma60, ma60_rising, ma60_rate, ma60_trend = _calc_ma60(closes)
+                    ev({"type": "item", **etf,
+                        "latest_close": round(closes[-1], 3),
+                        "latest_date":  rows[-1]["date"],
+                        "ret_20d":      round((closes[-1] - closes[-21]) / closes[-21], 6),
+                        "ma20": ma20, "ma60": ma60,
+                        "above_ma20":   closes[-1] > ma20,
+                        "ma60_rising":  ma60_rising,
+                        "ma60_rate":    ma60_rate,
+                        "ma60_trend":   ma60_trend,
+                        "error": None})
+                    time.sleep(0.3)  # 避免连续请求触发 socket 错误
+                except Exception as e:
+                    ev({"type": "item", **etf, "error": str(e),
+                        "latest_close": None, "latest_date": None})
+        finally:
+            _bs.logout()
+            ev({"type": "done", "last_updated": datetime.now().isoformat()})
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    loop.run_in_executor(None, _run)
+
+    async def _gen():
+        while True:
+            msg = await queue.get()
+            if msg is None:
+                break
+            yield f"data: {msg}\n\n"
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
 
 
 @router.get(
