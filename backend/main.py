@@ -30,6 +30,7 @@ import swagger_ui_bundle
 from session import ensure_login, heartbeat_task, manual_logout, run_bs, mark_disconnected
 from routers import history, sector, evaluation, corpreport, metadata, macroscopic, strategy as strategy_router
 from routers import session as session_router
+from routers import cache as cache_router
 
 
 # ──────────────────────────────────────────────
@@ -206,6 +207,7 @@ app.include_router(metadata.router)              # 证券基础数据
 app.include_router(macroscopic.router)           # 宏观经济数据
 app.include_router(session_router.router)        # 会话管理
 app.include_router(strategy_router.router)       # 策略分析
+app.include_router(cache_router.router)          # 本地 JSON 缓存
 
 
 # ──────────────────────────────────────────────

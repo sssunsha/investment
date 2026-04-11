@@ -515,15 +515,44 @@
   .rank-top { background: rgba(34,197,94,.2); color: var(--green); }
   .rank-mid { background: var(--surface2); color: var(--text-dim); }
 
-  /* 持仓下拉 */
-  .pos-select {
+  /* 金额输入框 */
+  .amt-input {
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-    border-radius: 5px; padding: 3px 6px; font-size: 13px; font-family: inherit; cursor: pointer;
-    width: 68px; outline: none; transition: border-color .15s;
+    border-radius: 5px; padding: 3px 6px; font-size: 13px; font-family: inherit;
+    width: 88px; outline: none; transition: border-color .15s; text-align: right;
   }
-  .pos-select:hover, .pos-select:focus { border-color: var(--cyan); }
-  .pos-select option { background: var(--surface2); }
-  .pos-select[data-held="true"] { border-color: var(--yellow); color: var(--yellow); font-weight: 700; }
+  .amt-input:hover, .amt-input:focus { border-color: var(--cyan); }
+  .amt-input[data-held="true"] { border-color: var(--yellow); color: var(--yellow); font-weight: 700; }
+  /* 持仓比例展示（只读） */
+  .pos-pct { font-size: 13px; color: var(--text-dim); min-width: 46px; display: inline-block; text-align: right; }
+  .pos-pct[data-held="true"] { color: var(--yellow); font-weight: 700; }
+
+  /* ── 复盘弹窗 ── */
+  .journal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto;
+  }
+  .journal-overlay.open { display: flex; }
+  .journal-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    width: 100%; max-width: 1100px; box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .journal-modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+  }
+  .journal-table-wrap { overflow-x: auto; padding: 16px 20px 24px; }
+  .journal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .journal-table th {
+    text-align: left; padding: 8px 10px; color: var(--text-dim); font-weight: 600;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .journal-table td {
+    padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.04);
+    vertical-align: top; line-height: 1.6;
+  }
+  .journal-table tr:last-child td { border-bottom: none; }
+  .journal-table tr:hover td { background: rgba(255,255,255,.02); }
 
   /* ── 操作建议卡片 ── */
   .advice-mode-badge {
@@ -821,8 +850,24 @@
         <span class="section-icon">📋</span>
         <span class="section-title">操作建议</span>
         <span id="mdtfr-advice-time" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
+        <button onclick="saveJournalRecord()" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:var(--green);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px">💾 保存复盘</button>
+        <button onclick="openJournal()" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:var(--purple);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">📅 历史复盘</button>
       </div>
       <div id="mdtfr-advice-body" style="padding:0 20px 20px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 复盘历史弹窗 -->
+<div class="journal-overlay" id="journal-overlay" onclick="if(event.target===this)closeJournal()">
+  <div class="journal-modal">
+    <div class="journal-modal-head">
+      <span style="font-size:18px;font-weight:700;flex:1">📅 历史复盘记录</span>
+      <span id="journal-count" style="font-size:13px;color:var(--text-dim);margin-right:12px"></span>
+      <button onclick="closeJournal()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
+    </div>
+    <div class="journal-table-wrap">
+      <div id="journal-body">加载中...</div>
     </div>
   </div>
 </div>
@@ -1806,54 +1851,35 @@ const MDTFR_POOL_DEF = [
   {name:"黄金",      code_c:"000217", code_a:"000216", etf:"518880", group:"防御",  offensive:false},
 ];
 
-// ── IndexedDB helpers ──────────────────────────────────
-const IDB_NAME    = 'investment_v1';
-const IDB_VERSION = 1;
-const IDB_STORE   = 'mdtfr_pool';
+// ── 本地 JSON 文件缓存 helpers ──────────────────────
+// 通过后端 /api/cache/{store}/{date} 读写 ~/.investment/ 下的 JSON 文件
 
-function idbOpen() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(IDB_STORE))
-        db.createObjectStore(IDB_STORE);
-    };
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
-  });
+const CACHE_STORE = 'mdtfr_pool';
+
+async function cacheGet(date) {
+  const res = await fetch(`/api/cache/${CACHE_STORE}/${date}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`读取缓存失败: ${res.status}`);
+  return res.json();
 }
-async function idbGet(key) {
-  const db = await idbOpen();
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(IDB_STORE, 'readonly');
-    const req = tx.objectStore(IDB_STORE).get(key);
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
+
+async function cachePut(date, value) {
+  const res = await fetch(`/api/cache/${CACHE_STORE}/${date}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
   });
+  if (!res.ok) throw new Error(`写入缓存失败: ${res.status}`);
 }
-async function idbPut(key, value) {
-  const db = await idbOpen();
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(IDB_STORE, 'readwrite');
-    const req = tx.objectStore(IDB_STORE).put(value, key);
-    req.onsuccess = () => resolve();
-    req.onerror   = e => reject(e.target.error);
-  });
-}
-async function idbDelete(key) {
-  const db = await idbOpen();
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(IDB_STORE, 'readwrite');
-    const req = tx.objectStore(IDB_STORE).delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror   = e => reject(e.target.error);
-  });
+
+async function cacheDelete(date) {
+  const res = await fetch(`/api/cache/${CACHE_STORE}/${date}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`删除缓存失败: ${res.status}`);
 }
 async function clearMdtfrCache() {
   const today = new Date().toISOString().slice(0, 10);
   try {
-    await idbDelete(today);
+    await cacheDelete(today);
     mdtfrLog('cache', `已清空 ${today} 的缓存数据，下次加载将重新获取`);
     document.getElementById('mdtfr-last-updated').textContent = '缓存已清空';
     mdtfrInitTable(false);
@@ -1895,14 +1921,14 @@ function clearMdtfrDebug() {
 }
 
 // ── 表格初始化（骨架行，维护原始顺序）─────────────────
-// ── 仅在未初始化时渲染空表格，并尝试从 IndexedDB 填充当日缓存 ──
+// ── 仅在未初始化时渲染空表格，并尝试从本地 JSON 缓存填充当日数据 ──
 async function mdtfrMaybeInitEmpty() {
   const body = document.getElementById('mdtfr-body');
   if (!body || !body.querySelector('.empty-state')) return; // 已有表格，跳过
   mdtfrInitTable(false); // 先渲染空表格结构
   const today = new Date().toISOString().slice(0, 10);
   try {
-    const cached = await idbGet(today);
+    const cached = await cacheGet(today);
     if (cached && Array.isArray(cached) && cached.length > 0) {
       cached.forEach(mdtfrFillRow);
       mdtfrFillRanks(cached);
@@ -1941,14 +1967,15 @@ function mdtfrInitTable(skeleton = false) {
     <td id="mdtfr-ret-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td>${mkPosSelect(def.code_c)}</td>
+    <td style="white-space:nowrap">${mkAmtCell(def.code_c)}</td>
+    <td id="mdtfr-pos-${def.code_c}" style="text-align:right">${mkPosPct(def.code_c)}</td>
   </tr>`;
   body.innerHTML = `
     <div class="mdtfr-table-wrap">
       <table class="data-table">
         <thead><tr>
           <th>排名</th><th>属性</th><th>名称</th><th>C类代码</th><th>A类代码</th><th>场内ETF</th>
-          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th><th>持仓情况(%)</th>
+          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th><th>金额(元)</th><th>持仓情况(%)</th>
         </tr></thead>
         <tbody>${MDTFR_POOL_DEF.map(mkRow).join('')}</tbody>
       </table>
@@ -2014,46 +2041,75 @@ function mdtfrFillRanks(items) {
 // 防守模式可选标的（C类代码）
 const DEFENSE_CODES = new Set(['006131','006382','007467','000217']);
 
-// ── 持仓状态（localStorage 持久化）────────────────────────
-const _pos = (() => {
-  try { return JSON.parse(localStorage.getItem('mdtfr_pos') || '{}'); } catch { return {}; }
+// ── 持仓金额（localStorage 持久化，单位：元）────────────────
+// _amt[code_c] = 金额数值（0 = 未持仓）
+const _amt = (() => {
+  try { return JSON.parse(localStorage.getItem('mdtfr_amt') || '{}'); } catch { return {}; }
 })();
 let _lastMdtfrItems = null;
 
-function getPosVal(code_c) { return _pos[code_c] || '0'; }
+/** 获取指定标的的持仓金额 */
+function getAmt(code_c) { return parseFloat(_amt[code_c] || 0) || 0; }
 
-function onPosChange(code_c, val) {
-  const newVal = parseInt(val) || 0;
-  const oldVal = parseInt(_pos[code_c] || '0');
-  // 计算其他标的当前总仓位（不含本标的）
-  const otherTotal = MDTFR_POOL_DEF
-    .filter(d => d.code_c !== code_c)
-    .reduce((sum, d) => sum + (parseInt(_pos[d.code_c] || '0')), 0);
-  if (otherTotal + newVal > 100) {
-    const max = Math.max(0, 100 - otherTotal);
-    // 回退到不超限的最大合法值
-    const allowed = ['50','35','15','0'].find(v => parseInt(v) <= max) || '0';
-    // 重置 select DOM
-    const sel = document.querySelector(`select.pos-select[data-code="${code_c}"]`);
-    if (sel) { sel.value = allowed; sel.dataset.held = allowed !== '0'; }
-    // 提示用户
-    const cur = _pos[code_c] || '0';
-    alert(`总仓位不能超过 100%。其他标的已占 ${otherTotal}%，本标的最多可设置 ${max}%，已自动调整为 ${allowed}%。`);
-    _pos[code_c] = allowed;
-  } else {
-    _pos[code_c] = String(newVal);
-  }
-  try { localStorage.setItem('mdtfr_pos', JSON.stringify(_pos)); } catch {}
+/** 计算所有标的总金额 */
+function getTotalAmt() {
+  return MDTFR_POOL_DEF.reduce((s, d) => s + getAmt(d.code_c), 0);
+}
+
+/**
+ * 仓位百分比（0~100，保留1位小数）
+ * 总金额为0时返回0
+ */
+function getPosVal(code_c) {
+  const total = getTotalAmt();
+  if (total <= 0) return 0;
+  return Math.round(getAmt(code_c) / total * 1000) / 10;  // 保留1位小数
+}
+
+/** 更新所有行的持仓百分比展示（金额变化时全局刷新） */
+function refreshAllPosPct() {
+  MDTFR_POOL_DEF.forEach(d => {
+    const pct = getPosVal(d.code_c);
+    // 更新仓位百分比 td
+    const td = document.getElementById(`mdtfr-pos-${d.code_c}`);
+    if (td) {
+      const el = td.querySelector('.pos-pct');
+      if (el) {
+        el.textContent = pct > 0 ? pct.toFixed(1) + '%' : '–';
+        el.dataset.held = pct > 0;
+      }
+    }
+    // 同步输入框高亮
+    const inp = document.querySelector(`.amt-input[data-code="${d.code_c}"]`);
+    if (inp) inp.dataset.held = pct > 0;
+  });
+}
+
+/** 金额变化时触发 */
+function onAmtChange(code_c, val) {
+  const v = parseFloat(val) || 0;
+  _amt[code_c] = v > 0 ? v : 0;
+  try { localStorage.setItem('mdtfr_amt', JSON.stringify(_amt)); } catch {}
+  refreshAllPosPct();
   if (_lastMdtfrItems) mdtfrRenderAdvice(_lastMdtfrItems);
 }
 
-function mkPosSelect(code_c) {
-  const cur = getPosVal(code_c);
-  const opts = ['0','15','35','50'].map(v =>
-    `<option value="${v}"${cur===v?' selected':''}>${v}</option>`
-  ).join('');
-  const held = cur !== '0';
-  return `<select class="pos-select" data-code="${code_c}" data-held="${held}" onchange="onPosChange('${code_c}',this.value);this.dataset.held=this.value!=='0'">${opts}</select>`;
+/** 生成金额输入框（仅输入框，仓位百分比在独立的 td 中） */
+function mkAmtCell(code_c) {
+  const v = getAmt(code_c);
+  const held = v > 0;
+  return `<input class="amt-input" type="number" min="0" step="1000"
+    data-code="${code_c}" data-held="${held}"
+    value="${v > 0 ? v : ''}" placeholder="0"
+    oninput="onAmtChange('${code_c}',this.value)"
+  />`;
+}
+
+/** 生成仓位百分比展示（独立 td 内容） */
+function mkPosPct(code_c) {
+  const pct = getPosVal(code_c);
+  const held = pct > 0;
+  return `<span class="pos-pct" data-code="${code_c}" data-held="${held}">${pct > 0 ? pct.toFixed(1) + '%' : '–'}</span>`;
 }
 
 function mdtfrBuildAdvice(items) {
@@ -2096,9 +2152,9 @@ function mdtfrBuildAdvice(items) {
   const allRanked = [...valid].sort((a,b) => b.ret_20d - a.ret_20d);
   allRanked.forEach((x, i) => { x._globalRank = i + 1; });
 
-  // ── 持仓（从全局 _pos 读取；此时 valid 对象已含 _globalRank）──
-  const holdings = valid.filter(x => parseInt(getPosVal(x.code_c)) > 0)
-    .map(x => ({ ...x, _posVal: parseInt(getPosVal(x.code_c)) }));
+  // ── 持仓（从全局 _amt 读取；此时 valid 对象已含 _globalRank）──
+  const holdings = valid.filter(x => getAmt(x.code_c) > 0)
+    .map(x => ({ ...x, _posVal: getPosVal(x.code_c), _amt: getAmt(x.code_c) }));
 
   // 条件1：趋势破位（跌破MA20）
   const sellBelowMa20 = holdings.filter(x => x.above_ma20 === false);
@@ -2151,15 +2207,52 @@ function mdtfrRenderAdvice(items) {
   };
 
   // ── 1. 综合操作结论（合并买入+卖出信号）──────────────────
-  // 判断持仓标的是否已是买入候选（无需换仓）
+  const totalAmt    = getTotalAmt();
+  const fmtY        = (n) => '¥' + Math.round(n).toLocaleString();
+
+  // ── 金额颜色标注 helper ──────────────────────────────────
+  // 买入金额：绿色  卖出金额：红色  关注：黄色高亮
+  // 旧持仓品种名（卖出/调仓）：laser 红  新品种名（买入）：紫色
+  const hiGreen  = (t) => `<span style="color:var(--green);font-weight:700">${t}</span>`;
+  const hiRed    = (t) => `<span style="color:var(--red);font-weight:700">${t}</span>`;
+  const hiYellow = (t) => `<span style="background:rgba(245,158,11,.18);color:var(--yellow);font-weight:700;padding:1px 6px;border-radius:3px">${t}</span>`;
+  const hiLaser  = (t) => `<span style="color:#ff4d4d;font-weight:700;text-shadow:0 0 8px rgba(255,77,77,.8)">${t}</span>`;
+  const hiPurple = (t) => `<span style="color:var(--purple);font-weight:700">${t}</span>`;
+
+  // 持仓分类
   const holdingCodes  = new Set(holdings.map(x => x.code_c));
   const buyCodes      = new Set(buyCandidates.map(x => x.code_c));
-  const urgentSell    = sellOutTop6;                                     // 排名跌出前6：立即卖出
-  const watchSell     = sellBelowMa20.filter(x => !sellOutTop6.includes(x)); // 仅跌破MA20（非前6触发）：关注
-  const alreadyHeld   = buyCandidates.filter(x => holdingCodes.has(x.code_c));
+
+  // 各触发类型（持仓标的中）
+  const posOverLimit  = holdings.filter(x => x._posVal > 50);          // 仓位超50%：卖出超额
+  const urgentSell    = holdings.filter(x =>
+    x._globalRank > 6 || posOverLimit.includes(x));                     // 排名跌出前6 或 仓位超限
+  const watchSell     = sellBelowMa20.filter(x =>
+    !urgentSell.includes(x));                                           // 仅跌破MA20：关注
+
   const toBuy         = buyCandidates.filter(x => !holdingCodes.has(x.code_c));
-  const toSellUrgent  = urgentSell.filter(x => !buyCodes.has(x.code_c));  // 需卖出且不在买入候选
-  const toSwap        = urgentSell.filter(x => buyCodes.has(x.code_c));   // 需卖出但恰好是买入候选（罕见）
+
+  // 生成每个持仓标的的具体操作金额说明（含颜色标注）
+  function sellDetail(x) {
+    const lines = [];
+    if (x._globalRank > 6) {
+      lines.push(`卖出全部 ${hiRed(fmtY(x._amt))}（排名跌至 #${x._globalRank}，超出前6）→ 转入货币基金`);
+    } else if (x._posVal > 50) {
+      const keepAmt  = totalAmt * 0.50;
+      const sellAmt  = x._amt - keepAmt;
+      lines.push(`卖出 ${hiRed(fmtY(sellAmt))}（仓位 ${x._posVal.toFixed(1)}% 超出50%，保留 ${hiGreen(fmtY(keepAmt))}）`);
+    }
+    return lines;
+  }
+
+  function watchDetail(x) {
+    const floorAmt = totalAmt * 0.15;
+    if (x._amt > floorAmt) {
+      const sellAmt = x._amt - floorAmt;
+      return `${hiYellow('⚠ 关注')} ${x.name}（跌破MA20，确认连续2日后减至15%：卖出 ${hiRed(fmtY(sellAmt))}，保留 ${hiGreen(fmtY(floorAmt))}）`;
+    }
+    return `${hiYellow('⚠ 关注')} ${x.name}（跌破MA20，当前仓位已低于15%，确认连续2日后清仓 ${hiRed(fmtY(x._amt))}）`;
+  }
 
   // 确定综合结论的 type
   let finalType, finalTitle, finalColor, finalBg, finalBorder, finalLines = [];
@@ -2169,38 +2262,40 @@ function mdtfrRenderAdvice(items) {
   const holdingMatch = holdings.length > 0
     && buyCandidates.length > 0
     && buyCandidates.every(x => holdingCodes.has(x.code_c))
-    && holdings.length === buyCandidates.length;
+    && holdings.length === buyCandidates.length
+    && urgentSell.length === 0;
 
   if (!hasSell && holdingMatch) {
-    // 持仓与买入候选完全一致，无需操作
     finalType   = 'hold';
     finalTitle  = '维持现仓，无需操作';
     finalColor  = 'var(--cyan)';
     finalBg     = 'rgba(6,182,212,.06)';
     finalBorder = 'rgba(6,182,212,.25)';
-    finalLines  = [`持仓标的 ${holdings.map(x=>`${x.name}(${x._posVal}%)`).join('、')} 仍满足所有买入条件，且无卖出信号`];
+    finalLines  = [`持仓标的 ${holdings.map(x=>`${hiGreen(x.name)} ${fmtY(x._amt)} (${x._posVal.toFixed(1)}%)`).join('、')} 仍满足所有买入条件，且无卖出信号`];
   } else if (hasSell && hasBuy) {
-    // 有卖出信号，也有新的买入候选 → 换仓
     finalType   = 'swap';
     finalTitle  = `换仓操作`;
     finalColor  = 'var(--yellow)';
     finalBg     = 'rgba(245,158,11,.06)';
     finalBorder = 'rgba(245,158,11,.3)';
-    urgentSell.forEach(x => finalLines.push(`① 卖出 ${x.name}（排名跌至 #${x._globalRank}，超出前6）`));
-    watchSell.forEach(x => finalLines.push(`⚠ 关注 ${x.name}（跌破MA20，确认连续2日后减仓至15%）`));
-    buyCandidates.forEach((x,i) => finalLines.push(`${['②','③'][i]||'→'} 买入 ${x.name} · ${x.code_c}，仓位 50%`));
+    urgentSell.forEach((x, i) => sellDetail(x).forEach(l =>
+      finalLines.push(`${['①','②','③'][i]||'→'} ${hiLaser(x.name)}：${l}`)));
+    watchSell.forEach(x => finalLines.push(watchDetail(x)));
+    buyCandidates.forEach((x, i) => {
+      const buyAmt = totalAmt * 0.50;
+      finalLines.push(`${['②','③','④'][i]||'→'} 买入 ${hiPurple(x.name)} · ${x.code_c}：${hiGreen(fmtY(buyAmt))}（目标仓位 50%）`);
+    });
   } else if (hasSell && !hasBuy) {
-    // 有卖出信号，无买入候选 → 卖出转货币基金
     finalType   = 'sell';
     finalTitle  = `卖出，转货币基金`;
     finalColor  = 'var(--red)';
     finalBg     = 'rgba(239,68,68,.06)';
     finalBorder = 'rgba(239,68,68,.3)';
-    urgentSell.forEach(x => finalLines.push(`① 卖出 ${x.name}（排名跌至 #${x._globalRank}）→ 转入货币基金`));
-    watchSell.forEach(x => finalLines.push(`⚠ 关注 ${x.name}（跌破MA20，确认连续2日后减仓至15%）`));
+    urgentSell.forEach((x, i) => sellDetail(x).forEach(l =>
+      finalLines.push(`${['①','②','③'][i]||'→'} ${hiLaser(x.name)}：${l}`)));
+    watchSell.forEach(x => finalLines.push(watchDetail(x)));
     finalLines.push('当前无满足条件的买入标的，卖出资金转入货币基金等待');
   } else if (!hasSell && hasBuy && toBuy.length > 0) {
-    // 无卖出，有新的买入目标（当前未持仓 or 换标的）
     finalType   = 'buy';
     finalTitle  = buyCandidates.length >= 2
       ? `买入 ${buyCandidates.map(x=>x.name).join(' + ')}`
@@ -2208,8 +2303,10 @@ function mdtfrRenderAdvice(items) {
     finalColor  = 'var(--green)';
     finalBg     = 'rgba(34,197,94,.06)';
     finalBorder = 'rgba(34,197,94,.3)';
-    buyCandidates.forEach((x,i) =>
-      finalLines.push(`${['①','②'][i]||'→'} 买入 ${x.name} · ${x.code_c}，仓位 50%`));
+    buyCandidates.forEach((x, i) => {
+      const buyAmt = totalAmt > 0 ? totalAmt * 0.50 : 0;
+      finalLines.push(`${['①','②'][i]||'→'} 买入 ${hiPurple(x.name)} · ${x.code_c}：${hiGreen(fmtY(buyAmt))}（目标仓位 50%）`);
+    });
     if (buyCandidates.length === 1)
       finalLines.push('仅1只满足条件，余50%仓位转入货币基金');
   } else if (!hasSell && watchSell.length > 0) {
@@ -2218,7 +2315,7 @@ function mdtfrRenderAdvice(items) {
     finalColor  = 'var(--yellow)';
     finalBg     = 'rgba(245,158,11,.06)';
     finalBorder = 'rgba(245,158,11,.2)';
-    watchSell.forEach(x => finalLines.push(`⚠ ${x.name} 跌破MA20，若连续2日有效跌破则减仓至15%`));
+    watchSell.forEach(x => finalLines.push(watchDetail(x)));
   } else {
     finalType   = 'wait';
     finalTitle  = holdings.length > 0 ? '持仓等待，无操作信号' : '空仓等待';
@@ -2234,7 +2331,7 @@ function mdtfrRenderAdvice(items) {
     <div style="background:${finalBg};border:1px solid ${finalBorder};border-radius:10px;padding:16px 18px;margin-top:4px">
       <div style="font-size:20px;font-weight:800;color:${finalColor};line-height:1.4;margin-bottom:10px">${finalTitle}</div>
       ${finalLines.map(l => `<div style="font-size:13px;color:var(--text);line-height:1.8;padding-left:2px">${l}</div>`).join('')}
-      ${holdings.length > 0 ? `<div style="font-size:12px;color:var(--text-dim);margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">当前持仓：${holdings.map(x=>`${x.name} ${x._posVal}%`).join('、')}　总仓位：${holdings.reduce((s,x)=>s+x._posVal,0)}%</div>` : ''}
+      ${holdings.length > 0 ? `<div style="font-size:12px;color:var(--text-dim);margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">当前持仓：${holdings.map(x=>`${x.name} ${fmtY(x._amt)} (${x._posVal.toFixed(1)}%)`).join('、')}　总金额：${fmtY(totalAmt)}</div>` : ''}
     </div>`;
 
   // ── 2. 选股规则 ───────────────────────────────────────────
@@ -2287,7 +2384,7 @@ function mdtfrRenderAdvice(items) {
   // ── 4. 卖出条件（按持仓标的逐条判断）────────────────────
   let sellHtml;
   if (holdings.length === 0) {
-    sellHtml = `<div style="color:var(--text-dim);font-size:13px;padding:10px 0">暂无持仓记录，请在表格中设置「持仓情况(%)」</div>`;
+    sellHtml = `<div style="color:var(--text-dim);font-size:13px;padding:10px 0">暂无持仓记录，请在表格「金额(元)」列中输入持仓金额</div>`;
   } else {
     // sellCondRow: ✓(green)=条件触发(需卖出)  ✗(gray)=未触发(安全)  ○=无法自动判断
     const sellCondRow = (triggered, warnText, safeText, note) => {
@@ -2308,8 +2405,8 @@ function mdtfrRenderAdvice(items) {
       // triggered=true 表示该卖出条件已触发，需要操作
       const rankTriggered = x._globalRank > 6;
       const ma20Triggered = x.above_ma20 === false;
-      const posTriggered  = null;   // 需人工确认
-      const lossTriggered = null;   // 需人工确认
+      const posTriggered  = x._posVal > 50;   // 仓位超过50%即触发
+      const lossTriggered = null;              // 需人工确认（无成本价数据）
 
       const rankNote = rankTriggered
         ? `当前全局排名 #${x._globalRank}，已跌出前6 → 建议立即卖出`
@@ -2317,8 +2414,11 @@ function mdtfrRenderAdvice(items) {
       const ma20Note = ma20Triggered
         ? `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)} → 确认连续2日后减仓至15%`
         : `收盘 ${x.latest_close?.toFixed(3)} > MA20 ${x.ma20?.toFixed(3)}`;
+      const posNote = posTriggered
+        ? `当前仓位 ${x._posVal.toFixed(1)}%，超出50% → 立即卖出超额部分`
+        : `当前仓位 ${x._posVal.toFixed(1)}%，未超过50%`;
 
-      const anyTriggered = rankTriggered || ma20Triggered;
+      const anyTriggered = rankTriggered || ma20Triggered || posTriggered;
       const border = anyTriggered ? 'rgba(34,197,94,.3)'  : 'rgba(255,255,255,.08)';
       const bg     = anyTriggered ? 'rgba(34,197,94,.06)' : 'rgba(255,255,255,.02)';
       const nameClr = anyTriggered ? 'var(--green)' : 'var(--text-dim)';
@@ -2329,7 +2429,7 @@ function mdtfrRenderAdvice(items) {
           <span style="color:${nameClr}">${nameIcon}</span>
           <span style="color:var(--text)">${escHtml(x.name)}</span>
           <span style="color:var(--text-dim);font-size:12px;font-weight:400">${x.code_c}</span>
-          <span style="font-size:12px;color:var(--yellow);font-weight:600;margin-left:auto">持仓 ${x._posVal}%</span>
+          <span style="font-size:12px;color:var(--yellow);font-weight:600;margin-left:auto">¥${x._amt.toLocaleString()} · ${x._posVal.toFixed(1)}%</span>
         </div>
         ${sellCondRow(rankTriggered,
           '排名过滤：近20日涨幅排名跌出前6名 → 立即卖出该ETF，找到替代标的则换仓，否则转货币基金',
@@ -2342,7 +2442,7 @@ function mdtfrRenderAdvice(items) {
         ${sellCondRow(posTriggered,
           '仓位控制：仓位已超过50% → 立即卖出超额部分，补入另一只或转货币基金',
           '仓位控制：仓位未超过50%，无需操作',
-          `持仓 ${x._posVal}%，需人工确认是否因涨幅超过50%`)}
+          posNote)}
         ${sellCondRow(lossTriggered,
           '止损强制减仓：持仓亏损超过10% → 强制减仓50%，无论其他条件是否触发',
           '止损强制减仓：持仓亏损未超过10%，无需操作',
@@ -2373,9 +2473,156 @@ function mdtfrRenderAdvice(items) {
     </div>`;
 
   card.style.display = '';
+
+  // 将当前 advice 数据暴露供保存函数使用
+  _lastAdviceData = {
+    finalType, finalTitle,
+    // 纯文本版（去掉 HTML 标签）供存储
+    finalLines: finalLines.map(l => l.replace(/<[^>]+>/g, '')),
+    holdings: holdings.map(x => ({
+      name: x.name, code_c: x.code_c, group: x.group,
+      amt: x._amt, pos_pct: parseFloat(x._posVal.toFixed(1)),
+      latest_close: x.latest_close, ret_20d: x.ret_20d,
+      above_ma20: x.above_ma20, ma60_trend: x.ma60_trend,
+      global_rank: x._globalRank,
+    })),
+    total_amt: totalAmt,
+    is_attack: isAttack,
+  };
 }
 
-// ── 排名排序 / 恢复原始顺序 ────────────────────────────────
+// ── 保存复盘记录 ─────────────────────────────────────────────
+let _lastAdviceData = null;
+
+async function saveJournalRecord() {
+  if (!_lastMdtfrItems || !_lastAdviceData) {
+    alert('暂无数据，请先加载标的池数据');
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  // 构造完整记录
+  const record = {
+    saved_at:    new Date().toISOString(),
+    data_date:   _lastMdtfrItems.find(x => x.latest_date)?.latest_date || today,
+    ..._lastAdviceData,
+    // 标的池快照（仅含已完整加载的条目）
+    pool_snapshot: _lastMdtfrItems
+      .filter(x => !x.error && x.ret_20d != null)
+      .map(x => ({
+        name: x.name, code_c: x.code_c, group: x.group,
+        latest_close: x.latest_close, ret_20d: x.ret_20d,
+        above_ma20: x.above_ma20, ma60: x.ma60, ma20: x.ma20,
+        ma60_trend: x.ma60_trend, ma60_rate: x.ma60_rate,
+        rank: x.rank,
+      })),
+  };
+  try {
+    const res = await fetch('/api/cache/journal/mdtfr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    // 轻量 toast 提示
+    showToast(`✅ 已保存第 ${data.total} 条复盘记录`, 'var(--green)');
+  } catch(e) {
+    showToast(`❌ 保存失败: ${e.message}`, 'var(--red)');
+  }
+}
+
+function showToast(msg, color = 'var(--cyan)') {
+  let el = document.getElementById('mdtfr-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mdtfr-toast';
+    el.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;z-index:2000;transition:opacity .3s;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = 'var(--surface)';
+  el.style.border = `1px solid ${color}`;
+  el.style.color = color;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+}
+
+// ── 历史复盘弹窗 ─────────────────────────────────────────────
+function openJournal() {
+  document.getElementById('journal-overlay').classList.add('open');
+  loadJournal();
+}
+function closeJournal() {
+  document.getElementById('journal-overlay').classList.remove('open');
+}
+
+async function loadJournal() {
+  const body = document.getElementById('journal-body');
+  const countEl = document.getElementById('journal-count');
+  body.innerHTML = '<div style="color:var(--text-dim);padding:20px 0">加载中...</div>';
+  try {
+    const res = await fetch('/api/cache/journal/mdtfr');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const records = await res.json();
+    countEl.textContent = `共 ${records.length} 条记录`;
+    if (records.length === 0) {
+      body.innerHTML = '<div style="color:var(--text-dim);padding:20px 0">暂无复盘记录</div>';
+      return;
+    }
+    // 倒序展示（最新在前）
+    const sorted = [...records].reverse();
+    body.innerHTML = `<table class="journal-table">
+      <thead><tr>
+        <th>保存时间</th>
+        <th>数据日期</th>
+        <th>市场模式</th>
+        <th>持仓标的</th>
+        <th>总金额</th>
+        <th>操作建议</th>
+        <th>操作明细</th>
+      </tr></thead>
+      <tbody>${sorted.map(r => journalRow(r)).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--red);padding:20px 0">加载失败: ${e.message}</div>`;
+  }
+}
+
+function journalRow(r) {
+  const dt = new Date(r.saved_at);
+  const savedAt = `${dt.toLocaleDateString('zh-CN')} ${dt.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'})}`;
+
+  const holdingsHtml = (r.holdings || []).map(h =>
+    `<div style="white-space:nowrap">${h.name} <span style="color:var(--yellow);font-weight:600">¥${(h.amt||0).toLocaleString()}</span> <span style="color:var(--text-dim);font-size:12px">(${h.pos_pct}%)</span></div>`
+  ).join('') || '<span style="color:var(--text-dim)">空仓</span>';
+
+  const typeColors = {
+    hold: 'var(--cyan)', buy: 'var(--green)', sell: 'var(--red)',
+    swap: 'var(--yellow)', watch: 'var(--yellow)', wait: 'var(--text-dim)',
+  };
+  const adviceColor = typeColors[r.finalType] || 'var(--text-dim)';
+  const adviceHtml = `<span style="color:${adviceColor};font-weight:700">${r.finalTitle || '–'}</span>`;
+
+  const linesHtml = (r.finalLines || []).map(l =>
+    `<div style="font-size:12px;color:var(--text);line-height:1.7">${escHtml(l)}</div>`
+  ).join('');
+
+  const modeHtml = r.is_attack
+    ? `<span style="color:var(--red);font-size:12px;font-weight:600">⚔ 进攻</span>`
+    : `<span style="color:var(--blue);font-size:12px;font-weight:600">🛡 防守</span>`;
+
+  return `<tr>
+    <td style="white-space:nowrap;color:var(--text-dim);font-size:12px">${savedAt}</td>
+    <td style="white-space:nowrap;font-size:12px">${r.data_date||'–'}</td>
+    <td>${modeHtml}</td>
+    <td>${holdingsHtml}</td>
+    <td style="white-space:nowrap;font-weight:700">¥${(r.total_amt||0).toLocaleString()}</td>
+    <td>${adviceHtml}</td>
+    <td style="min-width:260px">${linesHtml}</td>
+  </tr>`;
+}
+
 let _mdtfrSorted = false;
 
 function toggleMdtfrSort() {
@@ -2441,7 +2688,7 @@ async function loadMdtfrPool() {
 
   // 读取今日缓存
   let cached = null;
-  try { cached = await idbGet(today); } catch(e) { mdtfrLog('error', `读取缓存失败: ${e.message}`); }
+  try { cached = await cacheGet(today); } catch(e) { mdtfrLog('error', `读取缓存失败: ${e.message}`); }
 
   // 构建缓存 Map，检测不完整行
   const cachedMap = {};
@@ -2497,13 +2744,13 @@ async function loadMdtfrPool() {
   const es = new EventSource(url);
   _mdtfrEventSource = es;
 
-  // 将 collected 当前快照按文档顺序写入 IndexedDB
+  // 将 collected 当前快照按文档顺序写入本地 JSON 文件
   const saveSnapshot = async (label) => {
     const snapshot = MDTFR_POOL_DEF
       .map(def => collected.find(x => x.code_c === def.code_c))
       .filter(Boolean);
     try {
-      await idbPut(today, snapshot);
+      await cachePut(today, snapshot);
       if (label) mdtfrLog('cache', `已写入缓存 · ${label} · 共 ${snapshot.length} 条`);
     } catch(e) {
       mdtfrLog('error', `写入缓存失败: ${e.message}`);
@@ -2528,7 +2775,7 @@ async function loadMdtfrPool() {
         const r = d.ret_20d != null ? (d.ret_20d>0?'+':'')+(d.ret_20d*100).toFixed(2)+'%' : '–';
         mdtfrLog('ok', `[${d.name}] 完成 · 近20日: ${r} · MA20:${d.above_ma20?'站上':'跌破'} · MA60:${d.ma60_trend||'N/A'}${d.ma60_rate!=null?' ('+(d.ma60_rate>0?'+':'')+d.ma60_rate.toFixed(2)+'%)':''}`);
       }
-      await saveSnapshot(d.name);  // 每条数据到达即写入 IndexedDB
+      await saveSnapshot(d.name);  // 每条数据到达即写入本地 JSON 文件
     } else if (d.type === 'error') {
       mdtfrLog('error', `BaoStock 错误: ${d.msg}`);
       es.close();
