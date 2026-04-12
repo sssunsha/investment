@@ -554,6 +554,58 @@
   .journal-table tr:last-child td { border-bottom: none; }
   .journal-table tr:hover td { background: rgba(255,255,255,.02); }
 
+  /* ── 确认弹窗 ── */
+  .confirm-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    z-index: 2000; align-items: center; justify-content: center;
+  }
+  .confirm-overlay.open { display: flex; }
+  .confirm-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px 28px 22px; max-width: 380px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    text-align: center;
+  }
+  .confirm-modal h3 { font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+  .confirm-modal p  { font-size: 13px; color: var(--text-dim); margin: 0 0 22px; line-height: 1.6; }
+  .confirm-modal .confirm-btns { display: flex; gap: 10px; justify-content: center; }
+
+  /* ── 标的池调整弹窗 ── */
+  .pool-adjust-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    z-index: 2000; align-items: center; justify-content: center;
+  }
+  .pool-adjust-overlay.open { display: flex; }
+  .pool-adjust-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    width: 90%; max-width: 480px; box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    overflow: hidden;
+  }
+  .pool-adjust-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+  }
+  .pool-adjust-head .pool-adjust-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .pool-adjust-body { padding: 18px 20px; }
+  .pool-adjust-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.6; }
+  .pool-adjust-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); margin-bottom: 8px;
+    transition: border-color .15s, background .15s;
+  }
+  .pool-adjust-item:hover { background: rgba(255,255,255,.03); }
+  .pool-adjust-item.selected { border-color: var(--blue); background: rgba(59,130,246,.07); }
+  .pool-adjust-item input[type=checkbox] { accent-color: var(--blue); width: 16px; height: 16px; cursor: pointer; }
+  .pool-adjust-item .pai-name { font-weight: 700; font-size: 14px; }
+  .pool-adjust-item .pai-code { font-size: 12px; color: var(--text-dim); }
+  .pool-adjust-item .pai-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+  .pool-adjust-foot {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+  }
+  .pool-adjust-count { font-size: 13px; color: var(--text-dim); flex: 1; }
+  .pool-adjust-count.warn { color: var(--red); }
+
   /* ── 操作建议卡片 ── */
   .advice-mode-badge {
     display: inline-flex; align-items: center; gap: 8px;
@@ -837,7 +889,8 @@
         <span id="mdtfr-last-updated" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="mdtfr-sort-btn" onclick="toggleMdtfrSort()" style="display:none">↕ 排序</button>
-          <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>          <button class="btn btn-ghost btn-sm" onclick="clearMdtfrCache()" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
+          <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>          <button class="btn btn-ghost btn-sm" onclick="openPoolAdjust()" style="border-color:var(--blue);color:var(--blue)">⚙ 标的池调整</button>
+          <button class="btn btn-ghost btn-sm" onclick="showConfirm('确认清空今日缓存数据？下次加载将重新获取行情。', clearMdtfrCache, '清空')" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
           <button class="btn btn-primary" id="mdtfr-btn" onclick="loadMdtfrPool()">▶ 加载数据</button>
         </div>
       </div>
@@ -889,6 +942,37 @@
     </div>
     <div class="journal-table-wrap">
       <div id="journal-body">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 通用确认弹窗 -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-modal">
+    <h3 id="confirm-title">确认操作</h3>
+    <p id="confirm-msg"></p>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeConfirm()">取消</button>
+      <button class="btn btn-sm" id="confirm-ok-btn" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="_confirmCallback && _confirmCallback(); closeConfirm()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 标的池调整弹窗 -->
+<div class="pool-adjust-overlay" id="pool-adjust-overlay" onclick="if(event.target===this)closePoolAdjust()">
+  <div class="pool-adjust-modal">
+    <div class="pool-adjust-head">
+      <span class="pool-adjust-title">⚙ 标的池调整 — 进攻行业</span>
+      <button onclick="closePoolAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:13px;cursor:pointer">✕</button>
+    </div>
+    <div class="pool-adjust-body">
+      <div class="pool-adjust-hint">请从以下 5 只进攻行业候选中选择 <strong>恰好 2 只</strong> 纳入日常轮动标的池。</div>
+      <div id="pool-adjust-list"></div>
+    </div>
+    <div class="pool-adjust-foot">
+      <span class="pool-adjust-count" id="pool-adjust-count">已选 0 / 2</span>
+      <button class="btn btn-ghost btn-sm" onclick="closePoolAdjust()">取消</button>
+      <button class="btn btn-primary btn-sm" id="pool-adjust-ok" onclick="applyPoolAdjust()">确认调整</button>
     </div>
   </div>
 </div>
@@ -1096,7 +1180,7 @@ const MDTFR_GUIDE_MD = `# 动量趋势双重过滤轮动策略
 | 007301 | 国联安中证半导体ETF联接C | 007300 | 512480 | 200+ | 科技主线，流动性极佳，动量效应明显 |
 | 007077 | 汇添富中证医药卫生ETF联接C | 007076 | 159929 | 150+ | 长牛赛道，防御性强，抗震荡 |
 | 012363 | 国泰中证全指证券公司ETF联接C | 012362 | 512880 | 300+ | 牛市先锋，弹性强，贴合市场情绪 |
-| 015788 | 鹏扬中证数字经济主题ETF联接C | 015787 | 560800 | — | 跟踪数字经济指数，补充科技赛道 |
+| 008021 | 华富中证人工智能产业ETF联接C | 008020 | 515980 | 50+ | AI热点赛道，动量效应突出，贴合策略"强者恒强"逻辑，适配轮动 |
 | 012857 | 汇添富中证主要消费ETF联接C | 000248 | 159928 | 100+ | 抗跌长牛，与科技赛道跷跷板，平衡组合 |
 | 007467 | 华泰柏瑞中证红利低波动ETF联接C | 007466 | 512890 | 120+ | 高股息防御，低估值抗跌，年化股息率 4%–6%，适配震荡市，补充组合防御性 |
 
@@ -2015,23 +2099,56 @@ function renderSectorRotation(d,body,mas,mal) {
 // ══════════════════════════════════════════════════════
 
 // 标的池定义（与后端 MDTFR_ETFS 保持一致，维护原始顺序）
-const MDTFR_POOL_DEF = [
+// ── 进攻行业候选池（5只，从中选2只进入活跃轮动）──────────────────
+const OFFENSIVE_CANDIDATES = [
+  {name:"半导体",    code_c:"007301", code_a:"007300", etf:"512480", group:"行业", offensive:true, desc:"科技主线，流动性极佳，动量效应明显"},
+  {name:"人工智能",  code_c:"008021", code_a:"008020", etf:"515980", group:"行业", offensive:true, desc:"AI热点赛道，动量弹性足，贴合科技成长主线"},
+  {name:"光伏产业",  code_c:"021085", code_a:"021084", etf:"159863", group:"行业", offensive:true, desc:"光伏热点赛道，补充新能源赛道配置"},
+  {name:"机器人",    code_c:"014881", code_a:"014880", etf:"159770", group:"行业", offensive:true, desc:"机器人赛道，贴合科技成长主线，可替换AI、半导体"},
+  {name:"新能源",    code_c:"012832", code_a:"012831", etf:"516160", group:"行业", offensive:true, desc:"新能源全赛道，覆盖光伏、风电等，可替换防御类标的"},
+];
+
+// ── 固定基础池（宽基5 + 非进攻行业4 + 防御1 = 10只）────────────────
+const MDTFR_POOL_BASE = [
   // 宽基（5 只）
   {name:"沪深300",   code_c:"006131", code_a:"460300", etf:"510300", group:"宽基",  offensive:false},
   {name:"中证500",   code_c:"006382", code_a:"001052", etf:"512500", group:"宽基",  offensive:false},
   {name:"创业板",    code_c:"004744", code_a:"110026", etf:"159915", group:"宽基",  offensive:true},
   {name:"中证1000",  code_c:"011861", code_a:"011860", etf:"512100", group:"宽基",  offensive:true},
   {name:"科创50",    code_c:"011609", code_a:"011608", etf:"588080", group:"宽基",  offensive:true},
-  // 行业（6 只）
-  {name:"半导体",    code_c:"007301", code_a:"007300", etf:"512480", group:"行业",  offensive:true},
+  // 非进攻行业（4 只）
   {name:"医药卫生",  code_c:"007077", code_a:"007076", etf:"159929", group:"行业",  offensive:true},
   {name:"证券公司",  code_c:"012363", code_a:"012362", etf:"512880", group:"行业",  offensive:true},
-  {name:"数字经济",  code_c:"015788", code_a:"015787", etf:"560800", group:"行业",  offensive:true},
   {name:"主要消费",  code_c:"012857", code_a:"000248", etf:"159928", group:"行业",  offensive:true},
   {name:"红利低波动",code_c:"007467", code_a:"007466", etf:"512890", group:"行业",  offensive:false},
   // 防御（1 只）
   {name:"黄金",      code_c:"000217", code_a:"000216", etf:"518880", group:"防御",  offensive:false},
 ];
+
+// ── 激活进攻行业状态（默认：半导体 + 人工智能）──────────────────────
+const _OFFENSIVE_KEY = 'mdtfr_offensive_codes';
+function _loadActiveCodes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(_OFFENSIVE_KEY));
+    if (Array.isArray(saved) && saved.length === 2 &&
+        saved.every(c => OFFENSIVE_CANDIDATES.some(x => x.code_c === c))) {
+      return new Set(saved);
+    }
+  } catch {}
+  return new Set(['007301', '008021']); // 默认：半导体 + 人工智能
+}
+let _activeOffensiveCodes = _loadActiveCodes();
+
+function _buildMdtfrPool() {
+  const active = OFFENSIVE_CANDIDATES.filter(c => _activeOffensiveCodes.has(c.code_c));
+  // 进攻行业插入宽基（5只）之后，医药之前
+  return [
+    ...MDTFR_POOL_BASE.slice(0, 5),  // 宽基
+    ...active,                        // 进攻行业（2只，可变）
+    ...MDTFR_POOL_BASE.slice(5),      // 非进攻行业 + 防御
+  ];
+}
+let MDTFR_POOL_DEF = _buildMdtfrPool();
 
 // ── 本地 JSON 文件缓存 helpers ──────────────────────
 // 通过后端 /api/cache/{store}/{date} 读写 ~/.investment/ 下的 JSON 文件
@@ -2066,6 +2183,76 @@ async function clearMdtfrCache() {
   } catch(e) {
     mdtfrLog('error', `清空缓存失败: ${e.message}`);
   }
+}
+
+// ── 通用确认弹窗 ───────────────────────────────────────
+let _confirmCallback = null;
+
+function showConfirm(msg, onConfirm, confirmText = '确认') {
+  _confirmCallback = onConfirm;
+  document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.textContent = confirmText;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmCallback = null;
+}
+
+// ── 标的池调整弹窗 ─────────────────────────────────────
+function openPoolAdjust() {
+  const list = document.getElementById('pool-adjust-list');
+  list.innerHTML = '';
+  OFFENSIVE_CANDIDATES.forEach(c => {
+    const checked = _activeOffensiveCodes.has(c.code_c);
+    const item = document.createElement('label');
+    item.className = 'pool-adjust-item' + (checked ? ' selected' : '');
+    item.innerHTML = `
+      <input type="checkbox" value="${c.code_c}" ${checked ? 'checked' : ''}>
+      <div style="flex:1">
+        <div class="pai-name">${c.name}</div>
+        <div class="pai-code">${c.code_c} · ETF ${c.etf}</div>
+        <div class="pai-desc">${c.desc}</div>
+      </div>`;
+    const cb = item.querySelector('input');
+    cb.addEventListener('change', () => {
+      item.classList.toggle('selected', cb.checked);
+      _updatePoolAdjustCount();
+    });
+    list.appendChild(item);
+  });
+  _updatePoolAdjustCount();
+  document.getElementById('pool-adjust-overlay').classList.add('open');
+}
+
+function _updatePoolAdjustCount() {
+  const checked = document.querySelectorAll('#pool-adjust-list input:checked').length;
+  const el = document.getElementById('pool-adjust-count');
+  const okBtn = document.getElementById('pool-adjust-ok');
+  el.textContent = `已选 ${checked} / 2`;
+  el.className = 'pool-adjust-count' + (checked !== 2 ? ' warn' : '');
+  okBtn.disabled = checked !== 2;
+}
+
+function closePoolAdjust() {
+  document.getElementById('pool-adjust-overlay').classList.remove('open');
+}
+
+async function applyPoolAdjust() {
+  const checked = [...document.querySelectorAll('#pool-adjust-list input:checked')].map(cb => cb.value);
+  if (checked.length !== 2) return;
+  _activeOffensiveCodes = new Set(checked);
+  localStorage.setItem(_OFFENSIVE_KEY, JSON.stringify(checked));
+  MDTFR_POOL_DEF = _buildMdtfrPool();
+  closePoolAdjust();
+  // 清空今日缓存，重置表格
+  const today = new Date().toISOString().slice(0, 10);
+  try { await cacheDelete(today); } catch(_) {}
+  mdtfrInitTable(false);
+  const names = checked.map(code => OFFENSIVE_CANDIDATES.find(c => c.code_c === code)?.name ?? code).join('、');
+  showToast(`标的池已更新：进攻行业 → ${names}`);
 }
 
 // ── 调试日志 ───────────────────────────────────────────
