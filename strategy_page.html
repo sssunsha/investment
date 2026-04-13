@@ -371,7 +371,19 @@
     padding: 14px 16px;
     gap: 12px;
   }
-  .form-sub { font-size: 14px; color: var(--text-dim); margin-top: 2px; }
+  .form-sub { font-size: 12px; color: var(--text-dim); }
+  .form-sub-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .aw-alt-btn {
+    flex-shrink: 0; padding: 1px 6px; border-radius: 4px; font-size: 11px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim);
+    transition: border-color .15s, color .15s;
+  }
+  .aw-alt-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .aw-alt-btn.active { border-color: var(--yellow); color: var(--yellow); background: rgba(245,158,11,.08); }
+  .aw-alt-tag {
+    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-top: 2px;
+    background: rgba(245,158,11,.12); color: var(--yellow); border: 1px solid rgba(245,158,11,.25);
+  }
 
   .form-field { display: flex; flex-direction: column; gap: 5px; }
   .form-label { font-size: 13px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
@@ -608,6 +620,38 @@
   .confirm-modal h3 { font-size: 16px; font-weight: 700; margin: 0 0 10px; }
   .confirm-modal p  { font-size: 13px; color: var(--text-dim); margin: 0 0 22px; line-height: 1.6; }
   .confirm-modal .confirm-btns { display: flex; gap: 10px; justify-content: center; }
+
+  /* ── 检查类型选择弹窗 ── */
+  .check-type-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    z-index: 2000; align-items: center; justify-content: center;
+  }
+  .check-type-overlay.open { display: flex; }
+  .check-type-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px 28px 22px; max-width: 420px; width: 92%;
+    box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .check-type-modal h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; }
+  .check-type-modal .check-type-sub { font-size: 13px; color: var(--text-dim); margin: 0 0 20px; line-height: 1.5; }
+  .check-type-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+  .check-type-option {
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+    border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .check-type-option:hover { border-color: var(--cyan); background: rgba(6,182,212,.06); }
+  .check-type-option.selected { border-color: var(--cyan); background: rgba(6,182,212,.10); }
+  .check-type-option input[type=radio] { margin-top: 2px; accent-color: var(--cyan); flex-shrink: 0; }
+  .check-type-option-text { display: flex; flex-direction: column; gap: 3px; }
+  .check-type-option-label { font-size: 14px; font-weight: 700; color: var(--text); }
+  .check-type-option-desc  { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .check-type-option-tags  { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+  .check-type-tag {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+    background: rgba(6,182,212,.12); color: var(--cyan); border: 1px solid rgba(6,182,212,.3);
+  }
+  .check-type-btns { display: flex; gap: 10px; justify-content: flex-end; }
 
   /* ── 标的池调整弹窗 ── */
   .pool-adjust-overlay {
@@ -892,11 +936,6 @@
         <span class="section-title">再平衡操作记录</span>
         <div class="section-actions">
           <button onclick="openAwJournal()" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:var(--purple);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">📅 历史复盘</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportLog()">⬇ 导出 JSON</button>
-          <label class="btn btn-ghost btn-sm" style="cursor:pointer">
-            ⬆ 导入 JSON
-            <input type="file" accept=".json" style="display:none" onchange="importLog(event)">
-          </label>
           <button class="btn btn-ghost btn-sm" onclick="clearLog()" style="color:var(--red);border-color:var(--red)">🗑 清空</button>
         </div>
       </div>
@@ -998,6 +1037,51 @@
   </div>
 </div>
 
+<!-- 检查类型选择弹窗 -->
+<div class="check-type-overlay" id="check-type-overlay">
+  <div class="check-type-modal">
+    <h3>选择检查类型</h3>
+    <p class="check-type-sub">不同检查日对应不同的再平衡触发机制，请根据实际情况选择：</p>
+    <div class="check-type-options">
+      <label class="check-type-option selected" onclick="selectCheckType('monthly', this)">
+        <input type="radio" name="check-type" value="monthly" checked>
+        <div class="check-type-option-text">
+          <span class="check-type-option-label">📅 每月检查日</span>
+          <span class="check-type-option-desc">每月第一个交易日执行的常规检查</span>
+          <div class="check-type-option-tags">
+            <span class="check-type-tag">常规阈值再平衡 ±5%</span>
+          </div>
+        </div>
+      </label>
+      <label class="check-type-option" onclick="selectCheckType('quarterly', this)">
+        <input type="radio" name="check-type" value="quarterly">
+        <div class="check-type-option-text">
+          <span class="check-type-option-label">📊 每季度检查日</span>
+          <span class="check-type-option-desc">每季度末（3/6/9/12月）执行的定期体检</span>
+          <div class="check-type-option-tags">
+            <span class="check-type-tag">定期体检再平衡 ±3%</span>
+            <span class="check-type-tag">内部结构再平衡</span>
+          </div>
+        </div>
+      </label>
+      <label class="check-type-option" onclick="selectCheckType('realtime', this)">
+        <input type="radio" name="check-type" value="realtime">
+        <div class="check-type-option-text">
+          <span class="check-type-option-label">⚡ 实时监控</span>
+          <span class="check-type-option-desc">盘中或收盘后发现市场大幅波动时触发</span>
+          <div class="check-type-option-tags">
+            <span class="check-type-tag">极端熔断再平衡 ±10%</span>
+          </div>
+        </div>
+      </label>
+    </div>
+    <div class="check-type-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeCheckTypePicker()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmCheckType()">确认并计算</button>
+    </div>
+  </div>
+</div>
+
 <!-- 标的池调整弹窗 -->
 <div class="pool-adjust-overlay" id="pool-adjust-overlay" onclick="if(event.target===this)closePoolAdjust()">
   <div class="pool-adjust-modal">
@@ -1046,14 +1130,31 @@
 // 策略配置（与文档对应）
 // ══════════════════════════════════════════════════════
 const PORTFOLIO = [
-  { id: 'hs300',  name: '沪深300联接A', code: '460300', group: 'stock',  target: 0.20, label: '股票类-大盘' },
-  { id: 'zz500',  name: '中证500联接A', code: '160119', group: 'stock',  target: 0.10, label: '股票类-中盘' },
-  { id: 'bond75', name: '国开债7-10年A', code: '003377', group: 'bond_l', target: 0.15, label: '长期债券-国开债' },
-  { id: 'bond35', name: '国债3-5年A',    code: '001512', group: 'bond_l', target: 0.15, label: '长期债券-国债' },
-  { id: 'bond5',  name: '上证5年国债A',  code: '020035', group: 'bond_m', target: 0.20, label: '中期债券' },
-  { id: 'gold',   name: '黄金易ETF联接A',code: '000216', group: 'gold',   target: 0.10, label: '黄金' },
-  { id: 'comm',   name: '大宗商品QDII-A',code: '160216', group: 'comm',   target: 0.10, label: '大宗商品' },
+  { id: 'hs300',  name: '沪深300联接A',  fullName: '华泰柏瑞沪深300ETF联接A',      code: '460300', group: 'stock',  target: 0.25, label: '股票类-大盘',
+    alt: { name: '易方达沪深300联接A',  fullName: '易方达沪深300ETF联接A',          code: '110020' } },
+  { id: 'zz500',  name: '中证500联接A',  fullName: '华泰柏瑞中证500ETF联接A',       code: '001214', group: 'stock',  target: 0.15, label: '股票类-中盘',
+    alt: { name: '易方达中证500联接A',  fullName: '易方达中证500ETF联接A',           code: '022459' } },
+  { id: 'bond75', name: '国开债7-10年A', fullName: '广发中债7-10年国开债指数A',     code: '003376', group: 'bond_l', target: 0.12, label: '长期债券-国开债',
+    alt: { name: '富国政金债联接A',     fullName: '富国中债7-10年政策性金融债ETF联接A', code: '018266' } },
+  { id: 'bond35', name: '国债3-5年A',    fullName: '易方达中债3-5年期国债指数A',    code: '001512', group: 'bond_l', target: 0.12, label: '长期债券-国债',
+    alt: { name: '南方国开债联接A',     fullName: '南方中债5-10年期国开行债指数A',   code: '006961' } },
+  { id: 'bond5',  name: '中债新综指A',   fullName: '易方达中债新综指A',             code: '161119', group: 'bond_m', target: 0.16, label: '中期债券',
+    alt: { name: '长城中债3-5年A',      fullName: '长城中债3-5年期国债指数A',        code: '009324' } },
+  { id: 'gold',   name: '黄金易ETF联接A',fullName: '华安黄金易ETF联接A',            code: '000216', group: 'gold',   target: 0.10, label: '黄金',
+    alt: { name: '博时黄金联接A',       fullName: '博时黄金ETF联接A',               code: '002610' } },
+  { id: 'comm',   name: '大宗商品QDII-A',fullName: '国泰大宗商品(QDII-LOF)A',      code: '160216', group: 'comm',   target: 0.10, label: '大宗商品',
+    alt: { name: '中信保诚全球商品A',   fullName: '中信保诚全球商品主题(QDII-FOF-LOF)A', code: '165513' } },
 ];
+
+// 当前每个 id 是否使用替代标的（持久化到 localStorage）
+const _AW_ALT_KEY = 'aw_alt_codes';
+function _loadAwAlt() {
+  try { return new Set(JSON.parse(localStorage.getItem(_AW_ALT_KEY)) || []); } catch { return new Set(); }
+}
+let _awAltSet = _loadAwAlt();
+function _activeAsset(a) {
+  return (_awAltSet.has(a.id) && a.alt) ? { ...a, ...a.alt } : a;
+}
 
 const ASSET_COLORS = {
   stock: 'var(--blue)', bond_l: 'var(--cyan)', bond_m: 'var(--purple)',
@@ -1083,13 +1184,13 @@ const GUIDE_MD = `# 全天候配置动态平衡策略场外基金操作指南（
 
 | 资产类别 | 目标比例 | 场外基金（A类） | 基金代码 | 替代选择 |
 |---------|---------|---------------|---------|---------|
-| 股票类-大盘 | 20% | 华泰柏瑞沪深300ETF联接A | 460300 | 易方达沪深300ETF联接A（110020） |
-| 股票类-中盘 | 10% | 南方中证500ETF联接A | 160119 | 华夏中证500ETF联接A（001052） |
-| 长期债券-国开债 | 15% | 广发中债7-10年国开债指数A | 003377 | 富国中债7-10年政策性金融债ETF联接A（018266） |
-| 长期债券-国债 | 15% | 易方达中债3-5年期国债指数A | 001512 | 国泰上证5年期国债ETF联接A（增加比例） |
-| 中期债券 | 20% | 国泰上证5年期国债ETF联接A | 020035 | 博时上证5年期国债ETF联接A（020037） |
+| 股票类-大盘 | 25% | 华泰柏瑞沪深300ETF联接A | 460300 | 易方达沪深300ETF联接A（110020） |
+| 股票类-中盘 | 15% | 华泰柏瑞中证500ETF联接A | 001214 | 易方达中证500ETF联接A（022459） |
+| 长期债券-国开债 | 12% | 广发中债7-10年国开债指数A | 003376 | 富国中债7-10年政策性金融债ETF联接A（018266） |
+| 长期债券-国债 | 12% | 易方达中债3-5年期国债指数A | 001512 | 南方中债5-10年期国开行债指数A（006961） |
+| 中期债券 | 16% | 易方达中债新综指A | 161119 | 长城中债3-5年期国债指数A（009324） |
 | 黄金 | 10% | 华安黄金易ETF联接A | 000216 | 博时黄金ETF联接A（002610） |
-| 大宗商品 | 10% | 国泰大宗商品(QDII-LOF)A | 160216 | 华夏豆粕ETF联接A（007937） |
+| 大宗商品 | 10% | 国泰大宗商品(QDII-LOF)A | 160216 | 中信保诚全球商品主题(QDII-FOF-LOF)A（165513） |
 
 ## 二、初始建仓策略
 
@@ -1137,29 +1238,61 @@ const GUIDE_MD = `# 全天候配置动态平衡策略场外基金操作指南（
 单只基金赎回金额 = 总赎回金额 × (该基金当前市值 ÷ 组合总市值)
 \`\`\`
 
-## 五、再平衡策略（详细表格版）
+## 五、再平衡策略（优化版）
 
-| 再平衡类型 | 判断时间点 | 触发条件 | 具体判断标准 |
-|----------|---------|---------|------------|
-| **定期再平衡** | 每季度末（3/6/9/12月最后一个交易日） | 时间固定触发 | 无论当前比例如何，季度末统一检查执行 |
-| **阈值再平衡** | 每月第一个周末检查 | 单一资产偏离目标±4% | 当前比例 ≥ 目标比例+4% 或 ≤ 目标比例-4% |
-| **股票内部再平衡** | 与阈值检查同时 | 沪深300:中证500比例偏离2:1 ±3% | (沪深300比例 ÷ 中证500比例) ≥ 2.3 或 ≤ 1.7 |
-| **债券内部再平衡** | 与阈值检查同时 | 国开债:国债比例偏离1:1 ±2% | (国开债比例 ÷ 国债比例) ≥ 1.2 或 ≤ 0.8 |
-| **极端情况处理** | 任意时间发现 | 任一资产偏离目标±8% | 市场极端波动导致大幅偏离 |
+再平衡的核心目的是**"高抛低吸"**与**"控制风险"**，而非追求极致的精准。为了减少频繁交易带来的摩擦成本（手续费、精力），本策略采用"宽阈值 + 季度体检"的双重机制。
 
-### 再平衡操作通用流程
+### 1. 再平衡触发矩阵
 
-1. **计算当前市值比例**：记录每个基金当前市值，计算占总资产比例
-2. **识别偏离资产**：标记所有超出容忍范围（±4%）的资产
-3. **计算调整金额**：
+| 再平衡类型 | 检查频率 | 触发阈值 | 逻辑说明 |
+|----------|---------|---------|---------|
+| **常规阈值再平衡** | **每月第一个交易日** | **偏离目标比例 ±5%** | 适用于所有资产类别。例如：目标20%，当前>25%或<15%时触发。这是最主要的调节手段。 |
+| **定期体检再平衡** | **每季度末** (3/6/9/12月) | **无条件检查** | 即使未触发±5%，若季度末偏离度超过 **±3%**，也进行微调。防止资产在"阈值边缘"长期漂移。 |
+| **极端熔断再平衡** | **实时监控** (盘中/收盘) | **偏离目标比例 ±10%** | 针对黑天鹅事件。一旦任一资产暴涨/暴跌导致偏离超过10%（如黄金从10%涨到20%），**立即执行**，不等待月度检查。 |
+| **内部结构再平衡** | **仅在季度体检时检查** | **比例偏离 > 50%** | 仅在股票内部(300/500)或债券内部(国开/国债)比例严重失衡时调整。平时不做内部倒仓。 |
+
+### 2. 详细判断标准与操作示例
+
+#### A. 常规与定期再平衡 (月度/季度)
+
+- **判断标准**：|当前比例 - 目标比例| ≥ 5%
+  - 注：对于目标比例较小的资产（如10%的商品），±5%相当于波动了50%，这是一个非常安全的阈值。
+- **操作示例**（假设组合100万）：
+  - **场景**：沪深300（目标25%）大涨，当前市值31万（31%）；中证500（目标15%）下跌，当前市值13万（13%）。
+  - **分析**：沪深300偏离+6%（触发），中证500偏离-2%（未触发）。
+  - **操作**：卖出超配的沪深300（卖出6万元市值，使其回归25%），**将卖出的6万元全部买入偏离度最大的低配资产**。
+  - 修正逻辑：优先填最大的坑，而不是撒胡椒面。
+
+#### B. 内部结构再平衡 (季度)
+
+- **判断标准**：
+  - **股票内部**：沪深300与中证500的市值比。若比例超过 **3:1** 或低于 **1:1**（原定约1.67:1），则调整。
+  - **债券内部**：长债(国开+国债)与中债的市值比。若比例超过 **2:1** 或低于 **1:2**，则调整。
+- **操作示例**：
+  - **场景**：季度检查发现，沪深300市值22万，中证500市值18万（目标25万/15万）。
+  - **分析**：当前比例1.22:1，未超过3:1的阈值。
+  - **操作**：**不操作**。尽管有偏离，但在允许范围内，保留动量。
+  - 修改理由：内部倒仓不产生新的风险敞口变化，频繁操作意义不大，反而增加手续费。
+
+#### C. 极端情况处理 (熔断)
+
+- **触发条件**：任一资产单日或单周波动剧烈，导致其仓位比例瞬间突破 **目标比例 ±10%**。
+- **操作示例**：
+  - **场景**：黄金目标10%，突发地缘政治危机，黄金一周暴涨，持仓占比瞬间达到21%。
+  - **操作**：**立即卖出**11%仓位的黄金（即总资产的11%），将资金转入货币基金或低配资产，无需等待月底。
+
+### 3. 再平衡执行流程 (SOP)
+
+1. **估值**：每月1号（或季度末）统计所有场外基金的当前持有市值。
+2. **计算**：计算各资产当前占比，并与目标占比做差。
+3. **筛选**：找出所有 |偏离度| ≥ 5% 的资产（红色警报）；若无红色警报但在季度末，找出 |偏离度| ≥ 3% 的资产（黄色警报）。
+4. **执行**：卖出"红色/黄色警报"的超配部分；将回笼资金按**偏离度从大到小**的顺序，优先补足低配资产。
+5. **记录归档**：记录再平衡日期、原因、操作详情
 
 \`\`\`
 赎回金额 = 组合总市值 × (当前比例 - 目标比例) [当当前比例>目标时]
 申购金额 = 组合总市值 × (目标比例 - 当前比例) [当当前比例<目标时]
 \`\`\`
-
-4. **执行交易**：赎回超配基金（优先赎回持有>1年份额），申购低配基金
-5. **记录归档**：记录再平衡日期、原因、操作详情
 
 ## 六、费用优化建议
 
@@ -1475,21 +1608,52 @@ function buildInputs() {
           <span class="cat-pct">${(totalTarget * 100).toFixed(0)}%</span>
         </div>
         <div class="cat-inputs" style="grid-template-columns:repeat(${items.length},1fr)">
-          ${items.map(a => `
+          ${items.map(a => {
+            const active = _activeAsset(a);
+            const isAlt = _awAltSet.has(a.id) && a.alt;
+            return `
             <div class="form-field" data-id="${a.id}">
               <label class="form-label" style="color:${color}">${a.label}（目标 ${(a.target * 100).toFixed(0)}%）</label>
               <input class="form-input" id="inp-${a.id}" type="number" placeholder="当前市值（元）" min="0">
-              <span class="form-sub">${a.name} · ${a.code}</span>
-            </div>
-          `).join('')}
+              <div class="form-sub-row">
+                <span class="form-sub">${active.name} · (${active.fullName} - ${active.code})</span>
+                ${a.alt ? `<button class="aw-alt-btn${isAlt ? ' active' : ''}" onclick="toggleAwAlt('${a.id}')" title="${isAlt ? '切换回：' + a.name : '切换为：' + a.alt.name}">⇄</button>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
   }).join('');
 }
 
 // ══════════════════════════════════════════════════════
-// Highlight input fields based on buy / sell / hold
+// AW 替代标的切换
 // ══════════════════════════════════════════════════════
+function toggleAwAlt(id) {
+  const a = PORTFOLIO.find(x => x.id === id);
+  if (!a?.alt) return;
+  if (_awAltSet.has(id)) {
+    _awAltSet.delete(id);
+  } else {
+    _awAltSet.add(id);
+  }
+  localStorage.setItem(_AW_ALT_KEY, JSON.stringify([..._awAltSet]));
+  // 保留已填数值后重建
+  const saved = {};
+  PORTFOLIO.forEach(x => {
+    const inp = document.getElementById('inp-' + x.id);
+    if (inp?.value) saved[x.id] = inp.value;
+  });
+  buildInputs();
+  Object.entries(saved).forEach(([xid, val]) => {
+    const inp = document.getElementById('inp-' + xid);
+    if (inp) inp.value = val;
+  });
+  const active = _activeAsset(a);
+  showAwToast(`已切换为：${active.name}（${active.code}）`);
+}
+
+
 function highlightInputs(ops) {
   // ops: array of {id, diff} where diff = targetVal - currentVal
   ops.forEach(({ id, diff }) => {
@@ -1512,7 +1676,31 @@ function clearHighlights() {
 // ══════════════════════════════════════════════════════
 let lastCalcResult = null;
 
+// ── 检查类型选择器 ──
+let _pendingCheckType = 'monthly';
+
 function calcRebalance() {
+  document.getElementById('check-type-overlay').classList.add('open');
+}
+
+function selectCheckType(type, labelEl) {
+  _pendingCheckType = type;
+  document.querySelectorAll('.check-type-option').forEach(el => el.classList.remove('selected'));
+  labelEl.classList.add('selected');
+  const radio = labelEl.querySelector('input[type=radio]');
+  if (radio) radio.checked = true;
+}
+
+function closeCheckTypePicker() {
+  document.getElementById('check-type-overlay').classList.remove('open');
+}
+
+function confirmCheckType() {
+  closeCheckTypePicker();
+  _runCalc(_pendingCheckType);
+}
+
+function _runCalc(checkType) {
   const inputTotal = parseFloat(document.getElementById('total-assets').value) || 0;
 
   const assets = {};
@@ -1554,62 +1742,82 @@ function calcRebalance() {
   for (const a of PORTFOLIO) { weights[a.id] = assets[a.id] / total; }
 
 
-  // ── Trigger checks ──
+  // ── Trigger checks（按检查类型过滤）──
   const hs300w  = weights['hs300'];
   const zz500w  = weights['zz500'];
   const bond75w = weights['bond75'];
   const bond35w = weights['bond35'];
+  const bond5w  = weights['bond5'];
 
   const triggerResults = [];
   const triggeredTypes = [];
 
-  // 1. 阈值再平衡 ±4%
-  const threshAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.04);
-  triggerResults.push({
-    label: '阈值再平衡 (±4%)',
-    triggered: threshAssets.length > 0,
-    detail: threshAssets.length ? `触发：${threshAssets.map(a=>a.label).join('、')}` : '所有资产偏差 < 4%',
-  });
-  if (threshAssets.length) triggeredTypes.push('阈值再平衡');
+  const checkTypeLabel = {
+    monthly:   '📅 每月检查日',
+    quarterly: '📊 每季度检查日',
+    realtime:  '⚡ 实时监控',
+  }[checkType] || '';
 
-  // 2. 极端情况 ±8%
-  const extremeAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.08);
-  triggerResults.push({
-    label: '极端情况 (±8%)',
-    triggered: extremeAssets.length > 0,
-    detail: extremeAssets.length ? `触发：${extremeAssets.map(a=>a.label).join('、')}` : '无极端偏离',
-  });
-  if (extremeAssets.length) triggeredTypes.push('极端情况');
+  if (checkType === 'monthly') {
+    // 每月检查日：仅常规阈值再平衡(±5%)
+    const threshAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.05);
+    triggerResults.push({
+      label: '常规阈值再平衡 (±5%)',
+      triggered: threshAssets.length > 0,
+      detail: threshAssets.length ? `触发：${threshAssets.map(a=>a.label).join('、')}` : '所有资产偏差 < 5%',
+    });
+    if (threshAssets.length) triggeredTypes.push('常规阈值再平衡');
 
-  // 3. 股票内部 2:1 ±3%
-  const stockRatio = zz500w > 0 ? hs300w / zz500w : null;
-  const stockTriggered = stockRatio != null && (stockRatio >= 2.3 || stockRatio <= 1.7);
-  triggerResults.push({
-    label: '股票内部 (2:1±3%)',
-    triggered: stockTriggered,
-    detail: stockRatio != null
-      ? `沪深300/中证500 = ${stockRatio.toFixed(2)}（区间 [1.7, 2.3]）`
-      : '中证500 为 0，无法计算',
-  });
-  if (stockTriggered) triggeredTypes.push('股票内部');
+  } else if (checkType === 'quarterly') {
+    // 每季度检查日：定期体检再平衡(±3%) + 内部结构再平衡
+    const checkAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.03);
+    triggerResults.push({
+      label: '定期体检再平衡 (±3%)',
+      triggered: checkAssets.length > 0,
+      detail: checkAssets.length ? `触发：${checkAssets.map(a=>a.label).join('、')}` : '所有资产偏差 < 3%',
+    });
+    if (checkAssets.length) triggeredTypes.push('定期体检再平衡');
 
-  // 4. 债券内部 1:1 ±2%
-  const bondRatio = bond35w > 0 ? bond75w / bond35w : null;
-  const bondTriggered = bondRatio != null && (bondRatio >= 1.2 || bondRatio <= 0.8);
-  triggerResults.push({
-    label: '债券内部 (1:1±2%)',
-    triggered: bondTriggered,
-    detail: bondRatio != null
-      ? `国开债/国债 = ${bondRatio.toFixed(2)}（区间 [0.8, 1.2]）`
-      : '国债为 0，无法计算',
-  });
-  if (bondTriggered) triggeredTypes.push('债券内部');
+    const stockRatio = zz500w > 0 ? hs300w / zz500w : null;
+    const stockTriggered = stockRatio != null && (stockRatio >= 3.0 || stockRatio <= 1.0);
+    triggerResults.push({
+      label: '股票内部结构 (1:1~3:1)',
+      triggered: stockTriggered,
+      detail: stockRatio != null
+        ? `沪深300/中证500 = ${stockRatio.toFixed(2)}（安全区间 [1.0, 3.0]，目标约1.67）`
+        : '中证500 为 0，无法计算',
+    });
+    if (stockTriggered) triggeredTypes.push('股票内部结构');
+
+    const longBondW = bond75w + bond35w;
+    const bondRatio = bond5w > 0 ? longBondW / bond5w : null;
+    const bondTriggered = bondRatio != null && (bondRatio >= 2.0 || bondRatio <= 0.5);
+    triggerResults.push({
+      label: '债券内部结构 (1:2~2:1)',
+      triggered: bondTriggered,
+      detail: bondRatio != null
+        ? `长债/中债 = ${bondRatio.toFixed(2)}（安全区间 [0.5, 2.0]，目标约1.5）`
+        : '中债为 0，无法计算',
+    });
+    if (bondTriggered) triggeredTypes.push('债券内部结构');
+
+  } else {
+    // 实时监控：极端熔断再平衡(±10%)
+    const extremeAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.10);
+    triggerResults.push({
+      label: '极端熔断再平衡 (±10%)',
+      triggered: extremeAssets.length > 0,
+      detail: extremeAssets.length ? `触发：${extremeAssets.map(a=>a.label).join('、')}` : '无资产偏离超过 ±10%',
+    });
+    if (extremeAssets.length) triggeredTypes.push('极端熔断再平衡');
+  }
 
   const anyTriggered = triggeredTypes.length > 0;
 
   // ── Render trigger status badges ──
   document.getElementById('trigger-status').innerHTML =
-    '<span style="font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">触发点：</span>' +
+    `<span style="font-size:13px;font-weight:700;color:var(--cyan);margin-right:4px">${checkTypeLabel}</span>` +
+    '<span style="font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">触发点：</span>' +
     triggerResults.map(t =>
       `<span class="sum-chip ${t.triggered ? 'sum-sell' : 'sum-ok'}" title="${t.detail}">${t.triggered ? '⚠' : '✓'} ${t.label}</span>`
     ).join('');
@@ -1639,7 +1847,7 @@ function calcRebalance() {
     const opAmtCls = isSell ? 'op-amt-sell' : isBuy ? 'op-amt-buy' : '';
     const driftPct = (op.drift * 100);
     const driftStr = (driftPct >= 0 ? '+' : '') + driftPct.toFixed(1) + '%';
-    const driftCls = op.drift >  0.04 ? 'drift-hi' : op.drift < -0.04 ? 'drift-lo' : 'drift-ok';
+    const driftCls = op.drift >  0.05 ? 'drift-hi' : op.drift < -0.05 ? 'drift-lo' : 'drift-ok';
     const accentColor = ASSET_COLORS[op.group];
     return `
       <div class="compare-row ${rowClass}">
@@ -1830,16 +2038,22 @@ async function saveAwJournalRecord(silent = false) {
     saved_at:   new Date().toISOString(),
     total:      lastCalcResult.total,
     triggers:   [...new Set(lastCalcResult.triggers)],
-    assets:     PORTFOLIO.map(a => ({
-      id:       a.id,
-      name:     a.name,
-      code:     a.code,
-      label:    a.label,
-      group:    a.group,
-      target:   a.target,
-      current:  lastCalcResult.weights[a.id] || 0,
-      value:    parseFloat(document.getElementById('inp-' + a.id).value) || 0,
-    })),
+    alt_codes:  [..._awAltSet],   // 当日使用替代标的的 id 列表
+    assets:     PORTFOLIO.map(a => {
+      const active = _activeAsset(a);
+      return {
+        id:           a.id,
+        label:        a.label,
+        name:         active.name,         // 实际使用的简称
+        fullName:     active.fullName,     // 实际使用的全称
+        code:         active.code,         // 实际使用的代号
+        is_alt:       _awAltSet.has(a.id), // 是否用替代标的
+        group:        a.group,
+        target:       a.target,
+        current:      lastCalcResult.weights[a.id] || 0,
+        value:        parseFloat(document.getElementById('inp-' + a.id).value) || 0,
+      };
+    }),
     ops: lastCalcResult.ops,
   };
   try {
@@ -1942,7 +2156,7 @@ function awJournalRow(r) {
     const tgtPct = (a.target  * 100).toFixed(0);
     const drift  = a.current - a.target;
     const driftStr = (drift >= 0 ? '+' : '') + (drift * 100).toFixed(1) + '%';
-    const driftClr = Math.abs(drift) >= 0.04
+    const driftClr = Math.abs(drift) >= 0.05
       ? (drift > 0 ? 'var(--red)' : 'var(--green)')
       : 'var(--text-dim)';
     return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0;font-size:12px">
@@ -2043,37 +2257,6 @@ function clearLog() {
   if (!confirm('确认清空所有操作记录？此操作不可撤销。')) return;
   saveLogData([]);
   renderLog();
-}
-
-function exportLog() {
-  const data = loadLog();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = `rebalance_log_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importLog(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!Array.isArray(data)) throw new Error('格式错误');
-      if (!confirm(`确认导入 ${data.length} 条记录？将覆盖现有记录。`)) return;
-      saveLogData(data);
-      renderLog();
-      alert(`✓ 已导入 ${data.length} 条记录`);
-    } catch (err) {
-      alert('导入失败：' + err.message);
-    }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
 }
 
 // ══════════════════════════════════════════════════════
