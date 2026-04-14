@@ -1130,19 +1130,19 @@
 // 策略配置（与文档对应）
 // ══════════════════════════════════════════════════════
 const PORTFOLIO = [
-  { id: 'hs300',  name: '沪深300联接A',  fullName: '华泰柏瑞沪深300ETF联接A',      code: '460300', group: 'stock',  target: 0.25, label: '股票类-大盘',
-    alt: { name: '易方达沪深300联接A',  fullName: '易方达沪深300ETF联接A',          code: '110020' } },
-  { id: 'zz500',  name: '中证500联接A',  fullName: '华泰柏瑞中证500ETF联接A',       code: '001214', group: 'stock',  target: 0.15, label: '股票类-中盘',
-    alt: { name: '易方达中证500联接A',  fullName: '易方达中证500ETF联接A',           code: '022459' } },
-  { id: 'bond75', name: '国开债7-10年A', fullName: '广发中债7-10年国开债指数A',     code: '003376', group: 'bond_l', target: 0.12, label: '长期债券-国开债',
-    alt: { name: '富国政金债联接A',     fullName: '富国中债7-10年政策性金融债ETF联接A', code: '018266' } },
-  { id: 'bond35', name: '国债3-5年A',    fullName: '易方达中债3-5年期国债指数A',    code: '001512', group: 'bond_l', target: 0.12, label: '长期债券-国债',
-    alt: { name: '南方国开债联接A',     fullName: '南方中债5-10年期国开行债指数A',   code: '006961' } },
-  { id: 'bond5',  name: '中债新综指A',   fullName: '易方达中债新综指A',             code: '161119', group: 'bond_m', target: 0.16, label: '中期债券',
-    alt: { name: '长城中债3-5年A',      fullName: '长城中债3-5年期国债指数A',        code: '009324' } },
-  { id: 'gold',   name: '黄金易ETF联接A',fullName: '华安黄金易ETF联接A',            code: '000216', group: 'gold',   target: 0.10, label: '黄金',
-    alt: { name: '博时黄金联接A',       fullName: '博时黄金ETF联接A',               code: '002610' } },
-  { id: 'comm',   name: '大宗商品QDII-A',fullName: '国泰大宗商品(QDII-LOF)A',      code: '160216', group: 'comm',   target: 0.10, label: '大宗商品',
+  { id: 'hs300',  name: '沪深300联接A',  fullName: '华泰柏瑞沪深300ETF联接A',         code: '460300', group: 'stock',  target: 0.25, label: '股票类-大盘',
+    alt: { name: '天弘沪深300联接A',    fullName: '天弘沪深300ETF联接A',              code: '000961' } },
+  { id: 'zz500',  name: '中证500联接A',  fullName: '易方达中证500ETF联接A',            code: '007028', group: 'stock',  target: 0.15, label: '股票类-中盘',
+    alt: { name: '华夏中证500联接A',    fullName: '华夏中证500ETF联接A',              code: '001052' } },
+  { id: 'bond75', name: '国开债7-10年A', fullName: '南方中债7-10年国开行债券指数A',   code: '006961', group: 'bond_l', target: 0.12, label: '长期债券-国开债',
+    alt: { name: '汇添富国开行债联接A', fullName: '汇添富中债7-10年国开行债券指数A',  code: '008054' } },
+  { id: 'bond35', name: '农发债5-10年A', fullName: '博时中债5-10年农发行债券指数A',   code: '006848', group: 'bond_l', target: 0.12, label: '长期债券-国债',
+    alt: { name: '上银国开行债联接A',   fullName: '上银中债5-10年国开行债券指数A',    code: '013138' } },
+  { id: 'bond5',  name: '农发债3-5年A',  fullName: '南方中债3-5年农发行债券指数A',    code: '006493', group: 'bond_m', target: 0.16, label: '中期债券',
+    alt: { name: '长城中债3-5年A',      fullName: '长城中债3-5年期国债指数A',         code: '009324' } },
+  { id: 'gold',   name: '黄金易ETF联接A',fullName: '华安黄金易ETF联接A',              code: '000216', group: 'gold',   target: 0.10, label: '黄金',
+    alt: { name: '博时黄金联接A',       fullName: '博时黄金ETF联接A',                code: '002610' } },
+  { id: 'comm',   name: '大宗商品QDII-A',fullName: '国泰大宗商品(QDII-LOF)A',        code: '160216', group: 'comm',   target: 0.10, label: '大宗商品',
     alt: { name: '中信保诚全球商品A',   fullName: '中信保诚全球商品主题(QDII-FOF-LOF)A', code: '165513' } },
 ];
 
@@ -1184,11 +1184,11 @@ const GUIDE_MD = `# 全天候配置动态平衡策略场外基金操作指南（
 
 | 资产类别 | 目标比例 | 场外基金（A类） | 基金代码 | 替代选择 |
 |---------|---------|---------------|---------|---------|
-| 股票类-大盘 | 25% | 华泰柏瑞沪深300ETF联接A | 460300 | 易方达沪深300ETF联接A（110020） |
-| 股票类-中盘 | 15% | 华泰柏瑞中证500ETF联接A | 001214 | 易方达中证500ETF联接A（022459） |
-| 长期债券-国开债 | 12% | 广发中债7-10年国开债指数A | 003376 | 富国中债7-10年政策性金融债ETF联接A（018266） |
-| 长期债券-国债 | 12% | 易方达中债3-5年期国债指数A | 001512 | 南方中债5-10年期国开行债指数A（006961） |
-| 中期债券 | 16% | 易方达中债新综指A | 161119 | 长城中债3-5年期国债指数A（009324） |
+| 股票类-大盘 | 25% | 华泰柏瑞沪深300ETF联接A | 460300 | 天弘沪深300ETF联接A（000961） |
+| 股票类-中盘 | 15% | 易方达中证500ETF联接A | 007028 | 华夏中证500ETF联接A（001052） |
+| 长期债券-国开债 | 12% | 南方中债7-10年国开行债券指数A | 006961 | 汇添富中债7-10年国开行债券指数A（008054） |
+| 长期债券-国债 | 12% | 博时中债5-10年农发行债券指数A | 006848 | 上银中债5-10年国开行债券指数A（013138） |
+| 中期债券 | 16% | 南方中债3-5年农发行债券指数A | 006493 | 长城中债3-5年期国债指数A（009324） |
 | 黄金 | 10% | 华安黄金易ETF联接A | 000216 | 博时黄金ETF联接A（002610） |
 | 大宗商品 | 10% | 国泰大宗商品(QDII-LOF)A | 160216 | 中信保诚全球商品主题(QDII-FOF-LOF)A（165513） |
 
