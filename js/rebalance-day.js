@@ -4,7 +4,7 @@ function formatDate(d) {
   return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日  星期${days[d.getDay()]}`;
 }
 
-// 调仓日锚点：2026-04-16（周四，已确认为调仓日）
+// 调仓日锚点：2026-04-23（周四，下一个调仓日）
 const _REBALANCE_ANCHOR = '2026-04-23';
 
 /** 日期字符串 + n 天，返回 YYYY-MM-DD（纯 UTC 计算，避免时区偏移）*/
