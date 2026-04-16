@@ -84,14 +84,17 @@ function refreshAllPosPct() {
   });
 }
 
+// 供 main.js 在初始化时注册，避免 amounts → advice 循环依赖
+let _adviceRenderer = null;
+export function setAdviceRenderer(cb) { _adviceRenderer = cb; }
+
 /** 金额变化时触发 */
 function onAmtChange(code_c, val) {
   const v = parseFloat(val) || 0;
   _amt[code_c] = v > 0 ? v : 0;
   saveAmounts();  // 异步持久化到后端 /api/cache/amounts
   refreshAllPosPct();
-  // TODO: 在 advice.js 提取后，替换为 import { mdtfrRenderAdvice } from './advice.js'
-  if (_lastMdtfrItems) window.mdtfrRenderAdvice?.(_lastMdtfrItems);
+  if (_lastMdtfrItems && _adviceRenderer) _adviceRenderer(_lastMdtfrItems);
 }
 
 /** 生成金额输入框（仅输入框，仓位百分比在独立的 td 中） */
@@ -116,7 +119,6 @@ export {
   loadAmounts, saveAmounts, getAmt, getTotalAmt,
   getPosVal, refreshAllPosPct, onAmtChange, mkAmtCell, mkPosPct,
 };
-
 /** 供 advice.js 回写最新标的列表（金额变化时重新渲染建议用） */
 export function setLastMdtfrItems(items) { _lastMdtfrItems = items; }
 

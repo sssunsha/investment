@@ -9,8 +9,11 @@ const DEFENSE_CODES = new Set(['006131', '006382', '007467', '000217']);
 
 // 当前建议数据（供 journal.js 读取后保存）
 let _lastAdviceData = null;
+// 供 main.js 在初始化时注册，避免 advice → journal 循环依赖
+let _journalSaver = null;
 
 export function getLastAdviceData() { return _lastAdviceData; }
+export function setJournalSaver(cb) { _journalSaver = cb; }
 
 export function mdtfrBuildAdvice(items) {
   const valid = items.filter(x => !x.error && x.ret_20d != null && x.latest_close != null);
@@ -500,6 +503,6 @@ export function mdtfrRenderAdvice(items) {
     is_attack: isAttack,
   };
 
-  // 自动保存复盘（journal.js 尚未提取，通过 window 桥接）
-  window.saveJournalRecord?.(true);
+  // 自动保存复盘（通过 main.js 注入的回调，避免循环依赖）
+  if (_journalSaver) _journalSaver(true);
 }
