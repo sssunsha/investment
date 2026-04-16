@@ -88,8 +88,8 @@ export async function confirmTradeRow(type, index) {
       if (type === 'sell') {
         const snap       = _rowSnapshots.get(rowId);
         const prevAmt    = snap.prevAmt || 0;
-        const prevShares = getShares(code);
-        const ratio      = prevAmt > 0 ? Math.min(row.amt / prevAmt, 1) : 1;
+        const prevShares = snap.prevShares || 0;
+        const ratio      = prevAmt > 0 ? Math.min(row.amt / prevAmt, 1) : 0;
         setShares(code, Math.max(0, prevShares - prevShares * ratio));
         setCost(code,   Math.max(0, getCost(code) * (1 - ratio)));
       } else {

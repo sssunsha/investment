@@ -158,9 +158,9 @@ function clearAmt(code_c) {
       totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
     }
   }
-  // 同步清空输入框 value
+  // 同步清空输入框 value，并重置盈亏颜色
   const inp = document.querySelector(`.amt-input[data-code="${code_c}"]`);
-  if (inp) { inp.value = ''; inp.dataset.held = false; }
+  if (inp) { inp.value = ''; inp.dataset.held = false; inp.style.color = ''; }
   if (_lastMdtfrItems && _adviceRenderer) _adviceRenderer(_lastMdtfrItems);
 }
 

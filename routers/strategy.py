@@ -331,7 +331,7 @@ async def mdtfr_pool_stream(
                     time.sleep(0.3)  # 避免连续请求触发 socket 错误
                 except Exception as e:
                     ev({"type": "item", **etf, "error": str(e),
-                        "latest_close": None, "latest_date": None})
+                        "latest_close": None, "prev_close": None, "latest_date": None})
         finally:
             _bs.logout()
             ev({"type": "done", "last_updated": datetime.now().isoformat()})
