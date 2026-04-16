@@ -33,14 +33,17 @@ import {
   setAvailableAdviceRenderer, setAvailableItemsGetter,
 } from './mdtfr/available.js';
 import {
-  confirmTrade, undoTrade, setAdviceRerenderer,
+  confirmTradeRow, undoTradeRow,
+  setAdviceRerenderer, clearRowSnapshots,
+  setRowConfirmJournalSaver,
 } from './mdtfr/trade-confirm.js';
 
 // ── 连接跨模块回调（避免循环依赖）────────────────────────────────
 setJournalSaver(saveJournalRecord);           // advice → journal（自动复盘保存）
 setAdviceRenderer(mdtfrRenderAdvice);         // amounts → advice（金额变化时重渲建议）
 setTotalAmtGetter(getTotalAmt);               // amounts.refreshAllPosPct 使用完整总金额
-setAdviceRerenderer(mdtfrRenderAdvice);       // trade-confirm → advice
+setAdviceRerenderer((items) => { clearRowSnapshots(); mdtfrRenderAdvice(items); }); // trade-confirm → advice
+setRowConfirmJournalSaver(saveJournalRecord);  // trade-confirm → journal（行级确认写入）
 setAvailableToastFn(showToast);               // available.recoverFromJournal 提示
 setAvailableRefreshFn(refreshAllPosPct);      // available.onAvailableChange 刷新仓位
 setAvailableAdviceRenderer(mdtfrRenderAdvice);// available.onAvailableChange 重渲建议
@@ -68,8 +71,8 @@ Object.assign(window, {
   // 金额管理
   onAmtChange, clearAmt,
   onAvailableChange,
-  // 交易确认/撤销
-  confirmTrade, undoTrade,
+  // 交易确认/撤销（行级）
+  confirmTradeRow, undoTradeRow,
 });
 
 // ── 页面初始化 ──────────────────────────────────────────────
