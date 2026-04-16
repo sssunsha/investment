@@ -5,7 +5,7 @@ function formatDate(d) {
 }
 
 // 调仓日锚点：2026-04-16（周四，已确认为调仓日）
-const _REBALANCE_ANCHOR = '2026-04-16';
+const _REBALANCE_ANCHOR = '2026-04-23';
 
 /** 日期字符串 + n 天，返回 YYYY-MM-DD（纯 UTC 计算，避免时区偏移）*/
 function _addDays(dateStr, n) {
