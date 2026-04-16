@@ -3,6 +3,7 @@
 import { OFFENSIVE_CANDIDATES, getActiveCodes, setActiveCodes } from './config.js';
 import { cacheDelete } from './cache.js';
 import { mdtfrInitTable } from './table.js';
+import { showToast } from './journal.js';
 
 function openPoolAdjust() {
   const list = document.getElementById('pool-adjust-list');
