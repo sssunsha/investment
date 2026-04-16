@@ -4,6 +4,11 @@ import { escHtml } from '../utils.js';
 import { getLastMdtfrItems } from './amounts.js';
 import { getWatchState } from './watch.js';
 import { getLastAdviceData } from './advice.js';
+import { getAvailableAmt } from './available.js';
+
+// 供 trade-confirm.js 注入确认注解（confirmed_at + trade_records）
+let _pendingAnnotation = null;
+export function setPendingConfirmAnnotation(data) { _pendingAnnotation = data; }
 
 async function saveJournalRecord(silent = false) {
   const _lastMdtfrItems = getLastMdtfrItems();
@@ -14,6 +19,8 @@ async function saveJournalRecord(silent = false) {
     saved_at:    new Date().toISOString(),
     data_date:   _lastMdtfrItems.find(x => x.latest_date)?.latest_date || today,
     ..._lastAdviceData,
+    available_amt: getAvailableAmt(),
+    ...(_pendingAnnotation || {}),
     pool_snapshot: _lastMdtfrItems
       .filter(x => !x.error && x.ret_20d != null)
       .map(x => ({
@@ -25,6 +32,7 @@ async function saveJournalRecord(silent = false) {
       })),
     watch_snapshot: getWatchState().map(w => ({ ...w })),
   };
+  _pendingAnnotation = null;  // 使用后立即清空
   try {
     const res = await fetch('/api/cache/journal', {
       method: 'POST',
