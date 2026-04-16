@@ -301,7 +301,7 @@ async def mdtfr_pool_stream(
                     if rs.error_code != '0':
                         ev({"type": "item", **etf,
                             "error": f"查询失败(code={rs.error_code}): {rs.error_msg}",
-                            "latest_close": None, "latest_date": None})
+                            "latest_close": None, "prev_close": None, "latest_date": None})
                         continue
                     rows = []
                     while rs.error_code == '0' and rs.next():
@@ -312,13 +312,14 @@ async def mdtfr_pool_stream(
                     if n < 21:
                         ev({"type": "item", **etf,
                             "error": f"数据不足（{n} 条，需至少 21 条）",
-                            "latest_close": None, "latest_date": None})
+                            "latest_close": None, "prev_close": None, "latest_date": None})
                         continue
                     closes = [r["close"] for r in rows]
                     ma20 = round(sum(closes[-20:]) / 20, 3)
                     ma60, ma60_rising, ma60_rate, ma60_trend = _calc_ma60(closes)
                     ev({"type": "item", **etf,
                         "latest_close": round(closes[-1], 3),
+                        "prev_close":   round(closes[-2], 3),
                         "latest_date":  rows[-1]["date"],
                         "ret_20d":      round((closes[-1] - closes[-21]) / closes[-21], 6),
                         "ma20": ma20, "ma60": ma60,
