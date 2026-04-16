@@ -22,16 +22,10 @@ async function cacheDelete(date) {
   if (!res.ok) throw new Error(`删除缓存失败: ${res.status}`);
 }
 
+// 删除今日及全部缓存文件
 async function clearMdtfrCache() {
   const today = new Date().toISOString().slice(0, 10);
-  try {
-    await cacheDelete(today);
-    window.mdtfrLog?.('cache', `已清空 ${today} 的缓存数据，下次加载将重新获取`);
-    document.getElementById('mdtfr-last-updated').textContent = '缓存已清空';
-    window.mdtfrInitTable?.(false);
-  } catch(e) {
-    window.mdtfrLog?.('error', `清空缓存失败: ${e.message}`);
-  }
+  await cacheDelete(today);
 }
 
 export { cacheGet, cachePut, cacheDelete, clearMdtfrCache };
