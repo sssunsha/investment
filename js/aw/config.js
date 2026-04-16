@@ -18,9 +18,9 @@ export const PORTFOLIO = [
 ];
 
 // 当前每个 id 是否使用替代标的（持久化到 localStorage）
-const _AW_ALT_KEY = 'aw_alt_codes';
+export const AW_ALT_KEY = 'aw_alt_codes';
 function _loadAwAlt() {
-  try { return new Set(JSON.parse(localStorage.getItem(_AW_ALT_KEY)) || []); } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem(AW_ALT_KEY)) || []); } catch { return new Set(); }
 }
 export let awAltSet = _loadAwAlt();
 
