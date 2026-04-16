@@ -1,7 +1,7 @@
 // js/mdtfr/table.js
 import { escHtml } from '../utils.js';
 import { getMdtfrPoolDef } from './config.js';
-import { mkAmtCell, mkPosPct } from './amounts.js';
+import { mkAmtCell, mkPosPct, getShares, refreshAmtPnl } from './amounts.js';
 
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）─
 function mdtfrInitTable(skeleton = false) {
@@ -28,6 +28,7 @@ function mdtfrInitTable(skeleton = false) {
     <td id="mdtfr-ret-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
     <td style="white-space:nowrap">${mkAmtCell(def.code_c)}</td>
     <td id="mdtfr-pos-${def.code_c}" style="text-align:right">${mkPosPct(def.code_c)}</td>
   </tr>`;
@@ -36,7 +37,7 @@ function mdtfrInitTable(skeleton = false) {
       <table class="data-table">
         <thead><tr>
           <th>排名</th><th>属性</th><th>名称</th><th>C类代码</th><th>A类代码</th><th>场内ETF</th>
-          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th><th>金额(元)</th><th>持仓情况(%)</th>
+          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th><th>份额</th><th>金额(元)</th><th>持仓情况(%)</th>
         </tr></thead>
         <tbody>${getMdtfrPoolDef().map(mkRow).join('')}</tbody>
       </table>
@@ -75,6 +76,14 @@ function mdtfrFillRow(item) {
     const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
   })();
+  // 更新份额单元格
+  const sharesEl = document.getElementById(`mdtfr-shares-${c}`);
+  if (sharesEl) {
+    const shares = getShares(c);
+    sharesEl.textContent = shares > 0 ? shares.toFixed(2) : '–';
+  }
+  // 触发盈亏颜色更新
+  refreshAmtPnl([item]);
 }
 
 // ── 计算并填充排名 ─────────────────────────────────────
