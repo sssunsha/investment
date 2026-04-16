@@ -288,7 +288,7 @@ export function mdtfrRenderAdvice(items) {
     const theadClr = type === 'sell' ? 'rgba(239,68,68,.12)' : 'rgba(34,197,94,.12)';
     const titleClr = type === 'sell' ? 'var(--red)' : 'var(--green)';
     const title    = type === 'sell' ? '🔴 卖出' : '🟢 买入';
-    const rowsHtml = rows.map(r => {
+    const rowsHtml = rows.map((r, i) => {
       const amtClr = r.watch ? 'var(--yellow)' : (type === 'sell' ? 'var(--red)' : 'var(--green)');
       const amtStr = `<span style="color:${amtClr};font-weight:700">${fmtY(r.amt)}</span>`;
       const fromStr = r.from === '货币基金'
@@ -300,11 +300,11 @@ export function mdtfrRenderAdvice(items) {
       const watchBadge = r.watch
         ? `<span style="background:rgba(245,158,11,.18);color:var(--yellow);font-size:11px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:4px">⚠ 待确认</span>`
         : '';
-      return `<tr>${td(fromStr)}${td(amtStr)}${td(toStr)}${td(watchBadge + `<span style="color:var(--text-dim);font-size:12px">${r.note}</span>`)}</tr>`;
+      return `<tr>${td(fromStr)}${td(amtStr)}${td(toStr)}${td(watchBadge + `<span style="color:var(--text-dim);font-size:12px">${r.note}</span>`)}<td id="mdtfr-row-action-${type}-${i}" style="padding:6px 8px;vertical-align:middle;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap"><button class="btn-row-confirm" onclick="confirmTradeRow('${type}',${i})" title="确认执行此行">✅ 确认</button></td></tr>`;
     }).join('');
     return `<div style="font-size:13px;font-weight:700;color:${titleClr};margin-bottom:6px">${title}</div>
       <table style="width:100%;border-collapse:collapse;background:${theadClr};border-radius:8px;overflow:hidden">
-        <thead><tr>${th('原标的')}${th('金额')}${th('现标的')}${th('说明')}</tr></thead>
+        <thead><tr>${th('原标的')}${th('金额')}${th('现标的')}${th('说明')}${th('')}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
   }
@@ -484,24 +484,6 @@ export function mdtfrRenderAdvice(items) {
       ${mod('✅', '买入条件（四条须同时满足）', buyDetailHtml + opBoxHtml)}
       ${mod('⚠',  '卖出条件（任意触发立即执行）', sellHtml)}
     </div>`;
-
-  // ── 确认/撤销按钮（仅 buy/sell/swap 时显示）────────────────────
-  const needsTradeAction = ['buy', 'sell', 'swap'].includes(finalType);
-  const noCapital = getTotalAmt() === 0;
-  const tradeActionsHtml = needsTradeAction ? `
-    <div id="mdtfr-trade-actions" style="padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button id="mdtfr-confirm-btn" class="btn-trade-confirm"
-        onclick="confirmTrade()" ${noCapital ? 'disabled title="请先在顶部输入可用金额"' : ''}>
-        ✅ 确认执行
-      </button>
-      <button id="mdtfr-undo-btn" class="btn-trade-undo"
-        onclick="undoTrade()" style="display:none">
-        ↺ 撤销
-      </button>
-      ${noCapital ? '<span style="font-size:12px;color:var(--red)">⚠ 请先在顶部输入可用金额</span>' : ''}
-    </div>` : '';
-
-  body.innerHTML = body.innerHTML + tradeActionsHtml;
 
   card.style.display = '';
 
