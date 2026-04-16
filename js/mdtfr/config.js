@@ -53,11 +53,12 @@ let MDTFR_POOL_DEF = _buildMdtfrPool();
 
 export { OFFENSIVE_CANDIDATES, MDTFR_POOL_BASE };
 
-export function getActiveCodes() { return _activeOffensiveCodes; }
-export function getMdtfrPoolDef() { return MDTFR_POOL_DEF; }
+export function getActiveCodes() { return new Set(_activeOffensiveCodes); }
+export function getMdtfrPoolDef() { return [...MDTFR_POOL_DEF]; }
 export function setActiveCodes(newSet) {
   _activeOffensiveCodes = newSet;
   localStorage.setItem(_OFFENSIVE_KEY, JSON.stringify([...newSet]));
+  MDTFR_POOL_DEF = _buildMdtfrPool();  // 原子性：与源代码 applyPoolAdjust 语义一致
 }
 export function rebuildPool() {
   MDTFR_POOL_DEF = _buildMdtfrPool();
