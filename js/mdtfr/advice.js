@@ -1,8 +1,7 @@
 // js/mdtfr/advice.js
 // 操作建议生成与渲染：mdtfrBuildAdvice / mdtfrRenderAdvice
 import { escHtml } from '../utils.js';
-import { getMdtfrPoolDef } from './config.js';
-import { getAmt, getTotalAmt, getPosVal, refreshAllPosPct, mkAmtCell, setLastMdtfrItems } from './amounts.js';
+import { getAmt, getTotalAmt, getPosVal, setLastMdtfrItems } from './amounts.js';
 import { getWatchState } from './watch.js';
 
 // 防守模式可选标的（C类代码）：沪深300、中证500、红利低波动、黄金
