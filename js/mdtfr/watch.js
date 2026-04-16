@@ -107,4 +107,7 @@ async function updateWatchState(items) {
   });
 }
 
-export { loadWatchState, saveWatchState, updateWatchState };
+/** 供 advice.js 只读访问观察状态列表 */
+function getWatchState() { return _watchState; }
+
+export { loadWatchState, saveWatchState, updateWatchState, getWatchState };
