@@ -1,7 +1,8 @@
 // js/mdtfr/advice.js
 // 操作建议生成与渲染：mdtfrBuildAdvice / mdtfrRenderAdvice
 import { escHtml } from '../utils.js';
-import { getAmt, getTotalAmt, getPosVal, setLastMdtfrItems } from './amounts.js';
+import { getAmt, getPosVal, setLastMdtfrItems } from './amounts.js';
+import { getTotalAmt } from './available.js';
 import { getWatchState } from './watch.js';
 
 // 防守模式可选标的（C类代码）：沪深300、中证500、红利低波动、黄金
@@ -483,6 +484,24 @@ export function mdtfrRenderAdvice(items) {
       ${mod('✅', '买入条件（四条须同时满足）', buyDetailHtml + opBoxHtml)}
       ${mod('⚠',  '卖出条件（任意触发立即执行）', sellHtml)}
     </div>`;
+
+  // ── 确认/撤销按钮（仅 buy/sell/swap 时显示）────────────────────
+  const needsTradeAction = ['buy', 'sell', 'swap'].includes(finalType);
+  const noCapital = getTotalAmt() === 0;
+  const tradeActionsHtml = needsTradeAction ? `
+    <div id="mdtfr-trade-actions" style="padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button id="mdtfr-confirm-btn" class="btn-trade-confirm"
+        onclick="confirmTrade()" ${noCapital ? 'disabled title="请先在顶部输入可用金额"' : ''}>
+        ✅ 确认执行
+      </button>
+      <button id="mdtfr-undo-btn" class="btn-trade-undo"
+        onclick="undoTrade()" style="display:none">
+        ↺ 撤销
+      </button>
+      ${noCapital ? '<span style="font-size:12px;color:var(--red)">⚠ 请先在顶部输入可用金额</span>' : ''}
+    </div>` : '';
+
+  body.innerHTML = body.innerHTML + tradeActionsHtml;
 
   card.style.display = '';
 
