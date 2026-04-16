@@ -61,7 +61,9 @@ function showToast(msg, color = 'var(--cyan)') {
 
 // ── 历史复盘弹窗 ─────────────────────────────────────────────
 function openJournal() {
-  document.getElementById('journal-overlay').classList.add('open');
+  const overlay = document.getElementById('journal-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
   // 默认加载当月
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -71,7 +73,7 @@ function openJournal() {
 }
 
 function closeJournal() {
-  document.getElementById('journal-overlay').classList.remove('open');
+  document.getElementById('journal-overlay')?.classList.remove('open');
 }
 
 async function loadJournal(ym) {
@@ -83,6 +85,7 @@ async function loadJournal(ym) {
   const [year, month] = ym.split('-');
   const body = document.getElementById('journal-body');
   const countEl = document.getElementById('journal-count');
+  if (!body || !countEl) return;
   body.innerHTML = '<div style="color:var(--text-dim);padding:20px 0">加载中...</div>';
   try {
     const res = await fetch(`/api/cache/journal/${year}/${month}`);
