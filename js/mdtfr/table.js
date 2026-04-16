@@ -1,12 +1,10 @@
 // js/mdtfr/table.js
 import { escHtml } from '../utils.js';
 import { getMdtfrPoolDef } from './config.js';
-import { mdtfrLog } from './debug.js';
 
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）─
 function mdtfrInitTable(skeleton = false) {
-  // 重置排序状态
-  window._mdtfrSorted = false;
+  // 重置排序按钮 UI（_mdtfrSorted 状态由 loader.js/toggleMdtfrSort 管理）
   const sortBtn = document.getElementById('mdtfr-sort-btn');
   if (sortBtn) { sortBtn.style.display = 'none'; sortBtn.innerHTML = '↕ 排序'; sortBtn.style.color = ''; sortBtn.style.borderColor = ''; }
   const body = document.getElementById('mdtfr-body');
