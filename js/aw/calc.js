@@ -332,7 +332,7 @@ function _runCalc(checkType) {
       triggers: triggeredTypes,
     };
     // 自动保存复盘记录（静默模式）
-    saveAwJournalRecord(true);
+    window.saveAwJournalRecord?.(true);
   } else {
     document.getElementById('op-plans').style.display = 'none';
     document.getElementById('save-log-btn').style.display = 'none';

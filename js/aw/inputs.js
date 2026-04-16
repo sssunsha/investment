@@ -53,7 +53,7 @@ function toggleAwAlt(id) {
     if (inp) inp.value = val;
   });
   const active = getActiveAsset(a);
-  showAwToast(`已切换为：${active.name}（${active.code}）`);
+  window.showAwToast?.(`已切换为：${active.name}（${active.code}）`);
 }
 
 function highlightInputs(ops) {
