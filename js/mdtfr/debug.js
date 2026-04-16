@@ -1,3 +1,5 @@
+import { escHtml } from '../utils.js';
+
 let _mdtfrLogs = [];
 function mdtfrLog(level, msg) {
   const ts = new Date().toTimeString().slice(0,8);
