@@ -4,6 +4,7 @@ import { getLastAdviceData } from './advice.js';
 import {
   getAmt, setAmt, setAmts, saveAmounts,
   refreshAllPosPct, getLastMdtfrItems,
+  getShares, getCost, setShares, setCost,
 } from './amounts.js';
 import {
   getAvailableAmt, setAvailableAmt, saveAvailable,
@@ -62,8 +63,10 @@ export async function confirmTradeRow(type, index) {
   // 保存行快照
   _rowSnapshots.set(rowId, {
     code,
-    prevAmt:       code ? getAmt(code) : null,
+    prevAmt:       code ? getAmt(code)    : null,
     prevAvailable: getAvailableAmt(),
+    prevShares:    code ? getShares(code) : null,
+    prevCost:      code ? getCost(code)   : null,
   });
 
   // 应用变更
@@ -73,6 +76,28 @@ export async function confirmTradeRow(type, index) {
   } else {
     if (code) setAmt(code, getAmt(code) + row.amt);
     setAvailableAmt(Math.max(0, getAvailableAmt() - row.amt));
+  }
+
+  // 计算份额变更（以前一日收盘价为单价）
+  if (code) {
+    const items     = getLastMdtfrItems() || [];
+    const item      = items.find(x => x.code_c === code);
+    const prevClose = item?.prev_close || item?.latest_close || 0;
+
+    if (prevClose > 0) {
+      if (type === 'sell') {
+        const snap       = _rowSnapshots.get(rowId);
+        const prevAmt    = snap.prevAmt || 0;
+        const prevShares = getShares(code);
+        const ratio      = prevAmt > 0 ? Math.min(row.amt / prevAmt, 1) : 1;
+        setShares(code, Math.max(0, prevShares - prevShares * ratio));
+        setCost(code,   Math.max(0, getCost(code) * (1 - ratio)));
+      } else {
+        // buy
+        setShares(code, getShares(code) + row.amt / prevClose);
+        setCost(code,   getCost(code)   + row.amt);
+      }
+    }
   }
 
   await saveAmounts();
@@ -93,7 +118,9 @@ export async function undoTradeRow(type, index) {
   const snap  = _rowSnapshots.get(rowId);
   if (!snap) return;
 
-  if (snap.code !== null && snap.prevAmt !== null) setAmt(snap.code, snap.prevAmt);
+  if (snap.code !== null && snap.prevAmt    !== null) setAmt(snap.code,    snap.prevAmt);
+  if (snap.code !== null && snap.prevShares !== null) setShares(snap.code, snap.prevShares);
+  if (snap.code !== null && snap.prevCost   !== null) setCost(snap.code,   snap.prevCost);
   setAvailableAmt(snap.prevAvailable);
   _rowSnapshots.delete(rowId);
 
