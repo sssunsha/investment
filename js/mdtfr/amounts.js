@@ -115,8 +115,10 @@ function mkPosPct(code_c) {
 export {
   loadAmounts, saveAmounts, getAmt, getTotalAmt,
   getPosVal, refreshAllPosPct, onAmtChange, mkAmtCell, mkPosPct,
-  setLastMdtfrItems,
 };
 
 /** 供 advice.js 回写最新标的列表（金额变化时重新渲染建议用） */
 export function setLastMdtfrItems(items) { _lastMdtfrItems = items; }
+
+/** 供 journal.js 读取最新标的列表 */
+export function getLastMdtfrItems() { return _lastMdtfrItems; }
