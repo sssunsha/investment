@@ -88,8 +88,9 @@ function refreshAllPosPct() {
 function onAmtChange(code_c, val) {
   const v = parseFloat(val) || 0;
   _amt[code_c] = v > 0 ? v : 0;
-  saveAmounts();  // 异步持久化到 ~/.investment/mdtfr_amounts.json
+  saveAmounts();  // 异步持久化到后端 /api/cache/amounts
   refreshAllPosPct();
+  // TODO: 在 advice.js 提取后，替换为 import { mdtfrRenderAdvice } from './advice.js'
   if (_lastMdtfrItems) window.mdtfrRenderAdvice?.(_lastMdtfrItems);
 }
 
@@ -114,11 +115,8 @@ function mkPosPct(code_c) {
 export {
   loadAmounts, saveAmounts, getAmt, getTotalAmt,
   getPosVal, refreshAllPosPct, onAmtChange, mkAmtCell, mkPosPct,
+  setLastMdtfrItems,
 };
 
-// 暴露到全局以供尚未模块化的内联脚本使用
-window.onAmtChange = onAmtChange;
-window.mkAmtCell   = mkAmtCell;
-window.mkPosPct    = mkPosPct;
-// 允许 mdtfrRenderAdvice（尚未提取）回写 _lastMdtfrItems 缓存
-window._setLastMdtfrItems = (items) => { _lastMdtfrItems = items; };
+/** 供 advice.js 回写最新标的列表（金额变化时重新渲染建议用） */
+export function setLastMdtfrItems(items) { _lastMdtfrItems = items; }

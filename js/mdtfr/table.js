@@ -1,6 +1,7 @@
 // js/mdtfr/table.js
 import { escHtml } from '../utils.js';
 import { getMdtfrPoolDef } from './config.js';
+import { mkAmtCell, mkPosPct } from './amounts.js';
 
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）─
 function mdtfrInitTable(skeleton = false) {
@@ -27,8 +28,8 @@ function mdtfrInitTable(skeleton = false) {
     <td id="mdtfr-ret-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td style="white-space:nowrap">${window.mkAmtCell?.(def.code_c) ?? dash}</td>
-    <td id="mdtfr-pos-${def.code_c}" style="text-align:right">${window.mkPosPct?.(def.code_c) ?? dash}</td>
+    <td style="white-space:nowrap">${mkAmtCell(def.code_c)}</td>
+    <td id="mdtfr-pos-${def.code_c}" style="text-align:right">${mkPosPct(def.code_c)}</td>
   </tr>`;
   body.innerHTML = `
     <div class="mdtfr-table-wrap">

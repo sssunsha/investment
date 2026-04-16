@@ -2,6 +2,7 @@
 // 管理持仓标的 MA20 跌破观察状态，持久化到后端缓存
 
 import { mdtfrLog } from './debug.js';
+import { getAmt } from './amounts.js';
 
 let _watchState = [];   // [{ code_c, name, first_break_date, last_check_date, days_below_ma20, status }]
 
@@ -36,7 +37,7 @@ async function updateWatchState(items) {
   const dataDate = items.find(x => x.latest_date)?.latest_date;
   if (!dataDate) return;
 
-  const holdingItems = items.filter(x => window.getAmt?.(x.code_c) > 0 && !x.error && x.above_ma20 != null);
+  const holdingItems = items.filter(x => getAmt(x.code_c) > 0 && !x.error && x.above_ma20 != null);
 
   // 清理已不持仓的条目
   _watchState = _watchState.filter(w => holdingItems.some(x => x.code_c === w.code_c));
