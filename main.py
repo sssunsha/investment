@@ -116,6 +116,13 @@ app.mount(
     name="swagger_ui_static",
 )
 
+# ──────────────────────────────────────────────
+# 前端静态资源：strategy_page 模块化 CSS / JS
+# ──────────────────────────────────────────────
+_BASE_DIR = Path(__file__).parent
+app.mount("/css", StaticFiles(directory=_BASE_DIR / "css"), name="css")
+app.mount("/js",  StaticFiles(directory=_BASE_DIR / "js"),  name="js")
+
 
 def custom_openapi():
     """强制将 OpenAPI 版本降至 3.0.3，兼容 Swagger UI 4.x"""
