@@ -74,7 +74,9 @@ function setAmt(code_c, value) {
 /** 批量覆盖所有标的金额（用于 available.js 持仓回溯恢复）*/
 function setAmts(obj) {
   Object.keys(_amt).forEach(k => { _amt[k] = 0; });
-  Object.entries(obj).forEach(([k, v]) => { _amt[k] = parseFloat(v) || 0; });
+  Object.entries(obj).forEach(([k, v]) => {
+    if (!k.startsWith('__')) _amt[k] = parseFloat(v) || 0;
+  });
 }
 
 /** 各标的持仓之和（不含可用金额）*/
