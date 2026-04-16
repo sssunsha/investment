@@ -13,7 +13,9 @@
       "WebFetch(domain:finance.sina.com.cn)",
       "WebFetch(domain:danjuanfunds.com)",
       "WebFetch(domain:en.wikipedia.org)",
-      "WebFetch(domain:www.ssefund.com)"
+      "WebFetch(domain:www.ssefund.com)",
+      "Read(//Users/I340818/workspace/personal/workspace/investment/**)",
+      "Bash(xargs cat *)"
     ]
   }
 }

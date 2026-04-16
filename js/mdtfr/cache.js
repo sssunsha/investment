@@ -22,7 +22,7 @@ async function cacheDelete(date) {
   if (!res.ok) throw new Error(`删除缓存失败: ${res.status}`);
 }
 
-// 删除今日及全部缓存文件
+// 删除今日缓存
 async function clearMdtfrCache() {
   const today = new Date().toISOString().slice(0, 10);
   await cacheDelete(today);
