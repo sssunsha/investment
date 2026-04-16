@@ -143,8 +143,13 @@
       <div class="section-head">
         <span class="section-icon">📊</span>
         <span class="section-title">标的池动量监控</span>
-        <span id="mdtfr-total-amt" style="font-size:13px;font-weight:700;color:var(--yellow);margin-left:12px"></span>
+        <span id="mdtfr-total-amt" style="font-size:13px;font-weight:700;color:var(--yellow);margin-left:12px">总金额：¥0</span>
         <span id="mdtfr-last-updated" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
+        <span class="available-input-wrap">
+          <label class="available-label">可用金额(元)：</label>
+          <input id="mdtfr-available-input" class="available-input" type="number" min="0" step="1000"
+            placeholder="0" oninput="onAvailableChange(this.value)">
+        </span>
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="mdtfr-sort-btn" onclick="toggleMdtfrSort()" style="display:none">↕ 排序</button>
           <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>          <button class="btn btn-ghost btn-sm" onclick="openPoolAdjust()" style="border-color:var(--blue);color:var(--blue)">⚙ 标的池调整</button>
