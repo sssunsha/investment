@@ -1,10 +1,9 @@
 // js/mdtfr/trade-confirm.js
-// 交易确认/撤销逻辑，维护会话级快照（页面刷新后消失）
+// 交易确认/撤销逻辑：每行独立快照
 import { getLastAdviceData } from './advice.js';
 import {
   getAmt, setAmt, setAmts, saveAmounts,
-  getSumOfPositions, refreshAllPosPct,
-  getLastMdtfrItems,
+  refreshAllPosPct, getLastMdtfrItems,
 } from './amounts.js';
 import {
   getAvailableAmt, setAvailableAmt, saveAvailable,
@@ -13,93 +12,144 @@ import {
 import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
 
-// 会话级快照（仅内存，刷新后消失）
-let _snapshot = null;
+// 每行独立快照：rowId -> {code, prevAmt, prevAvailable}
+const _rowSnapshots = new Map();
 
-// 注入 advice 渲染函数（main.js 负责，避免循环依赖）
+// journal 累计：跨多行确认累积 trade_records
+let _journalAccum = { confirmed_at: null, trade_records: [] };
+
+// 注入回调
 let _adviceRerenderer = null;
-export function setAdviceRerenderer(fn) { _adviceRerenderer = fn; }
+let _journalSaverFn   = null;
+export function setAdviceRerenderer(fn)       { _adviceRerenderer = fn; }
+export function setRowConfirmJournalSaver(fn) { _journalSaverFn = fn; }
 
-export function hasSnapshot() { return _snapshot !== null; }
+/** 在 advice 重渲前由 main.js 调用，清除所有行快照和 journal 累计 */
+export function clearRowSnapshots() {
+  _rowSnapshots.clear();
+  _journalAccum = { confirmed_at: null, trade_records: [] };
+}
 
-/** 确认执行当前操作建议 */
-export async function confirmTrade() {
-  const advice = getLastAdviceData();
-  if (!advice) return;
+export function hasRowSnapshot(rowId) { return _rowSnapshots.has(rowId); }
 
+/** 确认执行单行交易
+ * @param {string} type  - 'sell' | 'buy'
+ * @param {number} index - sellRows 或 buyRows 中的索引
+ */
+export async function confirmTradeRow(type, index) {
   if (getTotalAmt() === 0) {
     alert('请先在顶部输入可用金额，再确认执行。');
     return;
   }
+  const rowId = `${type}-${index}`;
+  if (_rowSnapshots.has(rowId)) return; // 防止重复确认
 
-  const { sellRows = [], buyRows = [] } = advice;
+  const advice = getLastAdviceData();
+  if (!advice) return;
 
-  // 保存快照（用于撤销）
-  const amtSnapshot = {};
+  const rows = type === 'sell' ? (advice.sellRows || []) : (advice.buyRows || []);
+  const row  = rows[index];
+  if (!row) return;
+
   const pool = getMdtfrPoolDef();
-  pool.forEach(d => { amtSnapshot[d.code_c] = getAmt(d.code_c); });
-  _snapshot = {
-    amts: amtSnapshot,
-    available: getAvailableAmt(),
-    sellRows: sellRows.map(r => ({ ...r })),
-    buyRows:  buyRows.map(r => ({ ...r })),
-  };
+  let code = null;
+  if (type === 'sell') {
+    code = pool.find(d => d.name === row.from)?.code_c || null;
+  } else {
+    code = row.toCode || pool.find(d => d.name === row.to)?.code_c || null;
+  }
 
-  // 应用金额变更
-  sellRows.forEach(row => {
-    const code = pool.find(d => d.name === row.from)?.code_c || null;
+  // 保存行快照
+  _rowSnapshots.set(rowId, {
+    code,
+    prevAmt:       code ? getAmt(code) : null,
+    prevAvailable: getAvailableAmt(),
+  });
+
+  // 应用变更
+  if (type === 'sell') {
     if (code) setAmt(code, Math.max(0, getAmt(code) - row.amt));
     setAvailableAmt(getAvailableAmt() + row.amt);
-  });
-  buyRows.forEach(row => {
-    const code = row.toCode || (pool.find(d => d.name === row.to)?.code_c || null);
+  } else {
     if (code) setAmt(code, getAmt(code) + row.amt);
     setAvailableAmt(Math.max(0, getAvailableAmt() - row.amt));
-  });
+  }
 
-  // 持久化
   await saveAmounts();
   await saveAvailable();
-
-  // 构建交易记录（注解 journal）
-  const tradeRecords = [
-    ...sellRows.map(r => ({ type: 'sell', name: r.from, amt: r.amt, watch: !!r.watch, note: r.note })),
-    ...buyRows.map(r => ({ type: 'buy', name: r.to, code_c: r.toCode, amt: r.amt, note: r.note })),
-  ];
-  setPendingConfirmAnnotation({
-    confirmed_at: new Date().toISOString(),
-    trade_records: tradeRecords,
-  });
-
-  // 刷新 UI（重渲 advice 会触发 journal 自动保存）
   refreshAllPosPct();
   refreshTotalDisplay();
-  const items = getLastMdtfrItems();
-  if (items && _adviceRerenderer) _adviceRerenderer(items);
 
-  // 更新按钮状态（重渲后 DOM 已重建，需重新获取）
-  const confirmBtn = document.getElementById('mdtfr-confirm-btn');
-  const undoBtn    = document.getElementById('mdtfr-undo-btn');
-  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '✅ 已执行 ✓'; }
-  if (undoBtn)    undoBtn.style.display = '';
+  // 写入 journal 累计
+  _accumulate(type, index, row);
+
+  // 只更新这一行的操作列，不全量重渲
+  _updateRowCell(rowId, true);
 }
 
-/** 撤销最近一次确认 */
-export async function undoTrade() {
-  if (!_snapshot) return;
-  const { amts, available } = _snapshot;
+/** 撤销单行确认 */
+export async function undoTradeRow(type, index) {
+  const rowId = `${type}-${index}`;
+  const snap  = _rowSnapshots.get(rowId);
+  if (!snap) return;
 
-  setAmts(amts);
-  setAvailableAmt(available);
+  if (snap.code !== null && snap.prevAmt !== null) setAmt(snap.code, snap.prevAmt);
+  setAvailableAmt(snap.prevAvailable);
+  _rowSnapshots.delete(rowId);
+
   await saveAmounts();
   await saveAvailable();
-
-  _snapshot = null;
-
-  // 重渲 advice（不带 annotation → journal 保存无 confirmed_at/trade_records）
   refreshAllPosPct();
   refreshTotalDisplay();
-  const items = getLastMdtfrItems();
-  if (items && _adviceRerenderer) _adviceRerenderer(items);
-  // 按钮恢复由重渲初始化（confirm 可用，undo 隐藏）
+
+  _removeFromAccum(rowId);
+  _updateRowCell(rowId, false);
+}
+
+// ── 内部辅助 ──────────────────────────────────────────────────
+
+function _accumulate(type, index, row) {
+  _journalAccum.confirmed_at = new Date().toISOString();
+  const rowId = `${type}-${index}`;
+  const rec = type === 'sell'
+    ? { type: 'sell', name: row.from, amt: row.amt, watch: !!row.watch, note: row.note || '', _rowId: rowId }
+    : { type: 'buy',  name: row.to,   amt: row.amt, code_c: row.toCode, note: row.note || '', _rowId: rowId };
+  _journalAccum.trade_records.push(rec);
+  _flushJournal();
+}
+
+function _removeFromAccum(rowId) {
+  _journalAccum.trade_records = _journalAccum.trade_records.filter(r => r._rowId !== rowId);
+  if (_journalAccum.trade_records.length === 0) {
+    _journalAccum.confirmed_at = null;
+    setPendingConfirmAnnotation(null);
+    if (_journalSaverFn) _journalSaverFn(true);
+  } else {
+    _flushJournal();
+  }
+}
+
+function _flushJournal() {
+  const clean = _journalAccum.trade_records.map(({ _rowId, ...rest }) => rest);
+  setPendingConfirmAnnotation({
+    confirmed_at: _journalAccum.confirmed_at,
+    trade_records: clean,
+  });
+  if (_journalSaverFn) _journalSaverFn(true);
+}
+
+function _updateRowCell(rowId, confirmed) {
+  const cell = document.getElementById(`mdtfr-row-action-${rowId}`);
+  if (!cell) return;
+  const parts = rowId.split('-');
+  const type  = parts[0];
+  const idx   = parts[1];
+  if (confirmed) {
+    cell.innerHTML =
+      `<span style="color:var(--green);font-size:12px;white-space:nowrap;font-weight:600">✅ 已执行</span>` +
+      `<button class="btn-row-undo" onclick="undoTradeRow('${type}',${idx})" title="撤销此行">↺</button>`;
+  } else {
+    cell.innerHTML =
+      `<button class="btn-row-confirm" onclick="confirmTradeRow('${type}',${idx})" title="确认执行此行">✅ 确认</button>`;
+  }
 }
