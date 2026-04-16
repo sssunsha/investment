@@ -1,0 +1,179 @@
+/* ══════════════════════════════════════════════
+   layout.css — 页面骨架：页头、Tab、卡片布局
+════════════════════════════════════════════════ */
+
+  /* ══════════════════════════════════════════════
+     Page Header
+  ════════════════════════════════════════════════ */
+  .page-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+  .page-header h1 { font-size: 14px; font-weight: 700; }
+  .breadcrumb-sep { color: var(--border); }
+
+  .btn-home {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color .15s, color .15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .btn-home:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  .header-date {
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rebalance-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .rebalance-badge.on  { background: rgba(59,130,246,.18); color: #60a5fa; border: 1px solid rgba(59,130,246,.35); }
+  .rebalance-badge.off     { background: rgba(255,255,255,.06); color: var(--text-dim); border: 1px solid var(--border); }
+  .rebalance-badge.holiday { background: rgba(255,255,255,.04); color: #6b7280; border: 1px solid rgba(255,255,255,.1); }
+
+  /* ── 调仓日背景（克莱因蓝 #002FA7）── */
+  body.rebalance-day {
+    background: #002FA7;
+  }
+  body.rebalance-day .page-header {
+    background: #002090;
+    border-bottom-color: rgba(255,255,255,.2);
+  }
+  body.rebalance-day .section-card,
+  body.rebalance-day .card {
+    border-color: rgba(255,255,255,.15);
+  }
+  body.rebalance-day .tab-bar {
+    background: #002FA7;
+  }
+
+  /* ── 休市日背景（深红 #900021）── */
+  body.holiday-day {
+    background: #900021;
+  }
+  body.holiday-day .page-header {
+    background: #7a001c;
+    border-bottom-color: rgba(255,255,255,.2);
+  }
+  body.holiday-day .section-card,
+  body.holiday-day .card {
+    border-color: rgba(255,255,255,.12);
+  }
+  body.holiday-day .tab-bar {
+    background: #900021;
+  }
+
+  /* ── Guide drawer trigger ── */
+  .btn-guide {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--purple);
+    background: rgba(168,85,247,.08);
+    color: var(--purple);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .btn-guide:hover { background: rgba(168,85,247,.18); }
+
+  /* ══════════════════════════════════════════════
+     Tab Bar
+  ════════════════════════════════════════════════ */
+  .tab-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    padding: 14px 22px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: color .15s, border-color .15s;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+  .tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background .15s; }
+  .tab-btn.active .tab-dot { background: var(--cyan); }
+
+  /* ══════════════════════════════════════════════
+     Tab Panels
+  ════════════════════════════════════════════════ */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ══════════════════════════════════════════════
+     All Weather Panel Layout
+  ════════════════════════════════════════════════ */
+  .aw-layout {
+    padding: 20px 24px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── Section card ── */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .section-body { padding: 20px; }
+
+  .section-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .section-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
+  .section-title { font-size: 13px; font-weight: 700; flex: 1; }
+  .section-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

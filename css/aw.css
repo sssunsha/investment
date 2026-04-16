@@ -1,0 +1,217 @@
+/* ══════════════════════════════════════════════
+   aw.css — 全天候再平衡专属样式
+════════════════════════════════════════════════ */
+
+  /* ── Rebalance result table ── */
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-top: 16px;
+  }
+  .result-table th {
+    background: var(--surface2);
+    color: var(--text-dim);
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .result-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(45,50,80,.4);
+  }
+  .result-table tr:last-child td { border-bottom: none; }
+  .result-table tbody tr:hover td { background: var(--surface2); }
+
+  .trigger-yes { color: var(--red);   font-weight: 700; }
+  .trigger-no  { color: var(--green); font-weight: 700; }
+
+  /* ── Operation chips ── */
+  .op-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .op-sell { background: rgba(239,68,68,.15);  color: var(--red); }
+  .op-buy  { background: rgba(34,197,94,.15);  color: var(--green); }
+  .op-hold { background: rgba(136,146,164,.1); color: var(--text-dim); }
+
+  /* ── Summary bar ── */
+  .summary-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .sum-chip {
+    padding: 5px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid;
+  }
+  .sum-sell { background: rgba(239,68,68,.1);  border-color: var(--red);    color: var(--red); }
+  .sum-buy  { background: rgba(34,197,94,.1);  border-color: var(--green);  color: var(--green); }
+  .sum-ok   { background: rgba(34,197,94,.08); border-color: var(--green);  color: var(--green); }
+  .sum-info { background: rgba(6,182,212,.1);  border-color: var(--cyan);   color: var(--cyan); }
+
+  /* ── Log table ── */
+  .log-table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 400px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 720px;
+  }
+  .log-table thead { position: sticky; top: 0; z-index: 2; }
+  .log-table th {
+    background: var(--surface2);
+    color: var(--text-dim);
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .log-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(45,50,80,.3);
+    vertical-align: top;
+  }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-table tbody tr:hover td { background: rgba(34,197,94,.03); }
+
+  .log-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .log-ops-cell { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  .log-del-btn {
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color .15s, border-color .15s;
+  }
+  .log-del-btn:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Before / After comparison table ── */
+  .compare-wrap { margin-top:16px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .compare-head {
+    display: grid;
+    grid-template-columns: 1fr 200px 1fr;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .compare-head-cell { padding: 9px 16px; }
+  .compare-head-cell.mid { text-align:center; border-left:1px solid var(--border); border-right:1px solid var(--border); }
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 200px 1fr;
+    border-bottom: 1px solid rgba(45,50,80,.3);
+    transition: background .15s;
+  }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-row:hover { background: rgba(255,255,255,.02); }
+  .compare-row.row-sell { border-left: 3px solid var(--red); }
+  .compare-row.row-buy  { border-left: 3px solid var(--green); }
+  .compare-row.row-hold { border-left: 3px solid var(--border); }
+  .compare-cell { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .compare-cell.right { align-items: flex-end; text-align: right; }
+  .compare-mid-cell {
+    padding: 14px 12px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: rgba(0,0,0,.18);
+  }
+  .compare-fund-name { font-size: 14px; font-weight: 700; }
+  .compare-fund-sub { font-size: 14px; color: var(--text-dim); }
+  .compare-value { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .compare-pct { font-size: 14px; display: flex; align-items: center; gap: 5px; }
+  .compare-pct.right { justify-content: flex-end; }
+  .drift-badge {
+    display: inline-flex; align-items: center;
+    padding: 1px 5px; border-radius: 3px; font-size: 14px; font-weight: 700;
+  }
+  .drift-hi  { background: rgba(239,68,68,.15);   color: var(--red); }
+  .drift-lo  { background: rgba(34,197,94,.15);    color: var(--green); }
+  .drift-ok  { background: rgba(136,146,164,.1);   color: var(--text-dim); }
+  .compare-arrow { font-size: 26px; line-height: 1; }
+  .arrow-sell { color: var(--red); }
+  .arrow-buy  { color: var(--green); }
+  .arrow-hold { color: var(--border); }
+  .compare-op-label { font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+  .op-lbl-sell { color: var(--red); }
+  .op-lbl-buy  { color: var(--green); }
+  .op-lbl-hold { color: var(--text-dim); }
+  .compare-op-amount { font-size: 13px; font-weight: 700; }
+  .op-amt-sell { color: var(--red); }
+  .op-amt-buy  { color: var(--green); }
+
+  /* ── Operation plan cards ── */
+  .op-plans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .op-plans-grid { grid-template-columns: 1fr; } }
+  .op-plan-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .op-plan-head {
+    padding: 11px 16px;
+    background: rgba(0,0,0,.2);
+    border-bottom: 1px solid var(--border);
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .op-plan-head-sub { margin-left: auto; font-size: 14px; color: var(--text-dim); font-weight: 400; }
+  .op-plan-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .op-step { display: flex; flex-direction: column; gap: 6px; }
+  .op-step-title { font-size: 13px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .4px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .op-step-items { display: flex; flex-direction: column; gap: 5px; }
+  .op-step-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-radius: 5px; font-size: 14px;
+  }
+  .op-step-item.sell-item { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); }
+  .op-step-item.buy-item  { background: rgba(34,197,94,.08);  border: 1px solid rgba(34,197,94,.2); }
+  .op-item-meta { display: flex; flex-direction: column; gap: 1px; }
+  .op-item-name { font-weight: 600; }
+  .op-item-sub  { font-size: 14px; color: var(--text-dim); }
+  .op-item-amount { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .sell-item .op-item-amount { color: var(--red); }
+  .buy-item  .op-item-amount { color: var(--green); }
+  .op-convert-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-radius: 5px;
+    background: rgba(6,182,212,.05); border: 1px solid rgba(6,182,212,.2);
+    font-size: 14px; flex-wrap: wrap;
+  }
+  .convert-from { color: var(--red);   font-weight: 600; flex: 1; min-width: 100px; }
+  .convert-to   { color: var(--green); font-weight: 600; flex: 1; min-width: 100px; }
+  .convert-arrow-icon { color: var(--cyan); font-size: 14px; flex-shrink: 0; }
+  .convert-amount { font-weight: 700; color: var(--cyan); white-space: nowrap; }
+  .op-footnote { font-size: 14px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; padding: 0 2px; }
