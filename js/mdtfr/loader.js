@@ -206,6 +206,7 @@ async function loadMdtfrPool() {
 
 // ── 清空缓存并重置 UI（在 cache.js 纯数据层上增加 UI 副作用）──────
 async function clearAndResetMdtfr() {
+  _mdtfrSorted = false;  // 同步重置排序状态，避免模块分离后 table.js 无法重置该标志
   const today = new Date().toISOString().slice(0, 10);
   try {
     await clearMdtfrCache();
