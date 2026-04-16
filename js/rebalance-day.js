@@ -7,11 +7,14 @@ function formatDate(d) {
 // 调仓日锚点：2026-04-16（周四，已确认为调仓日）
 const _REBALANCE_ANCHOR = '2026-04-16';
 
-/** 日期字符串 + n 天，返回 YYYY-MM-DD */
+/** 日期字符串 + n 天，返回 YYYY-MM-DD（纯 UTC 计算，避免时区偏移）*/
 function _addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const ts = Date.UTC(y, m - 1, d + n);
+  const nd = new Date(ts);
+  return nd.getUTCFullYear() + '-'
+    + String(nd.getUTCMonth() + 1).padStart(2, '0') + '-'
+    + String(nd.getUTCDate()).padStart(2, '0');
 }
 
 /**
@@ -63,9 +66,17 @@ function _showDateImmediate() {
   dateEl.appendChild(badge);
 }
 
+/** 返回本地时区今日日期字符串 YYYY-MM-DD */
+function _todayLocal() {
+  const d = new Date();
+  return d.getFullYear() + '-'
+    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getDate()).padStart(2, '0');
+}
+
 function applyRebalanceDayStyle(tradingDaySet = new Set()) {
   _actualRebalanceDays = _buildActualRebalanceDays(tradingDaySet);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = _todayLocal();
 
   // 三种状态：休市日 > 调仓日 > 普通交易日
   const isHoliday = tradingDaySet.size > 0 && !tradingDaySet.has(today);
@@ -97,7 +108,7 @@ async function initRebalanceDayStyle() {
   _showDateImmediate();
 
   try {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = _todayLocal();
     // 向后覆盖约 30 个调仓周期（~420 天）
     const endStr = _addDays(todayStr, 420);
     const res = await fetch(`/api/metadata/query_trade_dates?start_date=${todayStr}&end_date=${endStr}`);
