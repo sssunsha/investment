@@ -131,3 +131,8 @@
   transition: background .15s, border-color .15s, color .15s;
 }
 .btn-row-undo:hover { background: rgba(245,158,11,.1); border-color: var(--yellow); color: var(--yellow); }
+
+/* ── 份额列 + 盈亏着色 ── */
+.amt-input[style*="color"] {
+  font-weight: 700;
+}
