@@ -62,7 +62,8 @@ function mdtfrFillRow(item) {
     `<span style="font-weight:700;color:${retColor}">${retStr}</span>`;
   document.getElementById(`mdtfr-ma20-${c}`).innerHTML = item.above_ma20==null ? '<span style="color:var(--border)">–</span>'
     : item.above_ma20 ? '<span style="color:var(--red)">↑ 站上</span>' : '<span style="color:var(--green)">↓ 跌破</span>';
-  document.getElementById(`mdtfr-ma60-${c}`).innerHTML = (() => {
+  const ma60El = document.getElementById(`mdtfr-ma60-${c}`);
+  ma60El.innerHTML = (() => {
     const trend = item.ma60_trend;
     if (!trend) return '<span style="color:var(--border)">–</span>';
     const rate = item.ma60_rate != null ? `<span style="font-size:11px;opacity:.7;margin-left:3px">${item.ma60_rate>0?'+':''}${item.ma60_rate.toFixed(2)}%</span>` : '';
@@ -74,6 +75,13 @@ function mdtfrFillRow(item) {
     const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
   })();
+  // 存储 tooltip 所需字段
+  ma60El.dataset.trend      = item.ma60_trend   ?? '';
+  ma60El.dataset.ma60       = item.ma60          ?? '';
+  ma60El.dataset.ma60Rate   = item.ma60_rate     ?? '';
+  ma60El.dataset.hasUptick  = item.ma60_has_uptick ?? '';
+  ma60El.dataset.aboveAvg   = item.ma60_above_avg  ?? '';
+  ma60El.style.cursor       = item.ma60_trend ? 'help' : '';
   // 更新份额单元格
   const sharesEl = document.getElementById(`mdtfr-shares-${c}`);
   if (sharesEl) {
@@ -109,7 +117,73 @@ function mdtfrRenderFromCache(items) {
   mdtfrFillRanks(items);
 }
 
-// ── 判断单行数据是否完整 ──────────────────────────────────
+// ── MA60 tooltip ───────────────────────────────────────────────
+function _buildMa60Tooltip(el) {
+  const trend     = el.dataset.trend;
+  const ma60      = parseFloat(el.dataset.ma60);
+  const rate      = parseFloat(el.dataset.ma60Rate);
+  const hasUptick = el.dataset.hasUptick;
+  const aboveAvg  = el.dataset.aboveAvg;
+
+  if (!trend) return null;
+
+  const ok  = (v) => `<span style="color:var(--red)">✓</span> ${v}`;
+  const ng  = (v) => `<span style="color:var(--green)">✗</span> ${v}`;
+  const dim = (v) => `<span style="color:var(--text-dim)">${v}</span>`;
+
+  const c1 = hasUptick === 'true'  ? ok('近5日出现拐头向上（MA60 某日 > 前日）')
+           : hasUptick === 'false' ? ng('近5日未出现拐头（MA60 每日 ≤ 前日或持平）')
+           : dim('条件1：数据不足');
+
+  const c2 = aboveAvg === 'true'  ? ok(`当前 MA60(${isNaN(ma60)?'–':ma60}) ≥ 前5日均值`)
+           : aboveAvg === 'false' ? ng(`当前 MA60(${isNaN(ma60)?'–':ma60}) < 前5日均值`)
+           : dim('条件2：数据不足');
+
+  const rateStr = isNaN(rate) ? '' : `<div style="margin-top:6px;color:var(--text-dim);font-size:11px">5日变化率：${rate>0?'+':''}${rate.toFixed(2)}%</div>`;
+
+  const trendColor = trend==='趋势向好'?'var(--red)':trend==='持续下行'?'var(--green)':'var(--yellow)';
+  return `<div style="font-weight:700;margin-bottom:8px;color:${trendColor}">${trend}</div>`
+       + `<div style="margin-bottom:4px">${c1}</div>`
+       + `<div>${c2}</div>`
+       + rateStr;
+}
+
+function initMa60Tooltip() {
+  const tip = document.createElement('div');
+  tip.id = 'ma60-tooltip';
+  tip.style.cssText = 'position:fixed;z-index:9999;display:none;pointer-events:none;'
+    + 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;'
+    + 'padding:12px 14px;font-size:13px;line-height:1.7;max-width:300px;'
+    + 'box-shadow:0 4px 20px rgba(0,0,0,.5)';
+  document.body.appendChild(tip);
+
+  document.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[id^="mdtfr-ma60-"], [id^="aw-ma60-"]');
+    if (!el || !el.dataset.trend) return;
+    const html = _buildMa60Tooltip(el);
+    if (!html) return;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (tip.style.display === 'none') return;
+    const x = e.clientX + 14;
+    const y = e.clientY + 14;
+    const tipW = tip.offsetWidth, tipH = tip.offsetHeight;
+    tip.style.left = (x + tipW > window.innerWidth  ? e.clientX - tipW - 10 : x) + 'px';
+    tip.style.top  = (y + tipH > window.innerHeight ? e.clientY - tipH - 10 : y) + 'px';
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const el = e.target.closest('[id^="mdtfr-ma60-"], [id^="aw-ma60-"]');
+    if (el) tip.style.display = 'none';
+  });
+}
+
+initMa60Tooltip();
+
+
 function mdtfrRowComplete(item) {
   if (!item || item.error) return false;
   if (item.ret_20d == null || item.latest_close == null) return false;

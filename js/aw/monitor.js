@@ -136,7 +136,8 @@ function awFillRow(item) {
   })();
 
   // MA60趋势
-  document.getElementById(`aw-ma60-${c}`).innerHTML = (() => {
+  const ma60El = document.getElementById(`aw-ma60-${c}`);
+  ma60El.innerHTML = (() => {
     const trend = item.ma60_trend;
     if (!trend) return '<span style="color:var(--border)">–</span>';
     const rate = item.ma60_rate != null
@@ -150,6 +151,13 @@ function awFillRow(item) {
     const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
   })();
+  // 存储 tooltip 所需字段（复用 ma60-tooltip，ID前缀为 aw-ma60-）
+  ma60El.dataset.trend      = item.ma60_trend   ?? '';
+  ma60El.dataset.ma60       = item.ma60          ?? '';
+  ma60El.dataset.ma60Rate   = item.ma60_rate     ?? '';
+  ma60El.dataset.hasUptick  = item.ma60_has_uptick ?? '';
+  ma60El.dataset.aboveAvg   = item.ma60_above_avg  ?? '';
+  ma60El.style.cursor       = item.ma60_trend ? 'help' : '';
 }
 
 // ── 排序 ───────────────────────────────────────────────────────
