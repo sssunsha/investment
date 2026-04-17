@@ -1,6 +1,6 @@
 // js/aw/monitor.js — 全天候标的监控：表格渲染 + SSE 加载 + 缓存逻辑
 
-import { PORTFOLIO, ASSET_COLORS } from './config.js';
+import { PORTFOLIO } from './config.js';
 import { escHtml } from '../utils.js';
 
 // ── 14行标的定义（主力在前，替代在后，按 PORTFOLIO 顺序）────────
@@ -104,7 +104,8 @@ function awFillRow(item) {
   if (!document.getElementById(`aw-row-${c}`)) return;
 
   if (item.error) {
-    document.getElementById(`aw-close-${c}`).innerHTML =
+    const closeEl = document.getElementById(`aw-close-${c}`);
+    if (closeEl) closeEl.innerHTML =
       `<span style="color:var(--text-dim);font-size:12px">${escHtml(item.error)}</span>`;
     ['ret','ma20','ma60'].forEach(k => {
       const el = document.getElementById(`aw-${k}-${c}`);
@@ -157,6 +158,7 @@ function toggleAwSort() {
   const tbody = document.querySelector('#aw-monitor-table-wrap tbody');
   if (!tbody) return;
   const btn = document.getElementById('aw-sort-btn');
+  if (!btn) return;
 
   if (!_awSorted) {
     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -191,6 +193,7 @@ let _awEventSource = null;
 
 // ── 主加载入口 ─────────────────────────────────────────────────
 async function loadAwPool() {
+  _awSorted = false;
   const btn = document.getElementById('aw-load-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 加载中'; }
 
