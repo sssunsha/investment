@@ -43,6 +43,23 @@
 <div class="tab-panel active" id="panel-aw">
   <div class="aw-layout">
 
+    <!-- ── 全天候标的监控 ── -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-icon">📈</span>
+        <span class="section-title">全天候标的监控</span>
+        <span id="aw-monitor-time" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
+        <div class="section-actions">
+          <button class="btn btn-ghost btn-sm" id="aw-sort-btn" onclick="toggleAwSort()" style="display:none">↕ 排序</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearAndResetAw()" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
+          <button class="btn btn-primary" id="aw-load-btn" onclick="loadAwPool()">▶ 加载数据</button>
+        </div>
+      </div>
+      <div id="aw-monitor-table-wrap">
+        <div class="empty-state">点击 ▶ 加载数据 获取最新行情</div>
+      </div>
+    </div>
+
     <!-- ── 再平衡计算器 ── -->
     <div class="section-card">
       <div class="section-head">
