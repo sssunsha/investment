@@ -9,6 +9,8 @@ export function switchTab(id) {
   if (id === 'mdtfr') {
     // 动态 import 避免循环依赖：tab.js ↔ mdtfr/loader.js
     import('./mdtfr/loader.js').then(m => m.mdtfrMaybeInitEmpty());
+  } else if (id === 'aw') {
+    import('./aw/monitor.js').then(m => m.awMaybeInitEmpty());
   }
 }
 

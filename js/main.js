@@ -13,6 +13,7 @@ import {
   saveAwJournalRecord, showAwToast,
 } from './aw/journal.js';
 import { openDrawer, closeDrawer }                from './aw/drawer.js';
+import { awMaybeInitEmpty, loadAwPool, clearAndResetAw, toggleAwSort } from './aw/monitor.js';
 import { loadMdtfrPool, toggleMdtfrSort, clearAndResetMdtfr } from './mdtfr/loader.js';
 import { showConfirm, closeConfirm }              from './mdtfr/confirm.js';
 import { openPoolAdjust, closePoolAdjust, applyPoolAdjust } from './mdtfr/pool-adjust.js';
@@ -68,6 +69,8 @@ Object.assign(window, {
   openPoolAdjust, closePoolAdjust, applyPoolAdjust,
   toggleMdtfrDebug, closeDebugDrawer, clearMdtfrDebug,
   openJournal, closeJournal, loadJournal,
+  // AW 监控
+  loadAwPool, clearAndResetAw, toggleAwSort,
   // 金额管理
   onAmtChange, clearAmt,
   onAvailableChange,
@@ -93,5 +96,6 @@ initRebalanceDayStyle();
   refreshTotalDisplay();
   refreshAllPosPct();
 
+  await awMaybeInitEmpty();
   initHashRouter();  // 处理 #aw / #mdtfr hash 路由（含 mdtfrMaybeInitEmpty 调用）
 })();
