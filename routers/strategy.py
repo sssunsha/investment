@@ -212,16 +212,16 @@ AW_POOL_FUNDS = [
     # 长期债券-国开 (7-10年)
     {"id": "bond75", "label": "主力", "group": "bond_l", "name": "南方中债7-10年国开行债券指数A",        "code_c": "006961", "baostock_code": "sh.511260"},
     {"id": "bond75", "label": "替代", "group": "bond_l", "name": "汇添富中债7-10年国开行债券指数A",      "code_c": "008054", "baostock_code": "sh.511260"},
-    # 长期债券-农发 (5-10年)
+    # 长期债券-农发 (5-10年)：sh.511170 返回 0 行，使用 sh.511020（平安5-10年期国债活跃券ETF）
     {"id": "bond35", "label": "主力", "group": "bond_l", "name": "博时中债5-10年农发行债券指数A",        "code_c": "006848", "baostock_code": "sh.511020"},
     {"id": "bond35", "label": "替代", "group": "bond_l", "name": "上银中债5-10年国开行债券指数A",        "code_c": "013138", "baostock_code": "sh.511020"},
-    # 中期债券 (3-5年)
+    # 中期债券 (3-5年)：sh.511130 为30年期国债ETF（错误），使用 sh.511010（国泰上证5年期国债ETF）
     {"id": "bond5",  "label": "主力", "group": "bond_m", "name": "南方中债3-5年农发行债券指数A",         "code_c": "006493", "baostock_code": "sh.511010"},
     {"id": "bond5",  "label": "替代", "group": "bond_m", "name": "长城中债3-5年期国债指数A",             "code_c": "009324", "baostock_code": "sh.511010"},
     # 黄金
     {"id": "gold",   "label": "主力", "group": "gold",   "name": "华安黄金易ETF联接A",                   "code_c": "000216", "baostock_code": "sh.518880"},
     {"id": "gold",   "label": "替代", "group": "gold",   "name": "博时黄金ETF联接A",                     "code_c": "002610", "baostock_code": "sh.518880"},
-    # 大宗商品 QDII-LOF（无 BaoStock 数据）
+    # 大宗商品 QDII-LOF：sz.160216/sz.165513 BaoStock 无历史数据，设为 None
     {"id": "comm",   "label": "主力", "group": "comm",   "name": "国泰大宗商品(QDII-LOF)A",              "code_c": "160216", "baostock_code": None},
     {"id": "comm",   "label": "替代", "group": "comm",   "name": "中信保诚全球商品主题(QDII-FOF-LOF)A",  "code_c": "165513", "baostock_code": None},
 ]
@@ -392,9 +392,14 @@ async def aw_pool_stream():
         import baostock as _bs
         ev = lambda d: loop.call_soon_threadsafe(queue.put_nowait, json.dumps(d, ensure_ascii=False))
 
-        lg = _bs.login()
-        if lg.error_code != '0':
-            ev({"type": "error", "msg": f"BaoStock 登录失败: {lg.error_msg}"})
+        def _login() -> bool:
+            lg = _bs.login()
+            if lg.error_code != '0':
+                ev({"type": "error", "msg": f"BaoStock 登录失败: {lg.error_msg}"})
+                return False
+            return True
+
+        if not _login():
             loop.call_soon_threadsafe(queue.put_nowait, None)
             return
 
@@ -411,6 +416,7 @@ async def aw_pool_stream():
                             "error": "暂无场内价格数据"})
                         continue
 
+                    ev({"type": "progress", "name": fund["name"], "msg": "获取数据中..."})
                     rs = _bs.query_history_k_data_plus(
                         bscode, "date,close",
                         start_date=start_date, end_date=end_date,
