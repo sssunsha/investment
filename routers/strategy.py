@@ -46,48 +46,49 @@ SECTOR_ETFS = [
 
 
 def _calc_ma60(closes: list) -> tuple:
-    """计算 MA60 值、5日变化率及趋势分级。
+    """计算 MA60 值及趋势向好判断。
 
-    返回 (ma60, ma60_rising, ma60_change_rate, ma60_trend)
+    返回 (ma60, ma60_rising, ma60_rate, ma60_trend)
 
-    变化率 = (今日MA60 / N日前MA60 − 1) × 100%
-    趋势分级：
-      > +1%         → 明确上行  rising=True
-      +0.3% ~ +1%   → 温和上行  rising=True
-      −0.3% ~ +0.3% → 走平      rising=None
-      −1% ~ −0.3%   → 温和下行  rising=False
-      < −1%         → 明确下行  rising=False
+    趋势向好（ma60_rising=True）须同时满足：
+      1. 近5个交易日内至少1日的 MA60 > 前一日 MA60（出现拐头）
+      2. 当前 MA60 ≥ 前5日 MA60 均值
 
-    数据适配（n = len(closes)）：
-      n >= 65 : 5日前MA60（标准）
-      n >= 63 : 3日前MA60（降级，BaoStock 仅返回约63个交易日）
-      n >= 60 : 只返回MA60值，其余置 None
+    数据不足时：
+      n >= 66 : 可计算近5日 MA60 序列（标准）
+      n <  66 : ma60_rising/ma60_rate/ma60_trend 置 None
       n <  60 : 全部置 None
     """
     n = len(closes)
     if n < 60:
         return None, None, None, None
     ma60 = round(sum(closes[-60:]) / 60, 4)
-    if n >= 65:
-        ma60_prev = sum(closes[-65:-5]) / 60   # 5日前 MA60
-    elif n >= 63:
-        ma60_prev = sum(closes[-63:-3]) / 60   # 3日前 MA60（降级）
-    else:
+    if n < 66:
         return round(ma60, 3), None, None, None
 
-    rate = (ma60 / ma60_prev - 1)
-    if rate > 0.01:
-        trend, rising = "明确上行", True
-    elif rate > 0.003:
-        trend, rising = "温和上行", True
-    elif rate >= -0.003:
-        trend, rising = "走平", None
-    elif rate >= -0.01:
-        trend, rising = "温和下行", False
-    else:
-        trend, rising = "明确下行", False
+    # 近5日每日的 MA60 值（含今日）
+    ma60_series = [sum(closes[i - 60:i]) / 60 for i in range(n - 4, n + 1)]
 
-    return round(ma60, 3), rising, round(rate * 100, 4), trend
+    # 条件1：近5日内至少1日出现 MA60 > 前一日 MA60
+    has_uptick = any(ma60_series[i] > ma60_series[i - 1] for i in range(1, 5))
+    # 条件2：当前 MA60 >= 前5日 MA60 均值
+    above_avg = ma60_series[-1] >= sum(ma60_series[:5]) / 5
+
+    rising = has_uptick and above_avg
+
+    if rising:
+        trend = "趋势向好"
+    else:
+        # 仅用于展示，不影响 rising 判断
+        if all(ma60_series[i] <= ma60_series[i - 1] for i in range(1, 5)):
+            trend = "持续下行"
+        else:
+            trend = "未达标"
+
+    # 保留变化率供展示（当前 MA60 vs 5日前 MA60）
+    rate = round((ma60_series[-1] / ma60_series[0] - 1) * 100, 4)
+
+    return round(ma60, 3), rising, rate, trend
 
 
 def _fetch_close_series(code: str, start_date: str, end_date: str) -> list[dict]:
@@ -200,6 +201,31 @@ MDTFR_ETFS = [
     {"name": "新能源",    "code": "sh.516160", "code_c": "012832", "code_a": "012831", "group": "行业"},
 ]
 
+# ── 全天候策略基金池（7 大类资产 × 主力 + 替代）────────────────
+AW_POOL_FUNDS = [
+    # 股票-大盘
+    {"id": "hs300",  "label": "主力", "group": "stock",  "name": "华泰柏瑞沪深300ETF联接A",              "code_c": "460300", "baostock_code": "sh.510300"},
+    {"id": "hs300",  "label": "替代", "group": "stock",  "name": "天弘沪深300ETF联接A",                  "code_c": "000961", "baostock_code": "sh.510300"},
+    # 股票-中盘
+    {"id": "zz500",  "label": "主力", "group": "stock",  "name": "易方达中证500ETF联接A",                "code_c": "007028", "baostock_code": "sh.512500"},
+    {"id": "zz500",  "label": "替代", "group": "stock",  "name": "华夏中证500ETF联接A",                  "code_c": "001052", "baostock_code": "sh.512500"},
+    # 长期债券-国开 (7-10年)
+    {"id": "bond75", "label": "主力", "group": "bond_l", "name": "南方中债7-10年国开行债券指数A",        "code_c": "006961", "baostock_code": "sh.511260"},
+    {"id": "bond75", "label": "替代", "group": "bond_l", "name": "汇添富中债7-10年国开行债券指数A",      "code_c": "008054", "baostock_code": "sh.511260"},
+    # 长期债券-农发 (5-10年)
+    {"id": "bond35", "label": "主力", "group": "bond_l", "name": "博时中债5-10年农发行债券指数A",        "code_c": "006848", "baostock_code": "sh.511020"},
+    {"id": "bond35", "label": "替代", "group": "bond_l", "name": "上银中债5-10年国开行债券指数A",        "code_c": "013138", "baostock_code": "sh.511020"},
+    # 中期债券 (3-5年)
+    {"id": "bond5",  "label": "主力", "group": "bond_m", "name": "南方中债3-5年农发行债券指数A",         "code_c": "006493", "baostock_code": "sh.511010"},
+    {"id": "bond5",  "label": "替代", "group": "bond_m", "name": "长城中债3-5年期国债指数A",             "code_c": "009324", "baostock_code": "sh.511010"},
+    # 黄金
+    {"id": "gold",   "label": "主力", "group": "gold",   "name": "华安黄金易ETF联接A",                   "code_c": "000216", "baostock_code": "sh.518880"},
+    {"id": "gold",   "label": "替代", "group": "gold",   "name": "博时黄金ETF联接A",                     "code_c": "002610", "baostock_code": "sh.518880"},
+    # 大宗商品 QDII-LOF（无 BaoStock 数据）
+    {"id": "comm",   "label": "主力", "group": "comm",   "name": "国泰大宗商品(QDII-LOF)A",              "code_c": "160216", "baostock_code": None},
+    {"id": "comm",   "label": "替代", "group": "comm",   "name": "中信保诚全球商品主题(QDII-FOF-LOF)A",  "code_c": "165513", "baostock_code": None},
+]
+
 
 @router.get("/mdtfr-pool", summary="动量趋势双重过滤轮动策略标的池（批量）")
 async def mdtfr_pool():
@@ -252,7 +278,7 @@ async def mdtfr_pool_stream(
     """逐只 ETF 处理，每完成一只即通过 SSE 推送结果，前端可实时逐行填充。
     codes 参数可指定只处理特定标的（用于补全缓存中不完整的行）。"""
     end_date   = datetime.now().strftime('%Y-%m-%d')
-    # 180 天确保有足够交易日（≥68）用于 MA60 趋势判断
+    # 180 天确保有足够交易日（≥66）用于 MA60 趋势判断（需近5日 MA60 序列）
     start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
 
     # 过滤需要处理的 ETF
@@ -332,6 +358,112 @@ async def mdtfr_pool_stream(
                 except Exception as e:
                     ev({"type": "item", **etf, "error": str(e),
                         "latest_close": None, "prev_close": None, "latest_date": None})
+        finally:
+            _bs.logout()
+            ev({"type": "done", "last_updated": datetime.now().isoformat()})
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    loop.run_in_executor(None, _run)
+
+    async def _gen():
+        while True:
+            msg = await queue.get()
+            if msg is None:
+                break
+            yield f"data: {msg}\n\n"
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+
+@router.get("/aw-pool/stream", summary="全天候标的池动量监控（SSE逐条流式）")
+async def aw_pool_stream():
+    """逐只基金处理，每完成一只即通过 SSE 推送结果。"""
+    end_date   = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _run():
+        import baostock as _bs
+        ev = lambda d: loop.call_soon_threadsafe(queue.put_nowait, json.dumps(d, ensure_ascii=False))
+
+        lg = _bs.login()
+        if lg.error_code != '0':
+            ev({"type": "error", "msg": f"BaoStock 登录失败: {lg.error_msg}"})
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+            return
+
+        try:
+            for fund in AW_POOL_FUNDS:
+                try:
+                    bscode = fund.get("baostock_code")
+                    if not bscode:
+                        ev({"type": "item", **fund,
+                            "latest_close": None, "ret_30d": None,
+                            "ma20": None, "above_ma20": None,
+                            "ma60": None, "ma60_rising": None,
+                            "ma60_rate": None, "ma60_trend": None,
+                            "error": "暂无场内价格数据"})
+                        continue
+
+                    rs = _bs.query_history_k_data_plus(
+                        bscode, "date,close",
+                        start_date=start_date, end_date=end_date,
+                        frequency="d", adjustflag="2"
+                    )
+                    if rs.error_code != '0':
+                        ev({"type": "item", **fund,
+                            "latest_close": None, "ret_30d": None,
+                            "ma20": None, "above_ma20": None,
+                            "ma60": None, "ma60_rising": None,
+                            "ma60_rate": None, "ma60_trend": None,
+                            "error": f"查询失败: {rs.error_msg}"})
+                        continue
+
+                    rows = []
+                    while rs.error_code == '0' and rs.next():
+                        row = rs.get_row_data()
+                        if row[1]:
+                            rows.append(float(row[1]))
+
+                    n = len(rows)
+                    if n < 21:
+                        ev({"type": "item", **fund,
+                            "latest_close": None, "ret_30d": None,
+                            "ma20": None, "above_ma20": None,
+                            "ma60": None, "ma60_rising": None,
+                            "ma60_rate": None, "ma60_trend": None,
+                            "error": f"数据不足（{n} 条）"})
+                        continue
+
+                    closes = rows
+                    ma20 = round(sum(closes[-20:]) / 20, 3)
+                    ret_30d = round((closes[-1] / closes[-31] - 1), 6) if n >= 31 else None
+                    ma60, ma60_rising, ma60_rate, ma60_trend = _calc_ma60(closes)
+
+                    ev({"type": "item", **fund,
+                        "latest_close": round(closes[-1], 3),
+                        "ret_30d":      ret_30d,
+                        "ma20":         ma20,
+                        "above_ma20":   closes[-1] > ma20,
+                        "ma60":         ma60,
+                        "ma60_rising":  ma60_rising,
+                        "ma60_rate":    ma60_rate,
+                        "ma60_trend":   ma60_trend,
+                        "error":        None})
+                    time.sleep(0.3)
+                except Exception as e:
+                    ev({"type": "item", **fund,
+                        "latest_close": None, "ret_30d": None,
+                        "ma20": None, "above_ma20": None,
+                        "ma60": None, "ma60_rising": None,
+                        "ma60_rate": None, "ma60_trend": None,
+                        "error": str(e)})
         finally:
             _bs.logout()
             ev({"type": "done", "last_updated": datetime.now().isoformat()})
