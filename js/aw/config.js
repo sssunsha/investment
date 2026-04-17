@@ -1,20 +1,20 @@
 // js/aw/config.js — 全天候策略配置数据
 
 export const PORTFOLIO = [
-  { id: 'hs300',  name: '沪深300联接A',  fullName: '华泰柏瑞沪深300ETF联接A',         code: '460300', group: 'stock',  target: 0.25, label: '股票类-大盘',
-    alt: { name: '天弘沪深300联接A',    fullName: '天弘沪深300ETF联接A',              code: '000961' } },
-  { id: 'zz500',  name: '中证500联接A',  fullName: '易方达中证500ETF联接A',            code: '007028', group: 'stock',  target: 0.15, label: '股票类-中盘',
-    alt: { name: '华夏中证500联接A',    fullName: '华夏中证500ETF联接A',              code: '001052' } },
-  { id: 'bond75', name: '国开债7-10年A', fullName: '南方中债7-10年国开行债券指数A',   code: '006961', group: 'bond_l', target: 0.12, label: '长期债券-国开债',
-    alt: { name: '汇添富国开行债联接A', fullName: '汇添富中债7-10年国开行债券指数A',  code: '008054' } },
-  { id: 'bond35', name: '农发债5-10年A', fullName: '博时中债5-10年农发行债券指数A',   code: '006848', group: 'bond_l', target: 0.12, label: '长期债券-国债',
-    alt: { name: '上银国开行债联接A',   fullName: '上银中债5-10年国开行债券指数A',    code: '013138' } },
-  { id: 'bond5',  name: '农发债3-5年A',  fullName: '南方中债3-5年农发行债券指数A',    code: '006493', group: 'bond_m', target: 0.16, label: '中期债券',
-    alt: { name: '长城中债3-5年A',      fullName: '长城中债3-5年期国债指数A',         code: '009324' } },
-  { id: 'gold',   name: '黄金易ETF联接A',fullName: '华安黄金易ETF联接A',              code: '000216', group: 'gold',   target: 0.10, label: '黄金',
-    alt: { name: '博时黄金联接A',       fullName: '博时黄金ETF联接A',                code: '002610' } },
-  { id: 'comm',   name: '大宗商品QDII-A',fullName: '国泰大宗商品(QDII-LOF)A',        code: '160216', group: 'comm',   target: 0.10, label: '大宗商品',
-    alt: { name: '中信保诚全球商品A',   fullName: '中信保诚全球商品主题(QDII-FOF-LOF)A', code: '165513' } },
+  { id: 'hs300',  name: '沪深300联接A',  fullName: '华泰柏瑞沪深300ETF联接A',         code: '460300', group: 'stock',  target: 0.25, label: '股票类-大盘',    baostock_code: 'sh.510300',
+    alt: { name: '天弘沪深300联接A',    fullName: '天弘沪深300ETF联接A',              code: '000961', baostock_code: 'sh.510300' } },
+  { id: 'zz500',  name: '中证500联接A',  fullName: '易方达中证500ETF联接A',            code: '007028', group: 'stock',  target: 0.15, label: '股票类-中盘',    baostock_code: 'sh.512500',
+    alt: { name: '华夏中证500联接A',    fullName: '华夏中证500ETF联接A',              code: '001052', baostock_code: 'sh.512500' } },
+  { id: 'bond75', name: '国开债7-10年A', fullName: '南方中债7-10年国开行债券指数A',   code: '006961', group: 'bond_l', target: 0.12, label: '长期债券-国开债', baostock_code: 'sh.511260',
+    alt: { name: '汇添富国开行债联接A', fullName: '汇添富中债7-10年国开行债券指数A',  code: '008054', baostock_code: 'sh.511260' } },
+  { id: 'bond35', name: '农发债5-10年A', fullName: '博时中债5-10年农发行债券指数A',   code: '006848', group: 'bond_l', target: 0.12, label: '长期债券-国债',   baostock_code: 'sh.511020',
+    alt: { name: '上银国开行债联接A',   fullName: '上银中债5-10年国开行债券指数A',    code: '013138', baostock_code: 'sh.511020' } },
+  { id: 'bond5',  name: '农发债3-5年A',  fullName: '南方中债3-5年农发行债券指数A',    code: '006493', group: 'bond_m', target: 0.16, label: '中期债券',        baostock_code: 'sh.511010',
+    alt: { name: '长城中债3-5年A',      fullName: '长城中债3-5年期国债指数A',         code: '009324', baostock_code: 'sh.511010' } },
+  { id: 'gold',   name: '黄金易ETF联接A',fullName: '华安黄金易ETF联接A',              code: '000216', group: 'gold',   target: 0.10, label: '黄金',            baostock_code: 'sh.518880',
+    alt: { name: '博时黄金联接A',       fullName: '博时黄金ETF联接A',                code: '002610', baostock_code: 'sh.518880' } },
+  { id: 'comm',   name: '大宗商品QDII-A',fullName: '国泰大宗商品(QDII-LOF)A',        code: '160216', group: 'comm',   target: 0.10, label: '大宗商品',        baostock_code: null,
+    alt: { name: '中信保诚全球商品A',   fullName: '中信保诚全球商品主题(QDII-FOF-LOF)A', code: '165513', baostock_code: null } },
 ];
 
 // 当前每个 id 是否使用替代标的（持久化到 localStorage）
