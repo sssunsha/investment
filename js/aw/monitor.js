@@ -2,6 +2,7 @@
 
 import { PORTFOLIO } from './config.js';
 import { escHtml } from '../utils.js';
+import { awLog } from './debug.js';
 
 // ── 14行标的定义（主力在前，替代在后，按 PORTFOLIO 顺序）────────
 function _getAwPoolDef() {
@@ -194,6 +195,7 @@ let _awEventSource = null;
 // ── 主加载入口 ─────────────────────────────────────────────────
 async function loadAwPool() {
   _awSorted = false;
+  awLog('info', '开始加载全天候标的监控数据...');
   const btn = document.getElementById('aw-load-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 加载中'; }
 
@@ -203,13 +205,19 @@ async function loadAwPool() {
 
   // 读缓存
   let cached = null;
-  try { cached = await _cacheGet(today); } catch (e) { console.warn('AW缓存读取失败', e); }
+  try {
+    cached = await _cacheGet(today);
+    awLog('cache', cached ? `读取缓存成功（${Array.isArray(cached) ? cached.length : 0} 条）` : '无今日缓存');
+  } catch (e) {
+    awLog('error', `读取缓存失败: ${e.message}`);
+  }
 
   const cachedMap = {};
   if (cached && Array.isArray(cached)) cached.forEach(x => { cachedMap[x.code_c] = x; });
 
   const defs = _getAwPoolDef();
   const incomplete = defs.filter(def => !_rowComplete(cachedMap[def.code]));
+  awLog('info', `完整缓存行: ${defs.length - incomplete.length} / ${defs.length}`);
 
   if (incomplete.length === 0) {
     cached.forEach(awFillRow);
@@ -217,6 +225,7 @@ async function loadAwPool() {
     const sortBtn = document.getElementById('aw-sort-btn');
     if (sortBtn) sortBtn.style.display = '';
     if (btn) { btn.disabled = false; btn.innerHTML = '↺ 刷新'; }
+    awLog('done', '全部命中缓存，无需 SSE 请求');
     return;
   }
 
@@ -232,10 +241,11 @@ async function loadAwPool() {
 
   if (_awEventSource) { _awEventSource.close(); }
 
+  awLog('info', `打开 SSE /api/strategy/aw-pool/stream，待补全 ${incomplete.length} 行`);
   const collected = Object.values(cachedMap).filter(_rowComplete);
   const saveSnapshot = async () => {
     const snapshot = defs.map(def => collected.find(x => x.code_c === def.code)).filter(Boolean);
-    try { await _cachePut(today, snapshot); } catch (e) { console.warn('AW缓存写入失败', e); }
+    try { await _cachePut(today, snapshot); } catch (e) { awLog('error', `缓存写入失败: ${e.message}`); }
     return snapshot;
   };
 
@@ -247,14 +257,16 @@ async function loadAwPool() {
     try { d = JSON.parse(e.data); } catch { return; }
 
     if (d.type === 'progress') {
-      // 可选：前端进度日志
+      awLog('info', `获取中: ${d.name}`);
     } else if (d.type === 'item') {
+      const status = d.error ? `错误: ${d.error}` : `close=${d.latest_close} ret30d=${d.ret_30d != null ? (d.ret_30d * 100).toFixed(2) + '%' : 'N/A'} ma60=${d.ma60_trend}`;
+      awLog(d.error ? 'error' : 'ok', `${d.name}（${d.code_c}）: ${status}`);
       const idx = collected.findIndex(x => x.code_c === d.code_c);
       if (idx >= 0) collected.splice(idx, 1, d); else collected.push(d);
       awFillRow(d);
       await saveSnapshot();
     } else if (d.type === 'error') {
-      console.error('AW SSE error:', d.msg);
+      awLog('error', `SSE 服务端错误: ${d.msg}`);
       es.close();
       if (btn) { btn.disabled = false; btn.innerHTML = '↺ 重试'; }
     } else if (d.type === 'done') {
@@ -265,11 +277,12 @@ async function loadAwPool() {
       const sortBtn = document.getElementById('aw-sort-btn');
       if (sortBtn) sortBtn.style.display = '';
       if (btn) { btn.disabled = false; btn.innerHTML = '↺ 刷新'; }
+      awLog('done', `加载完成，共 ${collected.length} 条数据`);
     }
   };
 
   es.onerror = () => {
-    console.error('AW SSE 连接中断');
+    awLog('error', 'SSE 连接中断');
     es.close();
     if (btn) { btn.disabled = false; btn.innerHTML = '↺ 重试'; }
   };
@@ -282,9 +295,10 @@ async function clearAndResetAw() {
   try {
     await _cacheDelete(today);
     document.getElementById('aw-monitor-time').textContent = '缓存已清空';
-    awInitTable(false);  // awInitTable already hides sort button
+    awInitTable(false);
+    awLog('cache', '缓存已清空，UI 已重置');
   } catch (e) {
-    console.error('清空AW缓存失败', e);
+    awLog('error', `清空缓存失败: ${e.message}`);
   }
 }
 
@@ -301,9 +315,12 @@ async function awMaybeInitEmpty() {
       document.getElementById('aw-monitor-time').textContent = `缓存数据 · ${today}`;
       const sortBtn = document.getElementById('aw-sort-btn');
       if (sortBtn) sortBtn.style.display = '';
+      awLog('cache', `页面初始化：命中今日缓存（${cached.length} 条）`);
+    } else {
+      awLog('info', '页面初始化：无今日缓存，等待用户手动加载');
     }
   } catch (e) {
-    console.warn('AW初始化缓存读取失败', e);
+    awLog('error', `初始化读取缓存失败: ${e.message}`);
   }
 }
 

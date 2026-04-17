@@ -51,6 +51,7 @@
         <span id="aw-monitor-time" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="aw-sort-btn" onclick="toggleAwSort()" style="display:none">↕ 排序</button>
+          <button class="btn btn-ghost btn-sm" id="aw-debug-btn" onclick="toggleAwDebug()">🐛 调试</button>
           <button class="btn btn-ghost btn-sm" onclick="clearAndResetAw()" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
           <button class="btn btn-primary" id="aw-load-btn" onclick="loadAwPool()">▶ 加载数据</button>
         </div>
@@ -312,6 +313,18 @@
     <button class="drawer-close" onclick="closeDrawer()">✕</button>
   </div>
   <div class="drawer-body" id="drawer-content"></div>
+</div>
+
+<div class="drawer-overlay" id="aw-debug-drawer-overlay" onclick="closeAwDebugDrawer()"></div>
+<div class="drawer" id="aw-debug-drawer" style="width:520px">
+  <div class="drawer-header">
+    <span class="drawer-title">🐛 AW 调试日志</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="clearAwDebug()">清空</button>
+      <button class="drawer-close" onclick="closeAwDebugDrawer()">✕</button>
+    </div>
+  </div>
+  <div id="aw-debug-log" style="flex:1;overflow-y:auto;padding:14px 20px;font-family:monospace;font-size:13px;line-height:1.9"></div>
 </div>
 
 <div class="drawer-overlay" id="debug-drawer-overlay" onclick="closeDebugDrawer()"></div>

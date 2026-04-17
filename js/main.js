@@ -14,6 +14,7 @@ import {
 } from './aw/journal.js';
 import { openDrawer, closeDrawer }                from './aw/drawer.js';
 import { awMaybeInitEmpty, loadAwPool, clearAndResetAw, toggleAwSort } from './aw/monitor.js';
+import { toggleAwDebug, closeAwDebugDrawer, clearAwDebug } from './aw/debug.js';
 import { loadMdtfrPool, toggleMdtfrSort, clearAndResetMdtfr } from './mdtfr/loader.js';
 import { showConfirm, closeConfirm }              from './mdtfr/confirm.js';
 import { openPoolAdjust, closePoolAdjust, applyPoolAdjust } from './mdtfr/pool-adjust.js';
@@ -71,6 +72,7 @@ Object.assign(window, {
   openJournal, closeJournal, loadJournal,
   // AW 监控
   loadAwPool, clearAndResetAw, toggleAwSort,
+  toggleAwDebug, closeAwDebugDrawer, clearAwDebug,
   // 金额管理
   onAmtChange, clearAmt,
   onAvailableChange,
