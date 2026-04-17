@@ -143,9 +143,9 @@ function awFillRow(item) {
       ? `<span style="font-size:11px;opacity:.7;margin-left:3px">${item.ma60_rate > 0 ? '+' : ''}${item.ma60_rate.toFixed(2)}%</span>`
       : '';
     const cfg = {
-      '趋势向好': ['var(--green)', '↑'],
-      '持续下行': ['var(--red)',   '↓'],
-      '未达标':   ['var(--yellow)','→'],
+      '趋势向好': ['var(--red)',    '↑'],
+      '持续下行': ['var(--green)',  '↓'],
+      '未达标':   ['var(--yellow)', '→'],
     };
     const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;

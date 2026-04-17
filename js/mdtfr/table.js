@@ -67,11 +67,9 @@ function mdtfrFillRow(item) {
     if (!trend) return '<span style="color:var(--border)">–</span>';
     const rate = item.ma60_rate != null ? `<span style="font-size:11px;opacity:.7;margin-left:3px">${item.ma60_rate>0?'+':''}${item.ma60_rate.toFixed(2)}%</span>` : '';
     const cfg = {
-      '明确上行': ['var(--red)',    '↑↑'],
-      '温和上行': ['var(--red)',    '↑ '],
-      '走平':     ['var(--yellow)', '→ '],
-      '温和下行': ['var(--green)',  '↓ '],
-      '明确下行': ['var(--green)',  '↓↓'],
+      '趋势向好': ['var(--red)',    '↑'],
+      '未达标':   ['var(--yellow)', '→'],
+      '持续下行': ['var(--green)',  '↓'],
     };
     const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
