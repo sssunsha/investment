@@ -152,11 +152,12 @@ function awFillRow(item) {
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
   })();
   // 存储 tooltip 所需字段（复用 ma60-tooltip，ID前缀为 aw-ma60-）
-  ma60El.dataset.trend      = item.ma60_trend   ?? '';
-  ma60El.dataset.ma60       = item.ma60          ?? '';
-  ma60El.dataset.ma60Rate   = item.ma60_rate     ?? '';
-  ma60El.dataset.hasUptick  = item.ma60_has_uptick ?? '';
-  ma60El.dataset.aboveAvg   = item.ma60_above_avg  ?? '';
+  ma60El.dataset.trend      = item.ma60_trend      ?? '';
+  ma60El.dataset.ma60       = item.ma60             ?? '';
+  ma60El.dataset.ma60Avg5   = item.ma60_avg5        ?? '';
+  ma60El.dataset.ma60Rate   = item.ma60_rate        ?? '';
+  ma60El.dataset.hasUptick  = item.ma60_has_uptick  ?? '';
+  ma60El.dataset.aboveAvg   = item.ma60_above_avg   ?? '';
   ma60El.style.cursor       = item.ma60_trend ? 'help' : '';
 }
 

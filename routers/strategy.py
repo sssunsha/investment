@@ -61,10 +61,10 @@ def _calc_ma60(closes: list) -> tuple:
     """
     n = len(closes)
     if n < 60:
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None
     ma60 = round(sum(closes[-60:]) / 60, 4)
     if n < 66:
-        return round(ma60, 3), None, None, None, None, None
+        return round(ma60, 3), None, None, None, None, None, None
 
     # 近5日每日的 MA60 值（含今日）
     ma60_series = [sum(closes[i - 60:i]) / 60 for i in range(n - 4, n + 1)]
@@ -88,7 +88,7 @@ def _calc_ma60(closes: list) -> tuple:
     # 保留变化率供展示（当前 MA60 vs 5日前 MA60）
     rate = round((ma60_series[-1] / ma60_series[0] - 1) * 100, 4)
 
-    return round(ma60, 3), rising, rate, trend, has_uptick, above_avg
+    return round(ma60, 3), rising, rate, trend, has_uptick, above_avg, round(ma60_avg5, 3)
 
 
 def _fetch_close_series(code: str, start_date: str, end_date: str) -> list[dict]:
@@ -243,7 +243,7 @@ async def mdtfr_pool():
                 continue
             closes = [r["close"] for r in rows]
             ma20 = round(sum(closes[-20:]) / 20, 3)
-            ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg = _calc_ma60(closes)
+            ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
             results.append({
                 **etf,
                 "latest_close":   round(closes[-1], 3),
@@ -256,6 +256,7 @@ async def mdtfr_pool():
                 "ma60_trend":     ma60_trend,
                 "ma60_has_uptick": ma60_has_uptick,
                 "ma60_above_avg":  ma60_above_avg,
+                "ma60_avg5":       ma60_avg5,
                 "error":          None,
             })
         return results
@@ -344,7 +345,7 @@ async def mdtfr_pool_stream(
                         continue
                     closes = [r["close"] for r in rows]
                     ma20 = round(sum(closes[-20:]) / 20, 3)
-                    ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg = _calc_ma60(closes)
+                    ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
                     ev({"type": "item", **etf,
                         "latest_close": round(closes[-1], 3),
                         "prev_close":   round(closes[-2], 3),
@@ -357,6 +358,7 @@ async def mdtfr_pool_stream(
                         "ma60_trend":   ma60_trend,
                         "ma60_has_uptick": ma60_has_uptick,
                         "ma60_above_avg":  ma60_above_avg,
+                "ma60_avg5":       ma60_avg5,
                         "error": None})
                     time.sleep(0.3)  # 避免连续请求触发 socket 错误
                 except Exception as e:
@@ -454,7 +456,7 @@ async def aw_pool_stream():
                     closes = rows
                     ma20 = round(sum(closes[-20:]) / 20, 3)
                     ret_30d = round((closes[-1] / closes[-31] - 1), 6) if n >= 31 else None
-                    ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg = _calc_ma60(closes)
+                    ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
 
                     ev({"type": "item", **fund,
                         "latest_close": round(closes[-1], 3),
@@ -467,6 +469,7 @@ async def aw_pool_stream():
                         "ma60_trend":   ma60_trend,
                         "ma60_has_uptick": ma60_has_uptick,
                         "ma60_above_avg":  ma60_above_avg,
+                "ma60_avg5":       ma60_avg5,
                         "error":        None})
                     time.sleep(0.3)
                 except Exception as e:

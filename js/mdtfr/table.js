@@ -76,11 +76,12 @@ function mdtfrFillRow(item) {
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
   })();
   // 存储 tooltip 所需字段
-  ma60El.dataset.trend      = item.ma60_trend   ?? '';
-  ma60El.dataset.ma60       = item.ma60          ?? '';
-  ma60El.dataset.ma60Rate   = item.ma60_rate     ?? '';
-  ma60El.dataset.hasUptick  = item.ma60_has_uptick ?? '';
-  ma60El.dataset.aboveAvg   = item.ma60_above_avg  ?? '';
+  ma60El.dataset.trend      = item.ma60_trend      ?? '';
+  ma60El.dataset.ma60       = item.ma60             ?? '';
+  ma60El.dataset.ma60Avg5   = item.ma60_avg5        ?? '';
+  ma60El.dataset.ma60Rate   = item.ma60_rate        ?? '';
+  ma60El.dataset.hasUptick  = item.ma60_has_uptick  ?? '';
+  ma60El.dataset.aboveAvg   = item.ma60_above_avg   ?? '';
   ma60El.style.cursor       = item.ma60_trend ? 'help' : '';
   // 更新份额单元格
   const sharesEl = document.getElementById(`mdtfr-shares-${c}`);
@@ -121,6 +122,7 @@ function mdtfrRenderFromCache(items) {
 function _buildMa60Tooltip(el) {
   const trend     = el.dataset.trend;
   const ma60      = parseFloat(el.dataset.ma60);
+  const ma60Avg5  = parseFloat(el.dataset.ma60Avg5);
   const rate      = parseFloat(el.dataset.ma60Rate);
   const hasUptick = el.dataset.hasUptick;
   const aboveAvg  = el.dataset.aboveAvg;
@@ -129,21 +131,31 @@ function _buildMa60Tooltip(el) {
 
   const ok  = (v) => `<span style="color:var(--red)">✓</span> ${v}`;
   const ng  = (v) => `<span style="color:var(--green)">✗</span> ${v}`;
-  const dim = (v) => `<span style="color:var(--text-dim)">${v}</span>`;
+  const dim = (v) => `<span style="color:var(--text-dim);font-size:12px">${v}</span>`;
 
-  const c1 = hasUptick === 'true'  ? ok('近5日出现拐头向上（MA60 某日 > 前日）')
-           : hasUptick === 'false' ? ng('近5日未出现拐头（MA60 每日 ≤ 前日或持平）')
-           : dim('条件1：数据不足');
+  // 均线是否出现拐头
+  const c1 = hasUptick === 'true'
+    ? ok('均线近期出现向上拐头')
+    : hasUptick === 'false'
+    ? ng('均线近期未出现拐头（持续走平或下行）')
+    : dim('拐头判断：历史数据不足 66 条');
 
-  const c2 = aboveAvg === 'true'  ? ok(`当前 MA60(${isNaN(ma60)?'–':ma60}) ≥ 前5日均值`)
-           : aboveAvg === 'false' ? ng(`当前 MA60(${isNaN(ma60)?'–':ma60}) < 前5日均值`)
-           : dim('条件2：数据不足');
+  // 均线是否站上近5日均值
+  const ma60Str  = isNaN(ma60)     ? '–' : ma60.toFixed(3);
+  const avgStr   = isNaN(ma60Avg5) ? '–' : ma60Avg5.toFixed(3);
+  const c2 = aboveAvg === 'true'
+    ? ok(`均线站上近5日均值（${ma60Str} ≥ 均值 ${avgStr}）`)
+    : aboveAvg === 'false'
+    ? ng(`均线低于近5日均值（${ma60Str} < 均值 ${avgStr}）`)
+    : dim('均值对比：历史数据不足 66 条');
 
-  const rateStr = isNaN(rate) ? '' : `<div style="margin-top:6px;color:var(--text-dim);font-size:11px">5日变化率：${rate>0?'+':''}${rate.toFixed(2)}%</div>`;
+  const rateStr = isNaN(rate) ? ''
+    : `<div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border);color:var(--text-dim);font-size:11px">`
+    + `5日均线变化率：<span style="color:${rate>0?'var(--red)':rate<0?'var(--green)':'var(--text-dim)'}; font-weight:700">${rate>0?'+':''}${rate.toFixed(2)}%</span></div>`;
 
-  const trendColor = trend==='趋势向好'?'var(--red)':trend==='持续下行'?'var(--green)':'var(--yellow)';
-  return `<div style="font-weight:700;margin-bottom:8px;color:${trendColor}">${trend}</div>`
-       + `<div style="margin-bottom:4px">${c1}</div>`
+  const trendColor = trend === '趋势向好' ? 'var(--red)' : trend === '持续下行' ? 'var(--green)' : 'var(--yellow)';
+  return `<div style="font-weight:700;margin-bottom:10px;color:${trendColor};font-size:14px">${trend}</div>`
+       + `<div style="margin-bottom:5px">${c1}</div>`
        + `<div>${c2}</div>`
        + rateStr;
 }
