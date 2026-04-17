@@ -7,6 +7,7 @@
     YYYY/
       MM/
         mdtfr_pool.json     — 当月每日标的池快照：{"YYYY-MM-DD": [...], ...}
+        aw_pool.json        — 当月每日AW标的池快照：{"YYYY-MM-DD": [...], ...}
         mdtfr_journal.json  — 当月 MDTFR 复盘记录数组，按 data_date 去重（upsert）
         aw_journal.json     — 当月 AW 再平衡复盘记录数组，按 date 去重（upsert）
 
