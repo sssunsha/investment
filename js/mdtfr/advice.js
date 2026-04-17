@@ -47,7 +47,7 @@ export function mdtfrBuildAdvice(items) {
     x._c1 = x._poolRank <= 2;
     x._c2 = x.ret_20d != null && x.ret_20d >= 0.03;
     x._c3 = x.above_ma20 === true;
-    x._c4 = x.ma60_rising === true;
+    x._c4 = x.latest_close != null && x.ma60 != null && x.latest_close > x.ma60 && x.ma60_rising === true;
     x._allPass = x._c1 && x._c2 && x._c3 && x._c4;
   });
   const buyCandidates = top2.filter(x => x._allPass);
@@ -358,8 +358,8 @@ export function mdtfrRenderAdvice(items) {
         `近20日 <span style="color:${rclr(x.ret_20d)}">${fmtRet(x.ret_20d)}</span>`)}
       ${condRow(x._c3, '收盘价站上20日均线',
         `收盘 ${x.latest_close?.toFixed(3)} ${x._c3?'>':'≤'} MA20 ${x.ma20?.toFixed(3)}`)}
-      ${condRow(x._c4, '60日均线向上（中长期趋势向好，避免逆势买入）',
-        `${x.ma60_trend||'N/A'}${x.ma60_rate!=null?' '+(x.ma60_rate>0?'+':'')+x.ma60_rate.toFixed(2)+'%':''}`)}
+      ${condRow(x._c4, '收盘价站上60日均线，且60日均线趋势向好（近5日出现拐头且均值向上）',
+        `收盘 ${x.latest_close?.toFixed(3)} ${x.ma60!=null?(x.latest_close>x.ma60?'>':'≤'):''} MA60 ${x.ma60?.toFixed(3)} | ${x.ma60_trend||'N/A'}${x.ma60_rate!=null?' '+(x.ma60_rate>0?'+':'')+x.ma60_rate.toFixed(2)+'%':''}`)}
     </div>`;
   }).join('');
 
