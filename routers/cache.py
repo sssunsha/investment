@@ -15,6 +15,10 @@
   PUT    /api/cache/pool/{date}                  写入/覆盖指定日期标的池快照
   DELETE /api/cache/pool/{date}                  删除指定日期标的池快照
 
+  GET    /api/cache/aw-pool/{date}               读取指定日期AW标的池快照
+  PUT    /api/cache/aw-pool/{date}               写入/覆盖指定日期AW标的池快照
+  DELETE /api/cache/aw-pool/{date}               删除指定日期AW标的池快照
+
   GET    /api/cache/journal/{year}/{month}        读取指定月份所有 MDTFR 复盘记录
   POST   /api/cache/journal                       追加/更新一条 MDTFR 复盘记录（按 data_date upsert）
 
@@ -52,6 +56,12 @@ def _pool_file(date: str) -> tuple[Path, str, str]:
     """返回 (pool文件路径, year, month)"""
     year, month = _parse_date(date)
     return _month_dir(year, month) / "mdtfr_pool.json", year, month
+
+
+def _aw_pool_file(date: str) -> tuple[Path, str, str]:
+    """返回 (aw_pool文件路径, year, month)"""
+    year, month = _parse_date(date)
+    return _month_dir(year, month) / "aw_pool.json", year, month
 
 
 def _journal_file(year: str, month: str) -> Path:
@@ -121,6 +131,56 @@ async def pool_delete(date: str):
         return {"ok": True, "file": str(pool_path), "date": date}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除缓存失败: {e}")
+
+
+# ── AW 标的池快照 ──────────────────────────────────────────────
+
+@router.get("/aw-pool/{date}", summary="读取指定日期AW标的池快照")
+async def aw_pool_get(date: str):
+    try:
+        pool_path, _, _ = _aw_pool_file(date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    monthly: dict = _read_json(pool_path, {})
+    if date not in monthly:
+        return JSONResponse(status_code=404, content={"detail": "缓存不存在"})
+    return JSONResponse(content=monthly[date])
+
+
+@router.put("/aw-pool/{date}", summary="写入指定日期AW标的池快照")
+async def aw_pool_put(date: str, request: Request):
+    try:
+        pool_path, _, _ = _aw_pool_file(date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        payload = await request.json()
+        monthly: dict = _read_json(pool_path, {})
+        monthly[date] = payload
+        _write_json(pool_path, monthly)
+        return {"ok": True, "file": str(pool_path), "date": date}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入AW缓存失败: {e}")
+
+
+@router.delete("/aw-pool/{date}", summary="删除指定日期AW标的池快照")
+async def aw_pool_delete(date: str):
+    try:
+        pool_path, _, _ = _aw_pool_file(date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    monthly: dict = _read_json(pool_path, {})
+    if date not in monthly:
+        return {"ok": True, "detail": "日期不存在，无需删除"}
+    try:
+        del monthly[date]
+        _write_json(pool_path, monthly)
+        return {"ok": True, "file": str(pool_path), "date": date}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除AW缓存失败: {e}")
 
 
 # ── 复盘日志 ───────────────────────────────────────────────────
