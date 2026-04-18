@@ -348,3 +348,62 @@ async def amounts_put(request: Request):
         return {"ok": True, "file": str(AMOUNTS_FILE)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"写入持仓金额失败: {e}")
+
+
+# ── 宏观经济数据缓存 ───────────────────────────────────────────
+MACRO_CACHE_FILE = CACHE_DIR / "macro_data.json"
+
+
+@router.get("/macro", summary="读取宏观经济数据缓存")
+async def macro_get():
+    """读取缓存的宏观经济数据（存贷款利率、准备金率、货币供应量）"""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    data = _read_json(MACRO_CACHE_FILE, {})
+    return JSONResponse(content=data if isinstance(data, dict) else {})
+
+
+@router.put("/macro", summary="写入宏观经济数据缓存")
+async def macro_put(request: Request):
+    """
+    写入宏观经济数据缓存
+    
+    请求体格式：
+    {
+      "deposit_rate": {"data": [...], "updated": "2026-04-18"},
+      "loan_rate": {"data": [...], "updated": "2026-04-18"},
+      "reserve_ratio": {"data": [...], "updated": "2026-04-18"},
+      "money_supply_month": {"data": [...], "updated": "2026-04-18"},
+      "money_supply_year": {"data": [...], "updated": "2026-04-18"}
+    }
+    """
+    try:
+        payload = await request.json()
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _write_json(MACRO_CACHE_FILE, payload)
+        return {"ok": True, "file": str(MACRO_CACHE_FILE)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入宏观数据缓存失败: {e}")
+
+
+@router.patch("/macro/{key}", summary="更新单个宏观数据类型的缓存")
+async def macro_patch(key: str, request: Request):
+    """
+    更新单个宏观数据类型的缓存
+    
+    key: deposit_rate, loan_rate, reserve_ratio, money_supply_month, money_supply_year
+    """
+    valid_keys = ["deposit_rate", "loan_rate", "reserve_ratio", "money_supply_month", "money_supply_year"]
+    if key not in valid_keys:
+        raise HTTPException(status_code=400, detail=f"无效的 key: {key}，有效值: {valid_keys}")
+    
+    try:
+        payload = await request.json()
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        data = _read_json(MACRO_CACHE_FILE, {})
+        if not isinstance(data, dict):
+            data = {}
+        data[key] = payload
+        _write_json(MACRO_CACHE_FILE, data)
+        return {"ok": True, "key": key, "file": str(MACRO_CACHE_FILE)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新宏观数据缓存失败: {e}")

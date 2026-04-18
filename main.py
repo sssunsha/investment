@@ -31,6 +31,7 @@ from session import ensure_login, heartbeat_task, manual_logout, run_bs, mark_di
 from routers import history, sector, evaluation, corpreport, metadata, macroscopic, strategy as strategy_router
 from routers import session as session_router
 from routers import cache as cache_router
+from routers import indicators as indicators_router
 
 
 # ──────────────────────────────────────────────
@@ -104,6 +105,7 @@ app = FastAPI(
         {"name": "会话管理", "description": "BaoStock 登录/登出，以及心跳保活状态查询"},
         {"name": "投资策略", "description": "市场指数快照、ETF轮动策略（原有业务接口）"},
         {"name": "策略分析", "description": "全天候配置动态平衡、ETF行业动量CTA轮动策略"},
+        {"name": "投资指标", "description": "核心投资指标爬取与买卖信号分析（股债比、Shibor、美债收益率等）"},
     ]
 )
 
@@ -192,6 +194,20 @@ async def api_test_page():
     return HTMLResponse(html)
 
 
+@app.get("/basic-info", include_in_schema=False)
+async def basic_info_page():
+    """基本信息页：宏观经济数据可视化（存贷款利率/准备金率/货币供应量）"""
+    html = (Path(__file__).parent / "basic_info_page.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
+@app.get("/indicators", include_in_schema=False)
+async def indicators_page():
+    """投资指标仪表盘：核心投资指标与买卖信号分析"""
+    html = (Path(__file__).parent / "indicators_page.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
 # ──────────────────────────────────────────────
 # CORS
 # ──────────────────────────────────────────────
@@ -215,6 +231,7 @@ app.include_router(macroscopic.router)           # 宏观经济数据
 app.include_router(session_router.router)        # 会话管理
 app.include_router(strategy_router.router)       # 策略分析
 app.include_router(cache_router.router)          # 本地 JSON 缓存
+app.include_router(indicators_router.router)     # 投资指标爬虫
 
 
 # ──────────────────────────────────────────────

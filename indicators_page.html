@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>投资指标仪表盘 - Investment Indicators Dashboard</title>
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/indicators.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <a href="/" class="header-logo">📊 投资助手</a>
+      <nav class="header-nav">
+        <a href="/">首页</a>
+        <a href="/strategy">策略</a>
+        <a href="/basic-info">基础数据</a>
+        <a href="/indicators" class="active">宏观指标</a>
+      </nav>
+    </div>
+    <div class="header-right">
+      <span id="header-date" class="header-date"></span>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="indicators-layout">
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="font-size: 24px; font-weight: 700;">📈 核心投资指标仪表盘</h1>
+        <div class="page-actions">
+          <button id="load-btn" class="btn btn-secondary" onclick="loadIndicators()">▶ 加载数据</button>
+          <button id="refresh-btn" class="btn btn-primary" onclick="handleRefresh()">🔄 强制刷新</button>
+        </div>
+      </div>
+      
+      <div id="indicators-container">
+        <div class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">正在加载投资指标数据...</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/indicators/main.js"></script>
+</body>
+</html>
