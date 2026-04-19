@@ -54,6 +54,29 @@ function renderSignalPanel(signals) {
     no_inversion: '美债利差正常',
   };
   
+  const buySignalExplanations = {
+    stock_bond_ratio_high: {
+      principle: '格雷厄姆投资原理',
+      detail: '当股票盈利收益率(E/P)达到10年期国债收益率的2倍以上时，说明股票相对债券具有极高的性价比。这是价值投资之父本杰明·格雷厄姆提出的核心配置指标。',
+      action: '历史上股债比>2.0的时期（如2005年、2008年、2012年、2018年）均为长期大底，是满仓配置的最佳时机。'
+    },
+    shibor_1y_low: {
+      principle: '流动性宽松周期',
+      detail: 'Shibor 1年期利率反映货币政策中期取向。当1年期利率<1.5%时，表明央行处于宽松周期，市场流动性充裕，资金成本低廉。',
+      action: '流动性宽松直接支撑股市上涨，降低企业融资成本，提升盈利预期。是股市上涨的重要推动力。'
+    },
+    financing_cold: {
+      principle: '市场情绪冰点',
+      detail: '融资余额月增速<-10%说明杠杆资金大幅撤离，市场情绪极度悲观。通常对应恐慌性抛售和超跌反弹机会。',
+      action: '历史上融资余额增速跌至-10%以下的时期，往往是短期底部，适合逆向布局。别人恐惧时我贪婪。'
+    },
+    no_inversion: {
+      principle: '无衰退风险',
+      detail: '美债2Y-10Y利差>0说明收益率曲线正常，长期利率高于短期利率。这表明市场预期经济将持续增长，无衰退风险。',
+      action: '正常的收益率曲线支持风险资产定价，为股市提供良好的宏观环境。'
+    },
+  };
+  
   const sellSignalLabels = {
     stock_bond_ratio_low: '股债比<1.0',
     buffett_high: '巴菲特>120%',
@@ -61,6 +84,36 @@ function renderSignalPanel(signals) {
     inversion: '美债倒挂>20bp',
     cpi_high: 'CPI>3%',
   };
+  
+  const sellSignalExplanations = {
+    stock_bond_ratio_low: {
+      principle: '股票性价比极低',
+      detail: '当股债比<1.0时，意味着股票盈利收益率低于债券收益率，投资股票的回报不如买债券。这说明股市严重高估。',
+      action: '此时应减仓至30%以下，将资金转向债券等固定收益产品。'
+    },
+    buffett_high: {
+      principle: '市场严重高估',
+      detail: '巴菲特指标（股市总市值/GDP）>120%说明股市泡沫严重。历史上每次突破120%都伴随着随后的暴跌。',
+      action: '立即减仓，保持现金，等待下一次危机带来的机会。'
+    },
+    financing_hot: {
+      principle: '杠杆过热',
+      detail: '融资余额月增速>30%表明杠杆资金疯狂涌入，市场情绪极度亢奋。通常预示短期顶部即将到来。',
+      action: '杠杆资金是市场波动的放大器。增速过快往往对应短期顶部，应及时获利了结。'
+    },
+    inversion: {
+      principle: '衰退信号',
+      detail: '美债2Y-10Y利差<-20bp（倒挂超过20个基点）是最可靠的经济衰退领先指标。倒挂后24个月内衰退概率>80%。',
+      action: '立即降低风险资产配置，转向防御性资产。历史上每次严重倒挂后均发生经济衰退。'
+    },
+    cpi_high: {
+      principle: '紧缩政策将至',
+      detail: 'CPI>3%且持续上升时，央行通常会采取加息等紧缩政策来抑制通胀。这将提高资金成本，压制股市估值。',
+      action: '高通胀环境下，实际利率上升，股市面临估值压力，应减少权益资产配置。'
+    },
+  };
+  
+  const decisionMatrix = data.decision_matrix || {};
   
   return `
     <div class="signal-panel">
@@ -78,27 +131,96 @@ function renderSignalPanel(signals) {
           <div class="signal-section buy">
             <div class="signal-section-title">📈 买入信号 (${data.buy_count}/4)</div>
             <div class="signal-items">
-              ${Object.entries(buySignalLabels).map(([key, label]) => `
-                <div class="signal-item ${buySignals[key] ? 'active' : 'inactive'}">
-                  <span class="signal-icon">${buySignals[key] ? '✅' : '⬜'}</span>
-                  <span>${label}</span>
-                </div>
-              `).join('')}
+              ${Object.entries(buySignalLabels).map(([key, label]) => {
+                const explanation = buySignalExplanations[key] || {};
+                return `
+                  <div class="signal-item ${buySignals[key] ? 'active' : 'inactive'}">
+                    <span class="signal-icon">${buySignals[key] ? '✅' : '⬜'}</span>
+                    <span>${label}</span>
+                    <div class="signal-tooltip">
+                      <div class="signal-tooltip-principle">📚 ${explanation.principle || ''}</div>
+                      <div class="signal-tooltip-detail">${explanation.detail || ''}</div>
+                      <div class="signal-tooltip-action">💡 ${explanation.action || ''}</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
           
           <div class="signal-section sell">
             <div class="signal-section-title">📉 卖出信号 (${data.sell_count}/5)</div>
             <div class="signal-items">
-              ${Object.entries(sellSignalLabels).map(([key, label]) => `
-                <div class="signal-item ${sellSignals[key] ? 'sell-active' : 'inactive'}">
-                  <span class="signal-icon">${sellSignals[key] ? '🔴' : '⬜'}</span>
-                  <span>${label}</span>
-                </div>
-              `).join('')}
+              ${Object.entries(sellSignalLabels).map(([key, label]) => {
+                const explanation = sellSignalExplanations[key] || {};
+                return `
+                  <div class="signal-item ${sellSignals[key] ? 'sell-active' : 'inactive'}">
+                    <span class="signal-icon">${sellSignals[key] ? '🔴' : '⬜'}</span>
+                    <span>${label}</span>
+                    <div class="signal-tooltip">
+                      <div class="signal-tooltip-principle">📚 ${explanation.principle || ''}</div>
+                      <div class="signal-tooltip-detail">${explanation.detail || ''}</div>
+                      <div class="signal-tooltip-action">💡 ${explanation.action || ''}</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
         </div>
+        
+        ${decisionMatrix.conditions ? renderDecisionMatrix(decisionMatrix) : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderDecisionMatrix(matrix) {
+  const { primary_text, primary_color, primary_icon, conditions } = matrix;
+  
+  const matrixLabels = {
+    strong_buy: '强烈买入',
+    active_allocation: '积极配置',
+    cautious: '谨慎观望',
+    forced_sell: '强制卖出',
+  };
+  
+  return `
+    <div class="decision-matrix">
+      <div class="decision-matrix-header">
+        <span class="decision-matrix-title">📋 决策矩阵分析</span>
+        <span class="decision-matrix-badge ${primary_color}">
+          <span>${primary_icon}</span>
+          <span>${primary_text}</span>
+        </span>
+      </div>
+      
+      <div class="decision-matrix-grid">
+        ${Object.entries(conditions).map(([key, rule]) => `
+          <div class="matrix-rule ${rule.matched ? 'matched' : ''}">
+            <div class="matrix-rule-header">
+              <span class="matrix-rule-title">${matrixLabels[key] || key}</span>
+              <span class="matrix-rule-score">${rule.met_count}/${rule.total_count}</span>
+            </div>
+            <div class="matrix-rule-conditions">
+              ${rule.conditions.map(cond => `
+                <div class="matrix-condition ${cond.met ? 'met' : 'unmet'}">
+                  <span class="matrix-condition-icon">${cond.met ? '✅' : '❌'}</span>
+                  <span class="matrix-condition-name">${cond.name}</span>
+                  <span class="matrix-condition-value">${cond.value}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="matrix-rule-action">
+              <span class="matrix-action-icon">💼</span>
+              <span>${rule.action}</span>
+            </div>
+            <div class="matrix-rule-position">
+              <span class="matrix-position-icon">📊</span>
+              <span>${rule.position}</span>
+            </div>
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
@@ -176,11 +298,11 @@ const INDICATOR_METADATA = {
   },
   cn_10y_bond: {
     thresholds: [
-      { condition: '<3%', label: '低利率环境', color: 'green' },
-      { condition: '3-4%', label: '中性', color: 'blue' },
-      { condition: '>4.5%', label: '高利率压力', color: 'red' },
+      { condition: '10Y<3%', label: '低利率环境', color: 'green' },
+      { condition: '10Y 3-4%', label: '中性', color: 'blue' },
+      { condition: '10Y>4.5%', label: '高利率压力', color: 'red' },
     ],
-    meaning: '无风险利率基准，影响所有资产定价。是计算股债收益率比的重要参数。',
+    meaning: '无风险利率基准，影响所有资产定价。对于10年期利率：<3%为低利率环境，3-4%为中性，>4.5%为高利率压力。是计算股债收益率比的重要参数。',
   },
   m1_m2: {
     thresholds: [
@@ -242,6 +364,131 @@ const INDICATOR_METADATA = {
     meaning: '全球资产定价之锚，影响新兴市场资金流向。2Y-10Y利差倒挂是最可靠的经济衰退领先指标，倒挂后24个月内衰退概率>80%。',
   },
 };
+
+function getValueColor(key, value, fieldName = 'primary') {
+  const meta = INDICATOR_METADATA[key];
+  if (!meta || !meta.thresholds || value === null || value === undefined) return '';
+  
+  // Special handling for different indicators
+  switch (key) {
+    case 'a_share_pe':
+      if (fieldName.includes('pe')) {
+        if (value < 15) return 'green';
+        if (value > 30) return 'red';
+        if (value >= 15 && value <= 25) return 'blue';
+        return 'orange';
+      }
+      break;
+    
+    case 'stock_bond_ratio':
+      if (value > 2.0) return 'green';
+      if (value >= 1.5 && value <= 2.0) return 'blue';
+      if (value < 1.0) return 'red';
+      return 'orange';
+    
+    case 'csi300_pe_pb':
+    case 'csi500_pe_pb':
+      if (fieldName.includes('pe')) {
+        const lowPE = key === 'csi300_pe_pb' ? 12 : 25;
+        const highPE = key === 'csi300_pe_pb' ? 18 : 45;
+        if (value < lowPE) return 'green';
+        if (value > highPE) return 'red';
+        return 'blue';
+      } else if (fieldName.includes('pb')) {
+        if (value < 1.5) return 'green';
+        if (value > 2.5) return 'red';
+        return 'blue';
+      }
+      break;
+    
+    case 'buffett_index':
+      if (value < 80) return 'green';
+      if (value >= 80 && value <= 100) return 'blue';
+      if (value > 120) return 'red';
+      return 'orange';
+    
+    case 'hsi_pe':
+      if (value < 10) return 'green';
+      if (value > 18) return 'orange';
+      return 'blue';
+    
+    case 'shibor':
+      if (fieldName.includes('overnight')) {
+        if (value < 1.5) return 'green';
+        if (value > 3) return 'red';
+        if (value > 2) return 'orange';
+        return 'blue';
+      } else if (fieldName.includes('1_year')) {
+        if (value < 1.8) return 'green';
+        if (value > 3) return 'red';
+        return 'blue';
+      }
+      break;
+    
+    case 'cn_10y_bond':
+      if (value < 3) return 'green';
+      if (value >= 3 && value <= 4) return 'blue';
+      if (value > 4.5) return 'red';
+      return 'orange';
+    
+    case 'm1_m2':
+      if (fieldName.includes('m1_m2_diff')) {
+        if (value > 0) return 'green';
+        if (value < -3) return 'red';
+        return 'orange';
+      } else if (fieldName.includes('m1_growth')) {
+        if (value < 3) return 'red';
+        if (value > 10) return 'green';
+        return 'blue';
+      }
+      break;
+    
+    case 'm2_gdp':
+      if (value < 2.0) return 'green';
+      if (value >= 2.0 && value <= 2.5) return 'orange';
+      if (value > 2.5) return 'red';
+      return 'blue';
+    
+    case 'financing_balance':
+      if (fieldName.includes('growth')) {
+        if (value < -10) return 'blue';
+        if (value > 30) return 'red';
+        if (value > 20) return 'orange';
+        return 'green';
+      }
+      break;
+    
+    case 'cpi':
+      if (value < 2) return 'blue';
+      if (value >= 2 && value <= 3) return 'green';
+      if (value > 5) return 'red';
+      return 'orange';
+    
+    case 'ppi':
+      // PPI-CPI spread would need to be calculated, just show neutral for now
+      return 'blue';
+    
+    case 'bdi':
+      if (value > 2000) return 'green';
+      if (value >= 1000 && value <= 2000) return 'blue';
+      if (value < 1000) return 'red';
+      break;
+    
+    case 'us_treasury':
+      if (fieldName.includes('10_year')) {
+        if (value < 3) return 'green';
+        if (value >= 3 && value <= 4.5) return 'blue';
+        if (value > 4.5) return 'red';
+      } else if (fieldName.includes('spread')) {
+        if (value > 0) return 'green';
+        if (value >= 0 && value > -20) return 'orange';
+        if (value < -20) return 'red';
+      }
+      break;
+  }
+  
+  return '';
+}
 
 function renderThresholdDisplay(key) {
   const meta = INDICATOR_METADATA[key];
@@ -326,9 +573,11 @@ function renderIndicatorCard(indicator) {
       
       <div class="indicator-footer">
         <div class="indicator-date">
-          <span>📅</span>
-          <span>${indicator.data_date || '—'}</span>
-          ${indicator.from_cache ? '<span class="indicator-cache-badge">缓存</span>' : ''}
+          <span class="date-icon">📅</span>
+          <span class="date-label">数据日期:</span>
+          <span class="date-value">${indicator.data_date || '—'}</span>
+          ${indicator.from_cache ? '<span class="indicator-cache-badge">📦 缓存</span>' : '<span class="indicator-fresh-badge">🔄 最新</span>'}
+          ${indicator.cache_expired ? '<span class="indicator-expired-badge">⚠️ 已过期</span>' : ''}
         </div>
         <a href="${indicator.url}" target="_blank" class="indicator-link">
           <span>🔗 数据源</span>
@@ -351,14 +600,16 @@ function getCardClass(status) {
 function renderIndicatorValues(key, values) {
   switch (key) {
     case 'stock_bond_ratio':
+      const shanghaiColor = getValueColor(key, values.shanghai_ratio, 'shanghai_ratio');
+      const shenzhenColor = getValueColor(key, values.shenzhen_ratio, 'shenzhen_ratio');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">上交所</div>
-          <div class="indicator-value-number">${formatNumber(values.shanghai_ratio, 2)}</div>
+          <div class="indicator-value-number ${shanghaiColor}">${formatNumber(values.shanghai_ratio, 2)}</div>
         </div>
         <div class="indicator-value">
           <div class="indicator-value-label">深交所</div>
-          <div class="indicator-value-number">${formatNumber(values.shenzhen_ratio, 2)}</div>
+          <div class="indicator-value-number ${shenzhenColor}">${formatNumber(values.shenzhen_ratio, 2)}</div>
         </div>
       `;
     
@@ -391,63 +642,80 @@ function renderIndicatorValues(key, values) {
       `;
     
     case 'a_share_pe':
+      const shanghaiPEColor = getValueColor(key, values.shanghai_pe, 'shanghai_pe');
+      const shenzhenPEColor = getValueColor(key, values.shenzhen_pe, 'shenzhen_pe');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">上海PE</div>
-          <div class="indicator-value-number">${formatNumber(values.shanghai_pe, 2)}<span class="indicator-value-unit">倍</span></div>
+          <div class="indicator-value-number ${shanghaiPEColor}">${formatNumber(values.shanghai_pe, 2)}<span class="indicator-value-unit">倍</span></div>
         </div>
         ${values.shenzhen_pe ? `
         <div class="indicator-value">
           <div class="indicator-value-label">深圳PE</div>
-          <div class="indicator-value-number">${formatNumber(values.shenzhen_pe, 2)}<span class="indicator-value-unit">倍</span></div>
+          <div class="indicator-value-number ${shenzhenPEColor}">${formatNumber(values.shenzhen_pe, 2)}<span class="indicator-value-unit">倍</span></div>
         </div>
         ` : ''}
       `;
     
     case 'csi300_pe_pb':
     case 'csi500_pe_pb':
+      const peColor = getValueColor(key, values.pe, 'pe');
+      const pbColor = getValueColor(key, values.pb, 'pb');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">PE</div>
-          <div class="indicator-value-number">${formatNumber(values.pe, 2)}<span class="indicator-value-unit">倍</span></div>
+          <div class="indicator-value-number ${peColor}">${formatNumber(values.pe, 2)}<span class="indicator-value-unit">倍</span></div>
         </div>
         ${values.pb ? `
         <div class="indicator-value">
           <div class="indicator-value-label">PB</div>
-          <div class="indicator-value-number">${formatNumber(values.pb, 2)}<span class="indicator-value-unit">倍</span></div>
+          <div class="indicator-value-number ${pbColor}">${formatNumber(values.pb, 2)}<span class="indicator-value-unit">倍</span></div>
         </div>
         ` : ''}
       `;
     
     case 'buffett_index':
+      const buffettColor = getValueColor(key, values.buffett_index, 'buffett_index');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">巴菲特指标</div>
-          <div class="indicator-value-number">${formatNumber(values.buffett_index, 1)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number ${buffettColor}">${formatNumber(values.buffett_index, 1)}<span class="indicator-value-unit">%</span></div>
         </div>
       `;
     
     case 'hsi_pe':
+      const hsiColor = getValueColor(key, values.pe, 'pe');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">恒生PE</div>
-          <div class="indicator-value-number">${formatNumber(values.pe, 2)}<span class="indicator-value-unit">倍</span></div>
+          <div class="indicator-value-number ${hsiColor}">${formatNumber(values.pe, 2)}<span class="indicator-value-unit">倍</span></div>
         </div>
       `;
     
     case 'cn_10y_bond':
+      const bond10yColor = getValueColor(key, values['10_year'], '10_year');
       return `
         <div class="indicator-value">
-          <div class="indicator-value-label">10年期国债</div>
-          <div class="indicator-value-number">${formatNumber(values.yield, 3)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-label">1年期</div>
+          <div class="indicator-value-number small">${formatNumber(values['1_year'], 4)}<span class="indicator-value-unit">%</span></div>
+        </div>
+        <div class="indicator-value">
+          <div class="indicator-value-label">5年期</div>
+          <div class="indicator-value-number small">${formatNumber(values['5_year'], 4)}<span class="indicator-value-unit">%</span></div>
+        </div>
+        <div class="indicator-value">
+          <div class="indicator-value-label">10年期</div>
+          <div class="indicator-value-number small ${bond10yColor}">${formatNumber(values['10_year'], 4)}<span class="indicator-value-unit">%</span></div>
         </div>
       `;
     
     case 'm1_m2':
+      const m1Color = getValueColor(key, values.m1_growth, 'm1_growth');
+      const m1m2DiffColor = getValueColor(key, values.m1_m2_diff, 'm1_m2_diff');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">M1增速</div>
-          <div class="indicator-value-number small">${formatNumber(values.m1_growth, 2)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number small ${m1Color}">${formatNumber(values.m1_growth, 2)}<span class="indicator-value-unit">%</span></div>
         </div>
         <div class="indicator-value">
           <div class="indicator-value-label">M2增速</div>
@@ -455,19 +723,25 @@ function renderIndicatorValues(key, values) {
         </div>
         <div class="indicator-value">
           <div class="indicator-value-label">M1-M2</div>
-          <div class="indicator-value-number small">${formatNumber(values.m1_m2_diff, 2)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number small ${m1m2DiffColor}">${formatNumber(values.m1_m2_diff, 2)}<span class="indicator-value-unit">%</span></div>
         </div>
       `;
     
     case 'm2_gdp':
+      const m2gdpColor = getValueColor(key, values.ratio, 'ratio');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">M2/GDP</div>
-          <div class="indicator-value-number">${formatNumber(values.ratio, 1)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number ${m2gdpColor}">${formatNumber(values.ratio, 2)}<span class="indicator-value-unit">倍</span></div>
+        </div>
+        <div class="indicator-value">
+          <div class="indicator-value-label">百分比</div>
+          <div class="indicator-value-number small ${m2gdpColor}">${formatNumber(values.ratio * 100, 0)}<span class="indicator-value-unit">%</span></div>
         </div>
       `;
     
     case 'financing_balance':
+      const growthColor = values.growth_rate !== undefined ? getValueColor(key, values.growth_rate, 'growth_rate') : '';
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">融资余额</div>
@@ -476,32 +750,35 @@ function renderIndicatorValues(key, values) {
         ${values.growth_rate !== undefined ? `
         <div class="indicator-value">
           <div class="indicator-value-label">增速</div>
-          <div class="indicator-value-number">${formatNumber(values.growth_rate, 2)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number ${growthColor}">${formatNumber(values.growth_rate, 2)}<span class="indicator-value-unit">%</span></div>
         </div>
         ` : ''}
       `;
     
     case 'cpi':
+      const cpiColor = getValueColor(key, values.cpi, 'cpi');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">CPI</div>
-          <div class="indicator-value-number">${formatNumber(values.cpi, 2)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number ${cpiColor}">${formatNumber(values.cpi, 2)}<span class="indicator-value-unit">%</span></div>
         </div>
       `;
     
     case 'ppi':
+      const ppiColor = getValueColor(key, values.ppi, 'ppi');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">PPI</div>
-          <div class="indicator-value-number">${formatNumber(values.ppi, 2)}<span class="indicator-value-unit">%</span></div>
+          <div class="indicator-value-number ${ppiColor}">${formatNumber(values.ppi, 2)}<span class="indicator-value-unit">%</span></div>
         </div>
       `;
     
     case 'bdi':
+      const bdiColor = getValueColor(key, values.bdi, 'bdi');
       return `
         <div class="indicator-value">
           <div class="indicator-value-label">BDI指数</div>
-          <div class="indicator-value-number">${formatNumber(values.bdi, 0)}</div>
+          <div class="indicator-value-number ${bdiColor}">${formatNumber(values.bdi, 0)}</div>
         </div>
       `;
     

@@ -140,8 +140,8 @@ INDICATORS_CONFIG = {
         },
     },
     "cn_10y_bond": {
-        "name": "10年期国债收益率",
-        "name_en": "China 10Y Bond Yield",
+        "name": "中国国债收益率",
+        "name_en": "China Treasury Yields",
         "url": "http://value500.com/10Bond.html",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -380,22 +380,33 @@ def _parse_pe(html: str) -> Dict[str, Any]:
     soup = BeautifulSoup(html, 'html.parser')
     result = {"values": {}, "date": None}
     
-    # Find the main data table
+    # Find the main data table - there are two tables:
+    # 1. First table has current data with full date (e.g., 2026年04月17日)
+    # 2. Second table has historical monthly data (e.g., 2026年03月)
+    # We want the FIRST table for the most recent data
     tables = soup.find_all('table', border="1")
-    for table in tables:
-        rows = table.find_all('tr')
-        for row in rows[1:2]:  # First data row after header
+    
+    if len(tables) >= 1:
+        first_table = tables[0]
+        rows = first_table.find_all('tr')
+        
+        # Extract PE values and date from the first table
+        for row in rows:
             cells = row.find_all('td')
             if len(cells) >= 3:
-                date_text = cells[0].get_text(strip=True)
-                sh_pe = _parse_float(cells[1].get_text(strip=True))
-                sz_pe = _parse_float(cells[2].get_text(strip=True)) if len(cells) > 2 else None
+                first_cell = cells[0].get_text(strip=True)
                 
-                result["date"] = _parse_date(date_text)
-                result["values"]["shanghai_pe"] = sh_pe
-                if sz_pe:
+                # Look for the PE values row (contains "市盈率")
+                if '市盈率' in first_cell and '平均' not in first_cell:
+                    sh_pe = _parse_float(cells[1].get_text(strip=True))
+                    sz_pe = _parse_float(cells[2].get_text(strip=True))
+                    result["values"]["shanghai_pe"] = sh_pe
                     result["values"]["shenzhen_pe"] = sz_pe
-                break
+                
+                # Look for the date row (contains "更新时间")
+                elif '更新时间' in first_cell or '日期' in first_cell:
+                    date_text = cells[1].get_text(strip=True)
+                    result["date"] = _parse_date(date_text)
     
     return result
 
@@ -408,19 +419,32 @@ def _parse_index_pe_pb(html: str) -> Dict[str, Any]:
     tables = soup.find_all('table', border="1")
     for table in tables:
         rows = table.find_all('tr')
-        for row in rows:
+        # Collect all valid data rows to find the latest date
+        all_data = []
+        for row in rows[1:]:  # Skip header
             cells = row.find_all('td')
             if len(cells) >= 3:
                 date_text = cells[0].get_text(strip=True)
                 if re.search(r'\d{4}年', date_text):
-                    pe = _parse_float(cells[1].get_text(strip=True))
-                    pb = _parse_float(cells[2].get_text(strip=True)) if len(cells) > 2 else None
-                    
-                    result["date"] = _parse_date(date_text)
-                    result["values"]["pe"] = pe
-                    if pb:
-                        result["values"]["pb"] = pb
-                    break
+                    parsed_date = _parse_date(date_text)
+                    if parsed_date:
+                        pe = _parse_float(cells[1].get_text(strip=True))
+                        pb = _parse_float(cells[2].get_text(strip=True)) if len(cells) > 2 else None
+                        all_data.append({
+                            "date": parsed_date,
+                            "pe": pe,
+                            "pb": pb,
+                        })
+        
+        # Sort by date descending to get the latest
+        if all_data:
+            all_data.sort(key=lambda x: x["date"], reverse=True)
+            latest = all_data[0]
+            result["date"] = latest["date"]
+            result["values"]["pe"] = latest["pe"]
+            if latest["pb"]:
+                result["values"]["pb"] = latest["pb"]
+            break
     
     return result
 
@@ -433,19 +457,32 @@ def _parse_stock_bond_ratio(html: str) -> Dict[str, Any]:
     tables = soup.find_all('table', border="1")
     for table in tables:
         rows = table.find_all('tr')
-        for row in rows[1:2]:  # First data row
+        # Collect all valid data rows to find the latest date
+        all_data = []
+        for row in rows[1:]:  # Skip header
             cells = row.find_all('td')
             if len(cells) >= 3:
                 date_text = cells[0].get_text(strip=True)
-                sh_ratio = _parse_float(cells[1].get_text(strip=True))
-                sz_ratio = _parse_float(cells[2].get_text(strip=True))
-                
-                result["date"] = _parse_date(date_text)
-                result["values"]["shanghai_ratio"] = sh_ratio
-                result["values"]["shenzhen_ratio"] = sz_ratio
-                # Use Shanghai as primary value
-                result["values"]["primary"] = sh_ratio
-                break
+                parsed_date = _parse_date(date_text)
+                if parsed_date:
+                    sh_ratio = _parse_float(cells[1].get_text(strip=True))
+                    sz_ratio = _parse_float(cells[2].get_text(strip=True))
+                    all_data.append({
+                        "date": parsed_date,
+                        "shanghai_ratio": sh_ratio,
+                        "shenzhen_ratio": sz_ratio,
+                    })
+        
+        # Sort by date descending to get the latest
+        if all_data:
+            all_data.sort(key=lambda x: x["date"], reverse=True)
+            latest = all_data[0]
+            result["date"] = latest["date"]
+            result["values"]["shanghai_ratio"] = latest["shanghai_ratio"]
+            result["values"]["shenzhen_ratio"] = latest["shenzhen_ratio"]
+            # Use Shanghai as primary value
+            result["values"]["primary"] = latest["shanghai_ratio"]
+            break
     
     return result
 
@@ -500,48 +537,61 @@ def _parse_shibor(html: str) -> Dict[str, Any]:
     tables = soup.find_all('table', border="1")
     for table in tables:
         rows = table.find_all('tr')
-        # Find header row to get column mapping
-        header_row = rows[0] if rows else None
-        if header_row:
-            headers = [th.get_text(strip=True) for th in header_row.find_all(['td', 'th'])]
-        
-        for row in rows[1:2]:  # First data row
+        # Collect all valid data rows to find the latest date
+        all_data = []
+        for row in rows[1:]:  # Skip header
             cells = row.find_all('td')
             if len(cells) >= 6:
                 date_text = cells[0].get_text(strip=True)
-                overnight = _parse_float(cells[1].get_text(strip=True))
-                one_week = _parse_float(cells[2].get_text(strip=True))
-                one_month = _parse_float(cells[3].get_text(strip=True))
-                six_month = _parse_float(cells[4].get_text(strip=True))
-                one_year = _parse_float(cells[5].get_text(strip=True))
-                
-                result["date"] = _parse_date(date_text)
-                result["values"]["overnight"] = overnight
-                result["values"]["1_week"] = one_week
-                result["values"]["1_month"] = one_month
-                result["values"]["6_month"] = six_month
-                result["values"]["1_year"] = one_year
-                break
+                parsed_date = _parse_date(date_text)
+                if parsed_date:
+                    overnight = _parse_float(cells[1].get_text(strip=True))
+                    one_week = _parse_float(cells[2].get_text(strip=True))
+                    one_month = _parse_float(cells[3].get_text(strip=True))
+                    six_month = _parse_float(cells[4].get_text(strip=True))
+                    one_year = _parse_float(cells[5].get_text(strip=True))
+                    all_data.append({
+                        "date": parsed_date,
+                        "overnight": overnight,
+                        "1_week": one_week,
+                        "1_month": one_month,
+                        "6_month": six_month,
+                        "1_year": one_year,
+                    })
+        
+        # Sort by date descending to get the latest
+        if all_data:
+            all_data.sort(key=lambda x: x["date"], reverse=True)
+            latest = all_data[0]
+            result["date"] = latest["date"]
+            result["values"] = {k: v for k, v in latest.items() if k != "date"}
+            break
     
     return result
 
 
 def _parse_cn_10y_bond(html: str) -> Dict[str, Any]:
-    """Parse China 10Y bond yield page"""
+    """Parse China bond yields page (1Y, 5Y, 10Y)"""
     soup = BeautifulSoup(html, 'html.parser')
     result = {"values": {}, "date": None}
     
     tables = soup.find_all('table', border="1")
     for table in tables:
         rows = table.find_all('tr')
-        for row in rows[1:]:
+        for row in rows[1:]:  # Skip header
             cells = row.find_all('td')
-            if len(cells) >= 2:
+            # Table structure: 日期 | 1年期收益率 | 5年期收益率 | 10年期收益率
+            if len(cells) >= 4:
                 date_text = cells[0].get_text(strip=True)
                 if re.search(r'\d{4}年', date_text):
-                    yield_val = _parse_float(cells[1].get_text(strip=True))
+                    y1 = _parse_float(cells[1].get_text(strip=True))
+                    y5 = _parse_float(cells[2].get_text(strip=True))
+                    y10 = _parse_float(cells[3].get_text(strip=True))
+                    
                     result["date"] = _parse_date(date_text)
-                    result["values"]["yield"] = yield_val
+                    result["values"]["1_year"] = y1
+                    result["values"]["5_year"] = y5
+                    result["values"]["10_year"] = y10
                     break
     
     return result
@@ -557,17 +607,19 @@ def _parse_m1_m2(html: str) -> Dict[str, Any]:
         rows = table.find_all('tr')
         for row in rows[1:]:
             cells = row.find_all('td')
-            if len(cells) >= 3:
+            # Table structure: 月份 | M0数量 | M0增速 | M1数量 | M1增速 | M2数量 | M2增速
+            # We need columns 4 (M1增速) and 6 (M2增速)
+            if len(cells) >= 7:
                 date_text = cells[0].get_text(strip=True)
                 if re.search(r'\d{4}年', date_text):
-                    m1 = _parse_float(cells[1].get_text(strip=True))
-                    m2 = _parse_float(cells[2].get_text(strip=True))
+                    m1_growth = _parse_float(cells[4].get_text(strip=True))  # M1同比增速
+                    m2_growth = _parse_float(cells[6].get_text(strip=True))  # M2同比增速
                     
                     result["date"] = _parse_date(date_text)
-                    result["values"]["m1_growth"] = m1
-                    result["values"]["m2_growth"] = m2
-                    if m1 is not None and m2 is not None:
-                        result["values"]["m1_m2_diff"] = round(m1 - m2, 2)
+                    result["values"]["m1_growth"] = m1_growth
+                    result["values"]["m2_growth"] = m2_growth
+                    if m1_growth is not None and m2_growth is not None:
+                        result["values"]["m1_m2_diff"] = round(m1_growth - m2_growth, 2)
                     break
     
     return result
@@ -583,10 +635,12 @@ def _parse_m2_gdp(html: str) -> Dict[str, Any]:
         rows = table.find_all('tr')
         for row in rows[1:]:
             cells = row.find_all('td')
-            if len(cells) >= 2:
+            # Table structure: 年份 | M2指标值(亿元) | GDP绝对额(亿元) | M2/GDP
+            # We need column 3 (M2/GDP ratio)
+            if len(cells) >= 4:
                 date_text = cells[0].get_text(strip=True)
                 if re.search(r'\d{4}', date_text):
-                    ratio = _parse_float(cells[1].get_text(strip=True))
+                    ratio = _parse_float(cells[3].get_text(strip=True))
                     result["date"] = _parse_date(date_text) or date_text.strip()
                     result["values"]["ratio"] = ratio
                     break
@@ -690,30 +744,45 @@ def _parse_us_treasury(html: str) -> Dict[str, Any]:
     tables = soup.find_all('table', border="1")
     for table in tables:
         rows = table.find_all('tr')
-        for row in rows[1:2]:  # First data row
+        # Collect all valid data rows to find the latest date
+        all_data = []
+        for row in rows[1:]:  # Skip header
             cells = row.find_all('td')
             if len(cells) >= 4:
                 date_text = cells[0].get_text(strip=True)
-                y2 = _parse_float(cells[1].get_text(strip=True))
-                y5 = _parse_float(cells[2].get_text(strip=True)) if len(cells) > 2 else None
-                y10 = _parse_float(cells[3].get_text(strip=True)) if len(cells) > 3 else None
-                y30 = _parse_float(cells[4].get_text(strip=True)) if len(cells) > 4 else None
-                
-                result["date"] = _parse_date(date_text)
-                result["values"]["2_year"] = y2
-                if y5:
-                    result["values"]["5_year"] = y5
-                if y10:
-                    result["values"]["10_year"] = y10
-                if y30:
-                    result["values"]["30_year"] = y30
-                
-                # Calculate 2Y-10Y spread
-                if y2 is not None and y10 is not None:
-                    spread = round(y2 - y10, 2)
-                    result["values"]["2y_10y_spread"] = spread
-                    result["values"]["spread_bp"] = int(spread * 100)
-                break
+                parsed_date = _parse_date(date_text)
+                if parsed_date:
+                    y2 = _parse_float(cells[1].get_text(strip=True))
+                    y5 = _parse_float(cells[2].get_text(strip=True)) if len(cells) > 2 else None
+                    y10 = _parse_float(cells[3].get_text(strip=True)) if len(cells) > 3 else None
+                    y30 = _parse_float(cells[4].get_text(strip=True)) if len(cells) > 4 else None
+                    all_data.append({
+                        "date": parsed_date,
+                        "2_year": y2,
+                        "5_year": y5,
+                        "10_year": y10,
+                        "30_year": y30,
+                    })
+        
+        # Sort by date descending to get the latest
+        if all_data:
+            all_data.sort(key=lambda x: x["date"], reverse=True)
+            latest = all_data[0]
+            result["date"] = latest["date"]
+            result["values"]["2_year"] = latest["2_year"]
+            if latest["5_year"]:
+                result["values"]["5_year"] = latest["5_year"]
+            if latest["10_year"]:
+                result["values"]["10_year"] = latest["10_year"]
+            if latest["30_year"]:
+                result["values"]["30_year"] = latest["30_year"]
+            
+            # Calculate 2Y-10Y spread
+            if latest["2_year"] is not None and latest["10_year"] is not None:
+                spread = round(latest["2_year"] - latest["10_year"], 2)
+                result["values"]["2y_10y_spread"] = spread
+                result["values"]["spread_bp"] = int(spread * 100)
+            break
     
     return result
 
@@ -1022,6 +1091,9 @@ def calculate_signals() -> Dict[str, Any]:
         recommendation_text = "强制卖出"
         recommendation_color = "red"
     
+    # Decision Matrix Analysis (based on investment_base.md)
+    decision_matrix = _evaluate_decision_matrix(all_indicators)
+    
     return {
         "buy_signals": buy_signals,
         "buy_count": buy_count,
@@ -1030,7 +1102,144 @@ def calculate_signals() -> Dict[str, Any]:
         "recommendation": recommendation,
         "recommendation_text": recommendation_text,
         "recommendation_color": recommendation_color,
+        "decision_matrix": decision_matrix,
         "updated_at": datetime.now().isoformat(),
+    }
+
+
+def _evaluate_decision_matrix(indicators: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Evaluate decision matrix based on key indicators.
+    
+    Decision Matrix Rules (from investment_base.md):
+    1. 强烈买入: 股债比>2.0 + Shibor 1Y<1.5% + 融资余额增速<-10%
+    2. 积极配置: 股债比1.5-2.0 + 流动性宽松 + 无衰退信号
+    3. 谨慎观望: 股债比<1.2 + 融资余额增速>30% + 美债倒挂
+    4. 强制卖出: 巴菲特指标>120% + CPI>3%且上升 + 利差倒挂
+    """
+    # Extract indicator values
+    sbr = indicators.get("stock_bond_ratio", {}).get("values", {})
+    stock_bond_ratio = sbr.get("primary") or sbr.get("shanghai_ratio", 0)
+    
+    shibor = indicators.get("shibor", {}).get("values", {})
+    shibor_1y = shibor.get("1_year", 99)
+    shibor_overnight = shibor.get("overnight", 99)
+    
+    financing = indicators.get("financing_balance", {}).get("values", {})
+    financing_growth = financing.get("growth_rate", 0)
+    
+    us_treasury = indicators.get("us_treasury", {}).get("values", {})
+    spread_bp = us_treasury.get("spread_bp", 0)
+    
+    buffett = indicators.get("buffett_index", {}).get("values", {})
+    buffett_index = buffett.get("buffett_index", 0)
+    
+    cpi_data = indicators.get("cpi", {}).get("values", {})
+    cpi = cpi_data.get("cpi", 0)
+    
+    # Evaluate each decision matrix condition
+    conditions = {
+        "strong_buy": {
+            "matched": False,
+            "conditions": [
+                {"name": "股债比>2.0", "met": stock_bond_ratio > 2.0, "value": f"{stock_bond_ratio:.2f}"},
+                {"name": "Shibor 1Y<1.5%", "met": shibor_1y < 1.5, "value": f"{shibor_1y:.2f}%"},
+                {"name": "融资余额增速<-10%", "met": financing_growth < -10, "value": f"{financing_growth:.2f}%"},
+            ],
+            "action": "满仓配置，重点加仓成长股",
+            "position": "100%权益仓位",
+        },
+        "active_allocation": {
+            "matched": False,
+            "conditions": [
+                {"name": "股债比1.5-2.0", "met": 1.5 <= stock_bond_ratio <= 2.0, "value": f"{stock_bond_ratio:.2f}"},
+                {"name": "流动性宽松", "met": shibor_overnight < 1.5 or shibor_1y < 1.8, "value": f"隔夜{shibor_overnight:.2f}% / 1Y{shibor_1y:.2f}%"},
+                {"name": "无衰退信号", "met": spread_bp >= 0, "value": f"{spread_bp}bp"},
+            ],
+            "action": "维持70-80%权益仓位",
+            "position": "70-80%权益仓位",
+        },
+        "cautious": {
+            "matched": False,
+            "conditions": [
+                {"name": "股债比<1.2", "met": stock_bond_ratio < 1.2, "value": f"{stock_bond_ratio:.2f}"},
+                {"name": "融资余额增速>30%", "met": financing_growth > 30, "value": f"{financing_growth:.2f}%"},
+                {"name": "美债倒挂", "met": spread_bp < 0, "value": f"{spread_bp}bp"},
+            ],
+            "action": "减仓至50%以下，增配债券",
+            "position": "<50%权益仓位",
+        },
+        "forced_sell": {
+            "matched": False,
+            "conditions": [
+                {"name": "巴菲特指标>120%", "met": buffett_index > 120, "value": f"{buffett_index:.1f}%"},
+                {"name": "CPI>3%", "met": cpi > 3, "value": f"{cpi:.2f}%"},
+                {"name": "利差倒挂", "met": spread_bp < 0, "value": f"{spread_bp}bp"},
+            ],
+            "action": "减仓至30%以下，持有现金",
+            "position": "<30%权益仓位",
+        },
+    }
+    
+    # Check which conditions are met (need all conditions to be true)
+    for key, rule in conditions.items():
+        met_count = sum(1 for c in rule["conditions"] if c["met"])
+        total_count = len(rule["conditions"])
+        rule["met_count"] = met_count
+        rule["total_count"] = total_count
+        rule["matched"] = met_count == total_count
+    
+    # Determine primary recommendation
+    if conditions["strong_buy"]["matched"]:
+        primary = "strong_buy"
+        primary_text = "强烈买入"
+        primary_color = "green"
+        primary_icon = "🚀"
+    elif conditions["active_allocation"]["matched"]:
+        primary = "active_allocation"
+        primary_text = "积极配置"
+        primary_color = "lightgreen"
+        primary_icon = "📈"
+    elif conditions["cautious"]["matched"]:
+        primary = "cautious"
+        primary_text = "谨慎观望"
+        primary_color = "orange"
+        primary_icon = "⚠️"
+    elif conditions["forced_sell"]["matched"]:
+        primary = "forced_sell"
+        primary_text = "强制卖出"
+        primary_color = "red"
+        primary_icon = "🔻"
+    else:
+        # Find the closest match
+        max_score = 0
+        primary = "neutral"
+        for key, rule in conditions.items():
+            score = rule["met_count"] / rule["total_count"]
+            if score > max_score:
+                max_score = score
+                if key == "strong_buy" and score >= 0.66:
+                    primary = "partial_buy"
+                    primary_text = "部分买入信号"
+                    primary_color = "blue"
+                    primary_icon = "📊"
+                elif key == "active_allocation" and score >= 0.66:
+                    primary = "partial_allocation"
+                    primary_text = "可考虑配置"
+                    primary_color = "blue"
+                    primary_icon = "📊"
+                else:
+                    primary = "neutral"
+                    primary_text = "中性观望"
+                    primary_color = "gray"
+                    primary_icon = "➖"
+    
+    return {
+        "primary_recommendation": primary,
+        "primary_text": primary_text,
+        "primary_color": primary_color,
+        "primary_icon": primary_icon,
+        "conditions": conditions,
     }
 
 
