@@ -62,6 +62,10 @@ class ResultData(object):
             # 当前页还有数据
             return True
         else:
+            # 当前页获取的总记录数不足cons.BAOSTOCK_PER_PAGE_COUNT(10000条)时，不请求下一页
+            if len(self.data) < cons.BAOSTOCK_PER_PAGE_COUNT:
+                return False
+
             # 当前页没有数据，取下一页数据
             msg_body_split = self.msg_body.split(cons.MESSAGE_SPLIT)
 

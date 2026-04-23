@@ -9,7 +9,7 @@ print('login respond  error_msg:'+lg.error_msg)
 
 # 成长能力
 growth_list = []
-rs_growth = bs.query_growth_data(code="sh.600000", year=2017, quarter=2)
+rs_growth = bs.query_growth_data(code="sh.600000", year=2024, quarter=2)
 while (rs_growth.error_code == '0') & rs_growth.next():
     growth_list.append(rs_growth.get_row_data())
 result_growth = pd.DataFrame(growth_list, columns=rs_growth.fields)

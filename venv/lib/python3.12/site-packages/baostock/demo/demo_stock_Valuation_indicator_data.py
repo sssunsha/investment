@@ -14,7 +14,7 @@ print('login respond  error_msg:'+lg.error_msg)
 # pbMRQ    市净率
 rs = bs.query_history_k_data_plus("sh.600000",
     "date,code,close,peTTM,pbMRQ,psTTM,pcfNcfTTM",
-    start_date='2015-01-01', end_date='2017-12-31', 
+    start_date='2024-01-01', end_date='2024-12-31',
     frequency="d", adjustflag="3")
 print('query_history_k_data_plus respond error_code:'+rs.error_code)
 print('query_history_k_data_plus respond  error_msg:'+rs.error_msg)

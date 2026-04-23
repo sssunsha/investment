@@ -9,7 +9,7 @@ print('login respond  error_msg:'+lg.error_msg)
 
 # 查询杜邦指数
 dupont_list = []
-rs_dupont = bs.query_dupont_data(code="sh.600000", year=2017, quarter=2)
+rs_dupont = bs.query_dupont_data(code="sh.600000", year=2024, quarter=2)
 while (rs_dupont.error_code == '0') & rs_dupont.next():
     dupont_list.append(rs_dupont.get_row_data())
 result_profit = pd.DataFrame(dupont_list, columns=rs_dupont.fields)

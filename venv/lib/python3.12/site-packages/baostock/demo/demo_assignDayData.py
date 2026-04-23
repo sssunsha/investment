@@ -20,4 +20,4 @@ def download_data(date):
 
 if __name__ == '__main__':
     # 获取指定日期全部股票的日K线数据
-    download_data("2019-02-25")
+    download_data("2024-11-18")

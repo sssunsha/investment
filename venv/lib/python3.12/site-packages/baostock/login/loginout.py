@@ -14,7 +14,7 @@ import datetime
 import baostock.common.context as conx
 
 
-def login(user_id='anonymous', password='123456', options=0):
+def login(user_id='anonymous', password='123456'):
     """登录系统
     :param user_id:用户ID
     :param password:密码
@@ -23,6 +23,7 @@ def login(user_id='anonymous', password='123456', options=0):
     """
 
     data = rs.ResultData()
+
     if user_id is None or user_id == "":
         print("用户ID不能为空。")
         data.error_msg = "用户ID不能为空。"
@@ -37,13 +38,21 @@ def login(user_id='anonymous', password='123456', options=0):
         data.error_code = cons.BSERR_PASSWORD_EMPTY
         return data
 
+    options = '0' # '0'为默认值
+    if hasattr(conx, "apiKey"):
+        apiKey = getattr(conx, "apiKey")
+        options = apiKey
+
+
     # 组织体信息
     msg_body = "login" + cons.MESSAGE_SPLIT + user_id + cons.MESSAGE_SPLIT + \
         password + cons.MESSAGE_SPLIT + str(options)
 
+    body_length = len(msg_body)
+
     # 组织头信息
     msg_header = msgheader.to_message_header(
-        cons.MESSAGE_TYPE_LOGIN_REQUEST, len(msg_body))
+        cons.MESSAGE_TYPE_LOGIN_REQUEST, body_length)
     head_body = msg_header + msg_body
 
     crc32str = zlib.crc32(bytes(head_body, encoding='utf-8'))
@@ -82,6 +91,13 @@ def login(user_id='anonymous', password='123456', options=0):
 
     return data
 
+
+def set_API_key(apiKey=''):
+    """
+    设置API_key
+    """
+    if apiKey is not None or apiKey != "":
+        setattr(conx, "apiKey", apiKey)
 
 def logout(user_id='anonymous'):
     """登出系统，默认用户ID：anonymous

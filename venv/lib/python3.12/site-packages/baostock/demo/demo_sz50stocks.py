@@ -8,7 +8,7 @@ print('login respond error_code:'+lg.error_code)
 print('login respond  error_msg:'+lg.error_msg)
 
 # 获取上证50成分股
-rs = bs.query_sz50_stocks(date="2018-08-10")
+rs = bs.query_sz50_stocks(date="2024-08-10")
 print('query_sz50 error_code:'+rs.error_code)
 print('query_sz50  error_msg:'+rs.error_msg)
 

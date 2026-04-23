@@ -11,8 +11,8 @@ print('login respond  error_msg:'+lg.error_msg)
 # 详细指标参数，参见“历史行情指标参数”章节
 rs = bs.query_history_k_data_plus("sh.600000",
     "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST",
-    start_date='2017-06-01', end_date='2017-12-31', 
-    frequency="d", adjustflag="3") #frequency="d"取日k线，adjustflag="3"默认不复权
+    start_date='2025-06-01', end_date='2025-12-31',
+    frequency="d", adjustflag="2") #frequency="d"取日k线，adjustflag="3"默认不复权，"2"前复权
 
 print('query_history_k_data_plus respond error_code:'+rs.error_code)
 print('query_history_k_data_plus respond  error_msg:'+rs.error_msg)

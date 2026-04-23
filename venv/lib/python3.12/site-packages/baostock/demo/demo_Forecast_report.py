@@ -8,7 +8,7 @@ print('login respond error_code:'+lg.error_code)
 print('login respond  error_msg:'+lg.error_msg)
 
 #### 获取公司业绩预告 ####
-rs_forecast = bs.query_forecast_report("sh.600000", start_date="2010-01-01", end_date="2017-12-31")
+rs_forecast = bs.query_forecast_report("sh.600000", start_date="2010-01-01", end_date="2024-12-31")
 print('query_forecast_reprot respond error_code:'+rs_forecast.error_code)
 print('query_forecast_reprot respond  error_msg:'+rs_forecast.error_msg)
 rs_forecast_list = []

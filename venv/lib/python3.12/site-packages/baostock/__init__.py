@@ -10,7 +10,7 @@ __version__ = cons.BAOSTOCK_CLIENT_VERSION
 __author__ = cons.BAOSTOCK_AUTHOR
 
 # login/logout
-from baostock.login.loginout import (login, logout)
+from baostock.login.loginout import (login, logout, set_API_key)
 
 # history data
 from baostock.security.history import (query_history_k_data_plus)

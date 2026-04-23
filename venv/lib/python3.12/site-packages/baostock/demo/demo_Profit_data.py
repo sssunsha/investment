@@ -9,7 +9,7 @@ print('login respond  error_msg:'+lg.error_msg)
 
 # 查询季频估值指标盈利能力
 profit_list = []
-rs_profit = bs.query_profit_data(code="sh.600000", year=2017, quarter=2)
+rs_profit = bs.query_profit_data(code="sh.600000", year=2024, quarter=2)
 while (rs_profit.error_code == '0') & rs_profit.next():
     profit_list.append(rs_profit.get_row_data())
 result_profit = pd.DataFrame(profit_list, columns=rs_profit.fields)

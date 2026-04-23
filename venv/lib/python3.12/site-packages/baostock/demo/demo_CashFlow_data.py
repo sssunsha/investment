@@ -9,7 +9,7 @@ print('login respond  error_msg:'+lg.error_msg)
 
 # 季频现金流量
 cash_flow_list = []
-rs_cash_flow = bs.query_cash_flow_data(code="sh.600000", year=2017, quarter=2)
+rs_cash_flow = bs.query_cash_flow_data(code="sh.600000", year=2024, quarter=2)
 while (rs_cash_flow.error_code == '0') & rs_cash_flow.next():
     cash_flow_list.append(rs_cash_flow.get_row_data())
 result_cash_flow = pd.DataFrame(cash_flow_list, columns=rs_cash_flow.fields)

@@ -8,7 +8,7 @@ print('login respond error_code:'+lg.error_code)
 print('login respond  error_msg:'+lg.error_msg)
 
 #### 获取交易日信息 ####
-rs = bs.query_trade_dates(start_date="2017-01-01", end_date="2017-06-30")
+rs = bs.query_trade_dates(start_date="2024-01-01", end_date="2024-12-31")
 print('query_trade_dates respond error_code:'+rs.error_code)
 print('query_trade_dates respond  error_msg:'+rs.error_msg)
 

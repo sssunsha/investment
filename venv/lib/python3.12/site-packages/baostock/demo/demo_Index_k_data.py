@@ -18,9 +18,9 @@ print('login respond  error_msg:'+lg.error_msg)
 ##主题指数，例如：sh.000015 红利指数，sh.000063 上证周期 等；
 
 # 详细指标参数，参见“历史行情指标参数”章节
-rs = bs.query_history_k_data_plus("sh.600000",
+rs = bs.query_history_k_data_plus("sh.000001",
     "date,code,open,high,low,close,preclose,volume,amount,pctChg",
-    start_date='2017-01-01', end_date='2017-06-30', 
+    start_date='2024-01-01', end_date='2024-06-30',
     frequency="d", adjustflag="3")
 print('query_history_k_data_plus respond error_code:'+rs.error_code)
 print('query_history_k_data_plus respond  error_msg:'+rs.error_msg)

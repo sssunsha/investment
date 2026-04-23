@@ -9,7 +9,7 @@ print('login respond  error_msg:'+lg.error_msg)
 
 # 偿债能力
 balance_list = []
-rs_balance = bs.query_balance_data(code="sh.600000", year=2017, quarter=2)
+rs_balance = bs.query_balance_data(code="sh.600000", year=2024, quarter=2)
 while (rs_balance.error_code == '0') & rs_balance.next():
     balance_list.append(rs_balance.get_row_data())
 result_balance = pd.DataFrame(balance_list, columns=rs_balance.fields)
