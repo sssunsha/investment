@@ -8,7 +8,7 @@
 # 版本信息
 BAOSTOCK_CLIENT_VERSION = "00.8.90"
 BAOSTOCK_AUTHOR = "baostock.com"
-BAOSTOCK_SERVER_IP = "www.baostock.com"  # localhost  www.baostock.com  10.25.7.4
+BAOSTOCK_SERVER_IP = "public-api.baostock.com"  # localhost  public-api.baostock.com  10.25.7.4
 BAOSTOCK_SERVER_PORT = 10030
 
 

@@ -53,24 +53,63 @@ def _get_lock() -> asyncio.Lock:
     return _lock
 
 
+_LOGIN_RETRY_ERRORS = {'10002007'}  # 网络接收错误，可重试
+LOGIN_MAX_RETRIES = 2               # 最多重试次数
+
+
+def _apply_sdk_socket_timeout() -> None:
+    try:
+        sock = getattr(_bs_ctx, "default_socket", None)
+        if sock is not None:
+            sock.settimeout(BS_SOCKET_TIMEOUT)
+            logger.debug("SDK socket 超时已设为 %.0fs", BS_SOCKET_TIMEOUT)
+    except Exception as e:
+        logger.warning("设置 socket 超时失败（不影响功能）: %s", e)
+
+
+def _login_once() -> "bs.ResultData":
+    """执行一次 bs.login()，返回结果对象。"""
+    return bs.login()
+
+
 def _do_login() -> bool:
-    """同步登录，返回是否成功（在线程池中调用）"""
+    """同步登录，返回是否成功（在线程池中调用）。网络接收错误时自动重试。"""
     global _logged_in
-    lg = bs.login()
-    if lg.error_code == '0':
-        _logged_in = True
-        # 登录成功后立即给 SDK 内部 socket 设置超时，
-        # 避免服务端无响应时 recv() 无限阻塞
+    _socket.setdefaulttimeout(BS_SOCKET_TIMEOUT)
+
+    for attempt in range(LOGIN_MAX_RETRIES + 1):
+        label = f"（第 {attempt} 次重试）" if attempt > 0 else ""
+        logger.info("开始 BaoStock 登录...%s", label)
         try:
-            sock = getattr(_bs_ctx, "default_socket", None)
-            if sock is not None:
-                sock.settimeout(BS_SOCKET_TIMEOUT)
-                logger.debug("SDK socket 超时已设为 %.0fs", BS_SOCKET_TIMEOUT)
+            lg = _login_once()
         except Exception as e:
-            logger.warning("设置 socket 超时失败（不影响功能）: %s", e)
-        logger.info("BaoStock 登录成功")
-        return True
-    logger.error("BaoStock 登录失败: %s", lg.error_msg)
+            if attempt < LOGIN_MAX_RETRIES:
+                logger.warning("BaoStock 登录异常，重试中: %s", e)
+                time.sleep(1.0)
+                continue
+            logger.error("BaoStock 登录异常: %s", e, exc_info=True)
+            _logged_in = False
+            return False
+
+        if lg.error_code == '0':
+            _logged_in = True
+            _apply_sdk_socket_timeout()
+            logger.info("BaoStock 登录成功")
+            return True
+
+        if lg.error_code in _LOGIN_RETRY_ERRORS and attempt < LOGIN_MAX_RETRIES:
+            wait = float(attempt + 1)
+            logger.warning(
+                "BaoStock 登录网络错误 %s，%.0fs 后重试 (%d/%d)...",
+                lg.error_code, wait, attempt + 1, LOGIN_MAX_RETRIES,
+            )
+            time.sleep(wait)
+            continue
+
+        logger.error("BaoStock 登录失败: error_code=%s, error_msg=%s", lg.error_code, lg.error_msg)
+        _logged_in = False
+        return False
+
     _logged_in = False
     return False
 
