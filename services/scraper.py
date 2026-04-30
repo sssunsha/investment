@@ -777,9 +777,11 @@ def _parse_us_treasury(html: str) -> Dict[str, Any]:
             if latest["30_year"]:
                 result["values"]["30_year"] = latest["30_year"]
             
-            # Calculate 2Y-10Y spread
+            # Calculate 10Y-2Y spread (standard convention)
+            # Positive spread = normal yield curve (10Y > 2Y)
+            # Negative spread = inverted yield curve (10Y < 2Y)
             if latest["2_year"] is not None and latest["10_year"] is not None:
-                spread = round(latest["2_year"] - latest["10_year"], 2)
+                spread = round(latest["10_year"] - latest["2_year"], 2)
                 result["values"]["2y_10y_spread"] = spread
                 result["values"]["spread_bp"] = int(spread * 100)
             break
