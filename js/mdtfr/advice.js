@@ -271,10 +271,19 @@ export function mdtfrRenderAdvice(items) {
       : `第${days}日跌破MA20，确认连续2日后清仓`;
     sellRows.push({ from: x.name, amt: sellAmt, watch: true, to: '货币基金', note: noteStr });
   });
-  buyCandidates.forEach(x => {
+  toBuy.forEach(x => {
     buyRows.push({ from: '货币基金', amt: totalAmt * 0.50, to: x.name,
       toCode: x.code_c, note: `目标仓位 50%` });
   });
+
+  // 继续持有行：仅在 finalType=hold 时填充（当前持仓与买入候选完全匹配）
+  const holdRows = [];
+  if (finalType === 'hold') {
+    buyCandidates.forEach(x => {
+      const h = holdings.find(hh => hh.code_c === x.code_c);
+      if (h) holdRows.push({ name: h.name, code_c: h.code_c, amt: h._amt, pct: h._posVal });
+    });
+  }
 
   // ── 渲染操作表格 ─────────────────────────────────────────
   const th = (t) => `<th style="padding:7px 10px;text-align:left;font-size:12px;font-weight:600;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap">${t}</th>`;
@@ -309,11 +318,26 @@ export function mdtfrRenderAdvice(items) {
       </table>`;
   }
 
-  const hasAnyOp = sellRows.length > 0 || buyRows.length > 0;
+  function holdTable(rows) {
+    const rowsHtml = rows.map(r => {
+      const nameStr = `<span style="color:var(--cyan);font-weight:700">${escHtml(r.name)}</span><br><span style="color:var(--text-dim);font-size:11px">${r.code_c}</span>`;
+      const amtStr  = `<span style="color:var(--cyan);font-weight:700">${fmtY(r.amt)}</span>`;
+      const pctStr  = `<span style="color:var(--text-dim)">${r.pct.toFixed(1)}%</span>`;
+      const noteStr = `<span style="color:var(--text-dim);font-size:12px">满足全部买入条件，继续持有</span>`;
+      return `<tr>${td(nameStr)}${td(amtStr)}${td(pctStr)}${td(noteStr)}</tr>`;
+    }).join('');
+    return `<div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:6px">🔵 继续持有</div>
+      <table style="width:100%;border-collapse:collapse;background:rgba(6,182,212,.08);border-radius:8px;overflow:hidden">
+        <thead><tr>${th('标的')}${th('当前金额')}${th('仓位')}${th('说明')}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+  }
+
+  const hasAnyOp = sellRows.length > 0 || buyRows.length > 0 || holdRows.length > 0;
   const tablesHtml = hasAnyOp
     ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px">
         <div>${opTable(sellRows,'sell')}</div>
-        <div>${opTable(buyRows,'buy')}</div>
+        <div>${holdRows.length > 0 ? holdTable(holdRows) : opTable(buyRows,'buy')}</div>
       </div>`
     : `<div style="color:var(--text-dim);font-size:13px;margin-top:8px">${finalLines[0] || ''}</div>`;
 

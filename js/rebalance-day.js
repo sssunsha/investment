@@ -109,9 +109,9 @@ async function initRebalanceDayStyle() {
 
   try {
     const todayStr = _todayLocal();
-    // 向后覆盖约 30 个调仓周期（~420 天）
+    // 从锚点开始查，确保锚点后每个计划日都在交易日集合内；向后覆盖约 30 个调仓周期
     const endStr = _addDays(todayStr, 420);
-    const res = await fetch(`/api/metadata/query_trade_dates?start_date=${todayStr}&end_date=${endStr}`);
+    const res = await fetch(`/api/metadata/query_trade_dates?start_date=${_REBALANCE_ANCHOR}&end_date=${endStr}`);
     if (!res.ok) throw new Error('api error');
     const json = await res.json();
     if (json.error) throw new Error(json.error);

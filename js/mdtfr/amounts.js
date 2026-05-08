@@ -125,7 +125,11 @@ function refreshAllPosPct() {
       if (el) { el.textContent = pct > 0 ? pct.toFixed(1) + '%' : '–'; el.dataset.held = pct > 0; }
     }
     const inp = document.querySelector(`.amt-input[data-code="${d.code_c}"]`);
-    if (inp) inp.dataset.held = pct > 0;
+    if (inp) {
+      inp.dataset.held = pct > 0;
+      const v = getAmt(d.code_c);
+      inp.value = v > 0 ? v : '';
+    }
   });
 }
 
