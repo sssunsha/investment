@@ -25,6 +25,7 @@ from services.scraper import (
     async_scrape_indicator,
     async_scrape_all_indicators,
     async_calculate_signals,
+    async_fetch_us_rates_history,
     get_config,
     clear_cache,
     INDICATORS_CONFIG,
@@ -167,6 +168,24 @@ async def list_indicators():
         "data": indicators,
         "total": len(indicators),
     })
+
+
+@router.get("/fed-rate-history", summary="获取美国利率历史数据")
+async def get_fed_rate_history(
+    force_refresh: bool = Query(False, description="强制刷新（忽略缓存）")
+):
+    """
+    获取美国利率历史数据：联邦基金利率（FEDFUNDS）、2年期（DGS2）、10年期（DGS10）美债收益率。
+
+    数据来源：美联储圣路易斯分行（FRED）公开接口，无需API Key。
+    更新频率：月度/日度；缓存有效期：24小时。
+    """
+    try:
+        result = await async_fetch_us_rates_history(force_refresh)
+        return JSONResponse(content={"success": True, "data": result})
+    except Exception as e:
+        logger.exception("Failed to fetch US rates history")
+        raise HTTPException(status_code=500, detail=f"获取美国利率数据失败: {str(e)}")
 
 
 @router.get("/{indicator_key}", summary="获取单个指标")

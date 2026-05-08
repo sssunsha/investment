@@ -13,6 +13,9 @@ let indicatorsData = null;
 let signalsData = null;
 let isLoading = false;
 
+let fedRateChart = null;
+let fedRateData = null;
+
 // ══════════════════════════════════════════════════════════════════════════════
 // API Functions
 // ══════════════════════════════════════════════════════════════════════════════
@@ -26,6 +29,13 @@ async function fetchIndicators(forceRefresh = false) {
 
 async function fetchSignals() {
   const response = await fetch('/api/indicators/signals');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+async function fetchFedRateHistory(forceRefresh = false) {
+  const url = `/api/indicators/fed-rate-history${forceRefresh ? '?force_refresh=true' : ''}`;
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
@@ -796,7 +806,7 @@ function renderIndicatorValues(key, values) {
 
 function renderCategorySection(categoryKey, categoryData) {
   const indicators = categoryData.indicators || [];
-  
+
   return `
     <div class="category-section">
       <div class="category-head">
@@ -807,6 +817,41 @@ function renderCategorySection(categoryKey, categoryData) {
       <div class="indicators-grid">
         ${indicators.map(ind => renderIndicatorCard(ind)).join('')}
       </div>
+    </div>
+  `;
+}
+
+function renderFedRateChartCard() {
+  return `
+    <div class="fed-rate-chart-card" id="fed-rate-chart-card">
+      <div class="chart-card-header">
+        <div class="chart-title">
+          <span class="chart-title-main">📈 美国利率走势</span>
+          <span class="chart-title-sub">Federal Funds Rate · 2Y Treasury · 10Y Treasury (FRED) · 2000至今</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="fed-rate-chart"></canvas>
+      </div>
+      <div class="chart-footer">
+        <span id="fed-rate-latest" class="chart-latest"></span>
+        <a href="https://fred.stlouisfed.org/series/FEDFUNDS" target="_blank" class="indicator-link">
+          <span>🔗 数据来源: FRED</span>
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+function renderMacroTrendSection() {
+  return `
+    <div class="category-section">
+      <div class="category-head">
+        <span class="category-icon">📉</span>
+        <span class="category-title">宏观走势图</span>
+        <span class="category-count">1 项</span>
+      </div>
+      ${renderFedRateChartCard()}
     </div>
   `;
 }
@@ -832,8 +877,153 @@ function renderIndicatorsPage(data, signals) {
   
   container.innerHTML = `
     ${renderSignalPanel(signals)}
+    ${renderMacroTrendSection()}
     ${sortedCategories.map(([key, cat]) => renderCategorySection(key, cat)).join('')}
   `;
+}
+
+async function loadFedRateChart(forceRefresh = false) {
+  const card = document.getElementById('fed-rate-chart-card');
+  if (!card) return;
+
+  card.classList.add('chart-loading');
+  try {
+    const result = await fetchFedRateHistory(forceRefresh);
+    fedRateData = result.data;
+    renderFedRateChart(fedRateData);
+
+    const latestEl = document.getElementById('fed-rate-latest');
+    if (latestEl && fedRateData.fedfunds) {
+      const badge = fedRateData.from_cache ? '📦 缓存' : '🔄 最新';
+      const ffr = fedRateData.fedfunds;
+      const dgs10 = fedRateData.dgs10;
+      const dgs2 = fedRateData.dgs2;
+      const ffrLatest = ffr.values[ffr.values.length - 1]?.toFixed(2);
+      const dgs10Latest = dgs10.values[dgs10.values.length - 1]?.toFixed(2);
+      const dgs2Latest = dgs2.values[dgs2.values.length - 1]?.toFixed(2);
+      latestEl.innerHTML = `FFR <strong>${ffrLatest}%</strong> · 10Y <strong>${dgs10Latest}%</strong> · 2Y <strong>${dgs2Latest}%</strong> <span class="indicator-cache-badge">${badge}</span>`;
+    }
+  } catch (error) {
+    const wrapper = card.querySelector('.chart-wrapper');
+    if (wrapper) {
+      wrapper.innerHTML = `<div class="chart-error">❌ 加载失败: ${error.message}</div>`;
+    }
+  } finally {
+    card.classList.remove('chart-loading');
+  }
+}
+
+function resampleToMonthly(labels, values) {
+  const map = new Map();
+  labels.forEach((date, i) => map.set(date.slice(0, 7), values[i]));
+  return map;
+}
+
+function renderFedRateChart(data) {
+  const canvas = document.getElementById('fed-rate-chart');
+  if (!canvas || !data) return;
+
+  const cutoffStr = '2000-01-01';
+  const startIdx = data.fedfunds.labels.findIndex(l => l >= cutoffStr);
+  const ffrLabels = startIdx > 0 ? data.fedfunds.labels.slice(startIdx) : data.fedfunds.labels;
+  const ffrValues = startIdx > 0 ? data.fedfunds.values.slice(startIdx) : data.fedfunds.values;
+
+  const dgs10Map = resampleToMonthly(data.dgs10.labels, data.dgs10.values);
+  const dgs2Map = resampleToMonthly(data.dgs2.labels, data.dgs2.values);
+  const dgs10Values = ffrLabels.map(d => dgs10Map.get(d.slice(0, 7)) ?? null);
+  const dgs2Values = ffrLabels.map(d => dgs2Map.get(d.slice(0, 7)) ?? null);
+
+  if (fedRateChart) {
+    fedRateChart.destroy();
+    fedRateChart = null;
+  }
+
+  fedRateChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: ffrLabels,
+      datasets: [
+        {
+          label: '联邦基金利率',
+          data: ffrValues,
+          borderColor: 'rgba(239, 68, 68, 0.9)',
+          backgroundColor: 'transparent',
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.8,
+        },
+        {
+          label: '10年期美债收益率',
+          data: dgs10Values,
+          borderColor: 'rgba(249, 115, 22, 0.9)',
+          backgroundColor: 'transparent',
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.8,
+          spanGaps: true,
+        },
+        {
+          label: '2年期美债收益率',
+          data: dgs2Values,
+          borderColor: 'rgba(59, 130, 246, 0.9)',
+          backgroundColor: 'transparent',
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.8,
+          spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { color: '#8892a4', font: { size: 11 }, boxWidth: 12, padding: 15 },
+        },
+        tooltip: {
+          backgroundColor: '#1a1d27',
+          borderColor: '#2d3250',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#8892a4',
+          padding: 12,
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ` ${ctx.dataset.label}: ${v != null ? v.toFixed(2) + '%' : 'N/A'}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(45, 50, 80, 0.3)' },
+          ticks: {
+            color: '#8892a4',
+            font: { size: 10 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 12,
+          },
+        },
+        y: {
+          min: 0,
+          grid: { color: 'rgba(45, 50, 80, 0.3)' },
+          ticks: {
+            color: '#8892a4',
+            font: { size: 10 },
+            callback: val => `${val}%`,
+          },
+        },
+      },
+    },
+  });
 }
 
 function renderLoading() {
@@ -893,6 +1083,7 @@ async function loadIndicators(forceRefresh = false) {
     signalsData = signals;
     
     renderIndicatorsPage(indicatorsData, signalsData);
+    loadFedRateChart(forceRefresh);
   } catch (error) {
     console.error('Failed to load indicators:', error);
     const container = document.getElementById('indicators-container');

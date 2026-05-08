@@ -1273,3 +1273,124 @@ async def async_calculate_signals() -> Dict[str, Any]:
     """Async wrapper for calculate_signals"""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, calculate_signals)
+
+
+_FED_RATE_CACHE_KEY = "fed_rate_history"
+_FED_RATE_CACHE_HOURS = 24
+
+
+def _is_fed_rate_cache_valid(data: Dict[str, Any]) -> bool:
+    """检查联邦利率缓存是否在24小时有效期内"""
+    try:
+        cached_at = datetime.fromisoformat(data.get("cached_at", ""))
+        return datetime.now() - cached_at < timedelta(hours=_FED_RATE_CACHE_HOURS)
+    except (ValueError, TypeError):
+        return False
+
+
+def _parse_fred_fedfunds_csv(text: str) -> Tuple[List[str], List[float]]:
+    """解析FRED FEDFUNDS CSV，返回(labels, values)"""
+    labels: List[str] = []
+    values: List[float] = []
+    for line in text.strip().split("\n")[1:]:
+        parts = line.strip().split(",")
+        if len(parts) == 2 and parts[1].strip() not in (".", ""):
+            labels.append(parts[0].strip())
+            values.append(float(parts[1].strip()))
+    return labels, values
+
+
+def _fetch_fred_csv(url: str):
+    """从FRED获取CSV数据，失败返回None"""
+    try:
+        response = SESSION.get(url, timeout=20)
+        response.raise_for_status()
+        return response
+    except Exception as e:
+        logger.warning(f"获取FRED数据失败: {e}")
+        return None
+
+
+def fetch_fed_rate_history(force_refresh: bool = False) -> Dict[str, Any]:
+    """获取美联储联邦基金有效利率月度历史数据（来自FRED公开接口）"""
+    if not force_refresh:
+        cached = _read_cache(_FED_RATE_CACHE_KEY)
+        if cached and _is_fed_rate_cache_valid(cached):
+            cached["from_cache"] = True
+            return cached
+
+    response = _fetch_fred_csv("https://fred.stlouisfed.org/graph/fredgraph.csv?id=FEDFUNDS")
+
+    if response is None:
+        stale = _read_cache(_FED_RATE_CACHE_KEY)
+        if stale:
+            stale["from_cache"] = True
+            stale["cache_expired"] = True
+            return stale
+        raise RuntimeError("获取FRED数据失败且无本地缓存可用")
+
+    labels, values = _parse_fred_fedfunds_csv(response.text)
+    result: Dict[str, Any] = {
+        "labels": labels,
+        "values": values,
+        "latest": values[-1] if values else None,
+        "latest_date": labels[-1] if labels else None,
+        "cached_at": datetime.now().isoformat(),
+        "from_cache": False,
+    }
+    _write_cache(_FED_RATE_CACHE_KEY, result)
+    return result
+
+
+async def async_fetch_fed_rate_history(force_refresh: bool = False) -> Dict[str, Any]:
+    """获取联邦基金利率历史的异步封装"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, fetch_fed_rate_history, force_refresh)
+
+
+_US_RATES_CACHE_KEY = "us_rates_history"
+
+
+def _fetch_fred_series_data(series_id: str) -> Tuple[List[str], List[float]]:
+    """从FRED获取单个序列的(labels, values)"""
+    response = _fetch_fred_csv(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}")
+    if response is None:
+        raise RuntimeError(f"获取FRED序列 {series_id} 失败")
+    return _parse_fred_fedfunds_csv(response.text)
+
+
+def fetch_us_rates_history(force_refresh: bool = False) -> Dict[str, Any]:
+    """获取美国利率历史数据：联邦基金利率 + 2年期 + 10年期美债（来自FRED）"""
+    if not force_refresh:
+        cached = _read_cache(_US_RATES_CACHE_KEY)
+        if cached and _is_fed_rate_cache_valid(cached):
+            cached["from_cache"] = True
+            return cached
+
+    try:
+        ffr_labels, ffr_values = _fetch_fred_series_data("FEDFUNDS")
+        dgs10_labels, dgs10_values = _fetch_fred_series_data("DGS10")
+        dgs2_labels, dgs2_values = _fetch_fred_series_data("DGS2")
+    except RuntimeError:
+        stale = _read_cache(_US_RATES_CACHE_KEY)
+        if stale:
+            stale["from_cache"] = True
+            stale["cache_expired"] = True
+            return stale
+        raise
+
+    result: Dict[str, Any] = {
+        "fedfunds": {"labels": ffr_labels, "values": ffr_values},
+        "dgs10": {"labels": dgs10_labels, "values": dgs10_values},
+        "dgs2": {"labels": dgs2_labels, "values": dgs2_values},
+        "cached_at": datetime.now().isoformat(),
+        "from_cache": False,
+    }
+    _write_cache(_US_RATES_CACHE_KEY, result)
+    return result
+
+
+async def async_fetch_us_rates_history(force_refresh: bool = False) -> Dict[str, Any]:
+    """获取美国利率历史的异步封装"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, fetch_us_rates_history, force_refresh)

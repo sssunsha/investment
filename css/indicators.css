@@ -1125,3 +1125,107 @@
     gap: 12px;
   }
 }
+
+/* ── Fed Rate Chart Card ────────────────────────────────────────────────── */
+.fed-rate-chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 16px;
+  transition: opacity 0.3s;
+}
+
+.fed-rate-chart-card.chart-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.chart-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chart-title-main {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chart-title-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.chart-controls {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.chart-range-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chart-range-btn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.chart-range-btn.active {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: rgb(239, 68, 68);
+}
+
+.chart-wrapper {
+  position: relative;
+  height: 280px;
+  width: 100%;
+}
+
+.chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.chart-latest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-latest strong {
+  color: var(--text);
+  font-family: "SF Mono", "Monaco", "Consolas", monospace;
+}
+
+.chart-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: 14px;
+}
