@@ -162,6 +162,7 @@
         <span class="section-icon">📊</span>
         <span class="section-title">标的池动量监控</span>
         <span id="mdtfr-total-amt" style="font-size:13px;font-weight:700;color:var(--yellow);margin-left:12px">总金额：¥0</span>
+        <span id="mdtfr-total-pnl" style="font-size:13px;font-weight:700;margin-left:10px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openPnlDialog()" title="点击查看收益明细"></span>
         <span id="mdtfr-last-updated" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
         <span class="available-input-wrap">
           <label class="available-label">可用金额(元)：</label>
@@ -299,6 +300,19 @@
       <span class="pool-adjust-count" id="pool-adjust-count">已选 0 / 2</span>
       <button class="btn btn-ghost btn-sm" onclick="closePoolAdjust()">取消</button>
       <button class="btn btn-primary btn-sm" id="pool-adjust-ok" onclick="applyPoolAdjust()">确认调整</button>
+    </div>
+  </div>
+</div>
+
+<!-- P&L 收益明细弹窗 -->
+<div class="journal-overlay" id="pnl-overlay" onclick="if(event.target===this)closePnlDialog()">
+  <div class="journal-modal">
+    <div class="journal-modal-head">
+      <span style="font-size:18px;font-weight:700;flex:1">📊 收益明细</span>
+      <button onclick="closePnlDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
+    </div>
+    <div class="journal-table-wrap">
+      <div id="pnl-body" style="padding:8px 0">加载中...</div>
     </div>
   </div>
 </div>

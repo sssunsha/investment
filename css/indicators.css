@@ -1229,3 +1229,49 @@
   color: var(--text-dim);
   font-size: 14px;
 }
+
+/* ── Chart Hover Info Panel (fixed top-right) ──────────────────────────── */
+.chart-hover-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(26, 29, 39, 0.92);
+  border: 1px solid rgba(45, 50, 80, 0.8);
+  border-radius: 6px;
+  padding: 5px 12px;
+  pointer-events: none;
+  z-index: 10;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.hover-date {
+  font-family: "SF Mono", "Monaco", "Consolas", monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding-right: 10px;
+  border-right: 1px solid rgba(45, 50, 80, 0.8);
+}
+
+.hover-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+}
+
+.hover-row strong {
+  font-family: "SF Mono", "Monaco", "Consolas", monospace;
+  color: var(--text);
+  margin-left: 1px;
+}
+
+.hover-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

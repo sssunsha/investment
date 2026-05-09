@@ -832,6 +832,7 @@ function renderFedRateChartCard() {
       </div>
       <div class="chart-wrapper">
         <canvas id="fed-rate-chart"></canvas>
+        <div class="chart-hover-info" id="chart-hover-info" style="display:none"></div>
       </div>
       <div class="chart-footer">
         <span id="fed-rate-latest" class="chart-latest"></span>
@@ -919,6 +920,58 @@ function resampleToMonthly(labels, values) {
   return map;
 }
 
+const crosshairPlugin = {
+  id: 'crosshair',
+  _lastIdx: -1,
+
+  afterDraw(chart) {
+    const active = chart.tooltip._active;
+    if (!active?.length) return;
+
+    // 竖线
+    const ctx = chart.ctx;
+    const x = active[0].element.x;
+    const { top, bottom } = chart.scales.y;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.restore();
+
+    // 右上角信息面板（仅在 index 变化时更新 DOM）
+    const idx = active[0].index;
+    if (idx === this._lastIdx) return;
+    this._lastIdx = idx;
+
+    const infoEl = document.getElementById('chart-hover-info');
+    if (!infoEl) return;
+
+    const label = chart.data.labels[idx];
+    const ds = chart.data.datasets;
+    const fmt = v => (v == null ? '—' : v.toFixed(2) + '%');
+
+    infoEl.style.display = 'flex';
+    infoEl.innerHTML = `
+      <div class="hover-date">${label.slice(0, 7)}</div>
+      <div class="hover-row"><span class="hover-dot" style="background:rgba(239,68,68,0.9)"></span><span>FFR</span><strong>${fmt(ds[0].data[idx])}</strong></div>
+      <div class="hover-row"><span class="hover-dot" style="background:rgba(249,115,22,0.9)"></span><span>10Y</span><strong>${fmt(ds[1].data[idx])}</strong></div>
+      <div class="hover-row"><span class="hover-dot" style="background:rgba(59,130,246,0.9)"></span><span>2Y</span><strong>${fmt(ds[2].data[idx])}</strong></div>
+    `;
+  },
+
+  afterEvent(_chart, args) {
+    if (args.event.type === 'mouseout') {
+      this._lastIdx = -1;
+      const infoEl = document.getElementById('chart-hover-info');
+      if (infoEl) infoEl.style.display = 'none';
+    }
+  },
+};
+
 function renderFedRateChart(data) {
   const canvas = document.getElementById('fed-rate-chart');
   if (!canvas || !data) return;
@@ -940,6 +993,7 @@ function renderFedRateChart(data) {
 
   fedRateChart = new Chart(canvas, {
     type: 'line',
+    plugins: [crosshairPlugin],
     data: {
       labels: ffrLabels,
       datasets: [
@@ -986,20 +1040,7 @@ function renderFedRateChart(data) {
           position: 'top',
           labels: { color: '#8892a4', font: { size: 11 }, boxWidth: 12, padding: 15 },
         },
-        tooltip: {
-          backgroundColor: '#1a1d27',
-          borderColor: '#2d3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          padding: 12,
-          callbacks: {
-            label: ctx => {
-              const v = ctx.parsed.y;
-              return ` ${ctx.dataset.label}: ${v != null ? v.toFixed(2) + '%' : 'N/A'}`;
-            },
-          },
-        },
+        tooltip: { enabled: false },
       },
       scales: {
         x: {

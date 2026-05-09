@@ -14,6 +14,7 @@ API 分类：
   8. 自定义策略     /api  (原有业务接口，保留)
 """
 import asyncio
+import re
 import baostock as bs
 import pandas as pd
 from pathlib import Path
@@ -28,6 +29,7 @@ from datetime import datetime, timedelta
 import swagger_ui_bundle
 
 from session import ensure_login, heartbeat_task, manual_logout, run_bs, mark_disconnected
+from services.startup_backfill import backfill_missing_pool_data
 from routers import history, sector, evaluation, corpreport, metadata, macroscopic, strategy as strategy_router
 from routers import session as session_router
 from routers import cache as cache_router
@@ -42,12 +44,11 @@ async def lifespan(app: FastAPI):
     # 后台登录，不阻塞 uvicorn 启动（登录完成前的请求由 run_bs 内部自动重试）
     asyncio.create_task(ensure_login())
     task = asyncio.create_task(heartbeat_task())
+    backfill_task = asyncio.create_task(backfill_missing_pool_data())
     yield
     task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    backfill_task.cancel()
+    await asyncio.gather(task, backfill_task, return_exceptions=True)
     await manual_logout()
 
 
@@ -125,6 +126,17 @@ _BASE_DIR = Path(__file__).parent
 app.mount("/css", StaticFiles(directory=_BASE_DIR / "css"), name="css")
 app.mount("/js",  StaticFiles(directory=_BASE_DIR / "js"),  name="js")
 
+# 启动时生成版本戳，注入本地 JS/CSS URL，防止浏览器使用旧缓存
+_STARTUP_TS = int(datetime.now().timestamp())
+
+_LOCAL_ASSET_RE = re.compile(r'((?:src|href)="(?:/js/|/css/)[^"]+)(")')
+
+
+def _serve_html(filename: str) -> HTMLResponse:
+    html = (_BASE_DIR / filename).read_text(encoding="utf-8")
+    html = _LOCAL_ASSET_RE.sub(rf'\1?v={_STARTUP_TS}\2', html)
+    return HTMLResponse(html)
+
 
 def custom_openapi():
     """强制将 OpenAPI 版本降至 3.0.3，兼容 Swagger UI 4.x"""
@@ -169,43 +181,37 @@ async def custom_redoc():
 @app.get("/", include_in_schema=False)
 async def home_page():
     """统一主页：所有页面入口 + API 接口目录"""
-    html = (Path(__file__).parent / "home_page.html").read_text(encoding="utf-8")
-    return HTMLResponse(html)
+    return _serve_html("home_page.html")
 
 
 @app.get("/settings", include_in_schema=False)
 async def settings_page():
     """系统设置页：会话状态、心跳配置、手动登录/登出"""
-    html = (Path(__file__).parent / "settings_page.html").read_text(encoding="utf-8")
-    return HTMLResponse(html)
+    return _serve_html("settings_page.html")
 
 
 @app.get("/strategy", include_in_schema=False)
 async def strategy_page():
     """策略分析页：全天候配置动态平衡 + ETF行业动量CTA轮动"""
-    html = (Path(__file__).parent / "strategy_page.html").read_text(encoding="utf-8")
-    return HTMLResponse(html)
+    return _serve_html("strategy_page.html")
 
 
 @app.get("/test", include_in_schema=False)
 async def api_test_page():
     """API 回归测试页面：访问时自动调用全部接口并展示真实数据"""
-    html = (Path(__file__).parent / "test_page.html").read_text(encoding="utf-8")
-    return HTMLResponse(html)
+    return _serve_html("test_page.html")
 
 
 @app.get("/basic-info", include_in_schema=False)
 async def basic_info_page():
     """基本信息页：宏观经济数据可视化（存贷款利率/准备金率/货币供应量）"""
-    html = (Path(__file__).parent / "basic_info_page.html").read_text(encoding="utf-8")
-    return HTMLResponse(html)
+    return _serve_html("basic_info_page.html")
 
 
 @app.get("/indicators", include_in_schema=False)
 async def indicators_page():
     """投资指标仪表盘：核心投资指标与买卖信号分析"""
-    html = (Path(__file__).parent / "indicators_page.html").read_text(encoding="utf-8")
-    return HTMLResponse(html)
+    return _serve_html("indicators_page.html")
 
 
 # ──────────────────────────────────────────────

@@ -57,7 +57,7 @@ function mdtfrFillRow(item) {
   const retStr   = ret != null ? (ret>0?'+':'') + (ret*100).toFixed(2)+'%' : '–';
 
   document.getElementById(`mdtfr-close-${c}`).innerHTML =
-    `${item.latest_close!=null?item.latest_close.toFixed(3):'–'}<span style="color:var(--border);font-size:12px;margin-left:4px">${item.latest_date||''}</span>`;
+    `${item.latest_close!=null?item.latest_close.toFixed(3):'–'}<span style="font-size:11px;padding:1px 4px;border-radius:3px;background:rgba(6,182,212,.12);color:var(--cyan);font-weight:600;margin-left:5px">C类</span><span style="color:var(--border);font-size:12px;margin-left:4px">${item.latest_date||''}</span>`;
   document.getElementById(`mdtfr-ret-${c}`).innerHTML =
     `<span style="font-weight:700;color:${retColor}">${retStr}</span>`;
   document.getElementById(`mdtfr-ma20-${c}`).innerHTML = item.above_ma20==null ? '<span style="color:var(--border)">–</span>'

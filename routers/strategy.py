@@ -13,6 +13,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 from session import run_bs
+from services.fund_nav import fetch_fund_nav_series
 
 router = APIRouter(prefix="/api/strategy", tags=["策略分析"])
 
@@ -231,11 +232,13 @@ AW_POOL_FUNDS = [
 async def mdtfr_pool():
     end_date   = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+    loop       = asyncio.get_running_loop()
 
     def _compute():
         results = []
         for etf in MDTFR_ETFS:
-            rows = _fetch_close_series(etf["code"], start_date, end_date)
+            # 使用 C 类基金净值（天天基金）替代场内 ETF 收盘价
+            rows = fetch_fund_nav_series(etf["code_c"], start_date, end_date)
             n = len(rows)
             if n < 21:
                 results.append({**etf, "error": f"数据不足（{n} 条）",
@@ -259,11 +262,12 @@ async def mdtfr_pool():
                 "ma60_avg5":       ma60_avg5,
                 "error":          None,
             })
+            time.sleep(0.1)
         return results
 
-    raw = await run_bs(_compute)
+    raw = await loop.run_in_executor(None, _compute)
     if raw is None:
-        return {"error": "BaoStock 登录失败，请稍后重试"}
+        return {"error": "数据获取失败，请稍后重试"}
 
     valid   = [x for x in raw if not x.get("error") and x.get("ret_20d") is not None]
     invalid = [x for x in raw if x.get("error")]
@@ -278,13 +282,11 @@ async def mdtfr_pool():
 async def mdtfr_pool_stream(
     codes: str = Query(None, description="逗号分隔的 code_c 列表，为空则处理全部")
 ):
-    """逐只 ETF 处理，每完成一只即通过 SSE 推送结果，前端可实时逐行填充。
+    """逐只基金处理，每完成一只即通过 SSE 推送结果，前端可实时逐行填充。
     codes 参数可指定只处理特定标的（用于补全缓存中不完整的行）。"""
     end_date   = datetime.now().strftime('%Y-%m-%d')
-    # 180 天确保有足够交易日（≥66）用于 MA60 趋势判断（需近5日 MA60 序列）
     start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
 
-    # 过滤需要处理的 ETF
     target_codes = set(codes.split(',')) if codes else None
     etfs_to_process = [e for e in MDTFR_ETFS if target_codes is None or e['code_c'] in target_codes]
 
@@ -292,51 +294,14 @@ async def mdtfr_pool_stream(
     loop = asyncio.get_running_loop()
 
     def _run():
-        import baostock as _bs
         ev = lambda d: loop.call_soon_threadsafe(queue.put_nowait, json.dumps(d, ensure_ascii=False))
 
-        def _login() -> bool:
-            lg = _bs.login()
-            if lg.error_code != '0':
-                ev({"type": "error", "msg": f"BaoStock 登录失败: {lg.error_msg}"})
-                return False
-            return True
-
-        def _query_with_retry(code: str, max_retries: int = 2):
-            """查询单只 ETF，网络错误时重新登录并重试"""
-            for attempt in range(max_retries + 1):
-                rs = _bs.query_history_k_data_plus(
-                    code, "date,close",
-                    start_date=start_date, end_date=end_date,
-                    frequency="d", adjustflag="2"
-                )
-                # 10002007 = 网络接收错误，重新登录后重试
-                if rs.error_code == '10002007' and attempt < max_retries:
-                    _bs.logout()
-                    time.sleep(1.0)
-                    if not _login():
-                        return rs  # 重连失败，返回错误 rs
-                    continue
-                return rs
-
-        if not _login():
-            loop.call_soon_threadsafe(queue.put_nowait, None)
-            return
         try:
             for etf in etfs_to_process:
-                ev({"type": "progress", "name": etf["name"], "msg": "获取数据中..."})
+                ev({"type": "progress", "name": etf["name"], "msg": "获取净值数据..."})
                 try:
-                    rs = _query_with_retry(etf["code"])
-                    if rs.error_code != '0':
-                        ev({"type": "item", **etf,
-                            "error": f"查询失败(code={rs.error_code}): {rs.error_msg}",
-                            "latest_close": None, "prev_close": None, "latest_date": None})
-                        continue
-                    rows = []
-                    while rs.error_code == '0' and rs.next():
-                        row = rs.get_row_data()
-                        if row[1]:
-                            rows.append({"date": row[0], "close": float(row[1])})
+                    # 使用 C 类基金净值（天天基金）替代场内 ETF 收盘价
+                    rows = fetch_fund_nav_series(etf["code_c"], start_date, end_date)
                     n = len(rows)
                     if n < 21:
                         ev({"type": "item", **etf,
@@ -358,14 +323,13 @@ async def mdtfr_pool_stream(
                         "ma60_trend":   ma60_trend,
                         "ma60_has_uptick": ma60_has_uptick,
                         "ma60_above_avg":  ma60_above_avg,
-                "ma60_avg5":       ma60_avg5,
+                        "ma60_avg5":       ma60_avg5,
                         "error": None})
-                    time.sleep(0.3)  # 避免连续请求触发 socket 错误
+                    time.sleep(0.2)
                 except Exception as e:
                     ev({"type": "item", **etf, "error": str(e),
                         "latest_close": None, "prev_close": None, "latest_date": None})
         finally:
-            _bs.logout()
             ev({"type": "done", "last_updated": datetime.now().isoformat()})
             loop.call_soon_threadsafe(queue.put_nowait, None)
 

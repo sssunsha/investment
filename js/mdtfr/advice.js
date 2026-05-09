@@ -1,7 +1,7 @@
 // js/mdtfr/advice.js
 // 操作建议生成与渲染：mdtfrBuildAdvice / mdtfrRenderAdvice
 import { escHtml } from '../utils.js';
-import { getAmt, getPosVal, setLastMdtfrItems } from './amounts.js';
+import { getDynAmt, getPosVal, setLastMdtfrItems } from './amounts.js';
 import { getTotalAmt } from './available.js';
 import { getWatchState } from './watch.js';
 
@@ -56,9 +56,9 @@ export function mdtfrBuildAdvice(items) {
   const allRanked = [...valid].sort((a,b) => b.ret_20d - a.ret_20d);
   allRanked.forEach((x, i) => { x._globalRank = i + 1; });
 
-  // ── 持仓（从全局 _amt 读取；此时 valid 对象已含 _globalRank）──
-  const holdings = valid.filter(x => getAmt(x.code_c) > 0)
-    .map(x => ({ ...x, _posVal: getPosVal(x.code_c), _amt: getAmt(x.code_c) }));
+  // ── 持仓（从全局 _amt/_mktVal 读取；此时 valid 对象已含 _globalRank）──
+  const holdings = valid.filter(x => getDynAmt(x.code_c) > 0)
+    .map(x => ({ ...x, _posVal: getPosVal(x.code_c), _amt: getDynAmt(x.code_c) }));
 
   // 条件1：趋势破位（跌破MA20）
   const sellBelowMa20 = holdings.filter(x => x.above_ma20 === false);

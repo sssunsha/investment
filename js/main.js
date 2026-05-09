@@ -27,12 +27,14 @@ import {
   setAdviceRenderer, loadAmounts, refreshAllPosPct,
   onAmtChange, clearAmt, setTotalAmtGetter,
   setLastMdtfrItems, getLastMdtfrItems, getSumOfPositions,
+  setRefreshPnlDisplayFn,
 } from './mdtfr/amounts.js';
 import {
   loadAvailable, onAvailableChange, refreshTotalDisplay,
   getTotalAmt, recoverFromJournal, getAvailableAmt,
   setAvailableToastFn, setAvailableRefreshFn,
   setAvailableAdviceRenderer, setAvailableItemsGetter,
+  refreshPnlDisplay, openPnlDialog, closePnlDialog,
 } from './mdtfr/available.js';
 import {
   confirmTradeRow, undoTradeRow,
@@ -50,6 +52,7 @@ setAvailableToastFn(showToast);               // available.recoverFromJournal �
 setAvailableRefreshFn(refreshAllPosPct);      // available.onAvailableChange 刷新仓位
 setAvailableAdviceRenderer(mdtfrRenderAdvice);// available.onAvailableChange 重渲建议
 setAvailableItemsGetter(getLastMdtfrItems);   // available 获取最新标的列表
+setRefreshPnlDisplayFn(refreshPnlDisplay);    // amounts.refreshAmtPnl 后刷新总收益标签
 
 // ── 挂载 HTML onclick 需要的全局函数 ──────────────────────────
 Object.assign(window, {
@@ -76,6 +79,8 @@ Object.assign(window, {
   // 金额管理
   onAmtChange, clearAmt,
   onAvailableChange,
+  // 收益明细弹窗
+  openPnlDialog, closePnlDialog,
   // 交易确认/撤销（行级）
   confirmTradeRow, undoTradeRow,
 });

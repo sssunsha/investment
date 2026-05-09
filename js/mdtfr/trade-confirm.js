@@ -78,13 +78,13 @@ export async function confirmTradeRow(type, index) {
     setAvailableAmt(Math.max(0, getAvailableAmt() - row.amt));
   }
 
-  // 计算份额变更（以前一日收盘价为单价）
+  // 计算份额变更（以当日确认时的最新净值为申购单价）
   if (code) {
-    const items     = getLastMdtfrItems() || [];
-    const item      = items.find(x => x.code_c === code);
-    const prevClose = item?.prev_close || item?.latest_close || 0;
+    const items    = getLastMdtfrItems() || [];
+    const item     = items.find(x => x.code_c === code);
+    const buyPrice = item?.latest_close || 0;
 
-    if (prevClose > 0) {
+    if (buyPrice > 0) {
       if (type === 'sell') {
         const snap       = _rowSnapshots.get(rowId);
         const prevAmt    = snap.prevAmt || 0;
@@ -93,8 +93,8 @@ export async function confirmTradeRow(type, index) {
         setShares(code, Math.max(0, prevShares - prevShares * ratio));
         setCost(code,   Math.max(0, getCost(code) * (1 - ratio)));
       } else {
-        // buy
-        setShares(code, getShares(code) + row.amt / prevClose);
+        // buy：用当日最新净值（latest_close）计算申购份额
+        setShares(code, getShares(code) + row.amt / buyPrice);
         setCost(code,   getCost(code)   + row.amt);
       }
     }
