@@ -16,6 +16,9 @@ let isLoading = false;
 let fedRateChart = null;
 let fedRateData = null;
 
+let cnStockChart = null;
+let cnStockData = null;
+
 // ══════════════════════════════════════════════════════════════════════════════
 // API Functions
 // ══════════════════════════════════════════════════════════════════════════════
@@ -35,6 +38,13 @@ async function fetchSignals() {
 
 async function fetchFedRateHistory(forceRefresh = false) {
   const url = `/api/indicators/fed-rate-history${forceRefresh ? '?force_refresh=true' : ''}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+async function fetchCnIndicesHistory(forceRefresh = false) {
+  const url = `/api/indicators/cn-indices-history${forceRefresh ? '?force_refresh=true' : ''}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
@@ -844,15 +854,36 @@ function renderFedRateChartCard() {
   `;
 }
 
+function renderCnStockChartCard() {
+  return `
+    <div class="fed-rate-chart-card" id="cn-stock-chart-card" style="margin-top:12px">
+      <div class="chart-card-header">
+        <div class="chart-title">
+          <span class="chart-title-main">📊 中国股市走势</span>
+          <span class="chart-title-sub">上证指数 · 沪深300 · 创业板指 · 中证500 · 2000至今</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="cn-stock-chart"></canvas>
+        <div class="chart-hover-info" id="cn-stock-hover-info" style="display:none"></div>
+      </div>
+      <div class="chart-footer">
+        <span id="cn-stock-latest" class="chart-latest"></span>
+      </div>
+    </div>
+  `;
+}
+
 function renderMacroTrendSection() {
   return `
     <div class="category-section">
       <div class="category-head">
         <span class="category-icon">📉</span>
         <span class="category-title">宏观走势图</span>
-        <span class="category-count">1 项</span>
+        <span class="category-count">2 项</span>
       </div>
       ${renderFedRateChartCard()}
+      ${renderCnStockChartCard()}
     </div>
   `;
 }
@@ -920,54 +951,103 @@ function resampleToMonthly(labels, values) {
   return map;
 }
 
-const crosshairPlugin = {
-  id: 'crosshair',
-  _lastIdx: -1,
+// 两图共用的同步十字线插件
+const syncedCrosshairPlugin = {
+  id: 'syncedCrosshair',
+  _activeDate: null,
+  _lastDate: null,
+
+  // 在指定图表中查找日期对应的 x 像素
+  _getX(chart, date) {
+    const idx = chart.data.labels.findIndex(l => l.slice(0, 7) === date);
+    if (idx < 0) return null;
+    for (let i = 0; i < chart.data.datasets.length; i++) {
+      const x = chart.getDatasetMeta(i).data?.[idx]?.x;
+      if (x != null) return x;
+    }
+    return null;
+  },
+
+  _sibling(chart) {
+    return chart === fedRateChart ? cnStockChart : fedRateChart;
+  },
 
   afterDraw(chart) {
-    const active = chart.tooltip._active;
-    if (!active?.length) return;
-
-    // 竖线
-    const ctx = chart.ctx;
-    const x = active[0].element.x;
+    if (!this._activeDate) return;
+    const x = this._getX(chart, this._activeDate);
+    if (x == null) return;
     const { top, bottom } = chart.scales.y;
+    const ctx = chart.ctx;
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(x, top);
     ctx.lineTo(x, bottom);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
     ctx.setLineDash([4, 4]);
     ctx.stroke();
     ctx.restore();
-
-    // 右上角信息面板（仅在 index 变化时更新 DOM）
-    const idx = active[0].index;
-    if (idx === this._lastIdx) return;
-    this._lastIdx = idx;
-
-    const infoEl = document.getElementById('chart-hover-info');
-    if (!infoEl) return;
-
-    const label = chart.data.labels[idx];
-    const ds = chart.data.datasets;
-    const fmt = v => (v == null ? '—' : v.toFixed(2) + '%');
-
-    infoEl.style.display = 'flex';
-    infoEl.innerHTML = `
-      <div class="hover-date">${label.slice(0, 7)}</div>
-      <div class="hover-row"><span class="hover-dot" style="background:rgba(239,68,68,0.9)"></span><span>FFR</span><strong>${fmt(ds[0].data[idx])}</strong></div>
-      <div class="hover-row"><span class="hover-dot" style="background:rgba(249,115,22,0.9)"></span><span>10Y</span><strong>${fmt(ds[1].data[idx])}</strong></div>
-      <div class="hover-row"><span class="hover-dot" style="background:rgba(59,130,246,0.9)"></span><span>2Y</span><strong>${fmt(ds[2].data[idx])}</strong></div>
-    `;
   },
 
-  afterEvent(_chart, args) {
-    if (args.event.type === 'mouseout') {
-      this._lastIdx = -1;
-      const infoEl = document.getElementById('chart-hover-info');
-      if (infoEl) infoEl.style.display = 'none';
+  afterEvent(chart, args) {
+    const { type } = args.event;
+    if (type === 'mouseout') {
+      this._activeDate = null;
+      this._lastDate = null;
+      const fedEl = document.getElementById('chart-hover-info');
+      const cnEl = document.getElementById('cn-stock-hover-info');
+      if (fedEl) fedEl.style.display = 'none';
+      if (cnEl) cnEl.style.display = 'none';
+      this._sibling(chart)?.update('none');
+      return;
+    }
+    const active = chart.tooltip._active;
+    if (!active?.length) return;
+    const date = chart.data.labels[active[0].index]?.slice(0, 7);
+    if (!date) return;
+    this._activeDate = date;
+    if (date !== this._lastDate) {
+      this._lastDate = date;
+      this._updatePanels(date);
+    }
+    this._sibling(chart)?.update('none');
+  },
+
+  _updatePanels(date) {
+    // 美国利率面板
+    const fedEl = document.getElementById('chart-hover-info');
+    if (fedEl && fedRateChart) {
+      const idx = fedRateChart.data.labels.findIndex(l => l.slice(0, 7) === date);
+      if (idx >= 0) {
+        const ds = fedRateChart.data.datasets;
+        const fmt = v => v == null ? '—' : v.toFixed(2) + '%';
+        fedEl.style.display = 'flex';
+        fedEl.innerHTML = `
+          <div class="hover-date">${date}</div>
+          <div class="hover-row"><span class="hover-dot" style="background:rgba(239,68,68,0.9)"></span><span>FFR</span><strong>${fmt(ds[0]?.data[idx])}</strong></div>
+          <div class="hover-row"><span class="hover-dot" style="background:rgba(249,115,22,0.9)"></span><span>10Y</span><strong>${fmt(ds[1]?.data[idx])}</strong></div>
+          <div class="hover-row"><span class="hover-dot" style="background:rgba(59,130,246,0.9)"></span><span>2Y</span><strong>${fmt(ds[2]?.data[idx])}</strong></div>
+        `;
+      } else {
+        fedEl.style.display = 'none';
+      }
+    }
+
+    // A股面板
+    const cnEl = document.getElementById('cn-stock-hover-info');
+    if (cnEl && cnStockChart) {
+      const idx = cnStockChart.data.labels.findIndex(l => l.slice(0, 7) === date);
+      if (idx >= 0) {
+        const ds = cnStockChart.data.datasets;
+        const fmt = v => v == null ? '—' : Math.round(v).toLocaleString('zh-CN');
+        cnEl.style.display = 'flex';
+        cnEl.innerHTML = `
+          <div class="hover-date">${date}</div>
+          ${ds.map(d => `<div class="hover-row"><span class="hover-dot" style="background:${d.borderColor}"></span><span>${d.label}</span><strong>${fmt(d.data[idx])}</strong></div>`).join('')}
+        `;
+      } else {
+        cnEl.style.display = 'none';
+      }
     }
   },
 };
@@ -993,7 +1073,7 @@ function renderFedRateChart(data) {
 
   fedRateChart = new Chart(canvas, {
     type: 'line',
-    plugins: [crosshairPlugin],
+    plugins: [syncedCrosshairPlugin],
     data: {
       labels: ffrLabels,
       datasets: [
@@ -1067,6 +1147,121 @@ function renderFedRateChart(data) {
   });
 }
 
+// ── 中国股市走势图 ─────────────────────────────────────────────────────────────
+
+async function loadCnStockChart(forceRefresh = false) {
+  const card = document.getElementById('cn-stock-chart-card');
+  if (!card) return;
+
+  card.classList.add('chart-loading');
+  try {
+    const result = await fetchCnIndicesHistory(forceRefresh);
+    cnStockData = result.data;
+    renderCnStockChart(cnStockData);
+
+    const latestEl = document.getElementById('cn-stock-latest');
+    if (latestEl) {
+      const badge = cnStockData.from_cache ? '📦 缓存' : '🔄 最新';
+      const parts = ['sh_000001', 'sh_000300', 'sz_399006', 'sh_000905']
+        .filter(k => cnStockData[k]?.values?.length)
+        .map(k => {
+          const s = cnStockData[k];
+          const v = s.values[s.values.length - 1];
+          return `${s.name} <strong>${Math.round(v).toLocaleString()}</strong>`;
+        });
+      latestEl.innerHTML = parts.join(' · ') + ` <span class="indicator-cache-badge">${badge}</span>`;
+    }
+  } catch (error) {
+    const wrapper = card.querySelector('.chart-wrapper');
+    if (wrapper) wrapper.innerHTML = `<div class="chart-error">❌ 加载失败: ${error.message}</div>`;
+  } finally {
+    card.classList.remove('chart-loading');
+  }
+}
+
+function renderCnStockChart(data) {
+  const canvas = document.getElementById('cn-stock-chart');
+  if (!canvas || !data) return;
+
+  const indices = [
+    { key: 'sh_000001', color: 'rgba(239, 68, 68, 0.9)' },
+    { key: 'sh_000300', color: 'rgba(249, 115, 22, 0.9)' },
+    { key: 'sz_399006', color: 'rgba(34, 197, 94, 0.9)' },
+    { key: 'sh_000905', color: 'rgba(59, 130, 246, 0.9)' },
+  ];
+
+  // 用数据最长的指数标签作为公共月度 x 轴
+  const base = ['sh_000001', 'sh_000300', 'sz_399006', 'sh_000905']
+    .map(k => data[k])
+    .find(s => s?.labels?.length);
+  if (!base) return;
+  const labels = base.labels.filter(d => d >= '2000-01-01');
+
+  // 将各指数数据对齐到公共标签轴
+  const buildMap = key => {
+    const s = data[key];
+    if (!s) return new Map();
+    const m = new Map();
+    s.labels.forEach((d, i) => m.set(d.slice(0, 7), s.values[i]));
+    return m;
+  };
+
+  const datasets = indices
+    .filter(({ key }) => data[key]?.values?.length)
+    .map(({ key, color }) => ({
+      label: data[key].name,
+      data: labels.map(d => buildMap(key).get(d.slice(0, 7)) ?? null),
+      borderColor: color,
+      backgroundColor: 'transparent',
+      tension: 0.2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      borderWidth: 1.8,
+      spanGaps: true,
+    }));
+
+  if (cnStockChart) { cnStockChart.destroy(); cnStockChart = null; }
+
+  cnStockChart = new Chart(canvas, {
+    type: 'line',
+    plugins: [syncedCrosshairPlugin],
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { color: '#8892a4', font: { size: 11 }, boxWidth: 12, padding: 15 },
+        },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(45, 50, 80, 0.3)' },
+          ticks: {
+            color: '#8892a4',
+            font: { size: 10 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 12,
+          },
+        },
+        y: {
+          grid: { color: 'rgba(45, 50, 80, 0.3)' },
+          ticks: {
+            color: '#8892a4',
+            font: { size: 10 },
+            callback: val => val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val,
+          },
+        },
+      },
+    },
+  });
+}
+
+
 function renderLoading() {
   const container = document.getElementById('indicators-container');
   if (!container) return;
@@ -1125,6 +1320,7 @@ async function loadIndicators(forceRefresh = false) {
     
     renderIndicatorsPage(indicatorsData, signalsData);
     loadFedRateChart(forceRefresh);
+    loadCnStockChart(forceRefresh);
   } catch (error) {
     console.error('Failed to load indicators:', error);
     const container = document.getElementById('indicators-container');

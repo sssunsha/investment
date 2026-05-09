@@ -19,8 +19,14 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from typing import Optional
+import json
 import logging
+from datetime import datetime, timedelta
+from pathlib import Path
 
+import baostock as bs
+
+from session import run_bs
 from services.scraper import (
     async_scrape_indicator,
     async_scrape_all_indicators,
@@ -186,6 +192,104 @@ async def get_fed_rate_history(
     except Exception as e:
         logger.exception("Failed to fetch US rates history")
         raise HTTPException(status_code=500, detail=f"获取美国利率数据失败: {str(e)}")
+
+
+# ── A股指数历史 ────────────────────────────────────────────────────────────────
+
+_CN_INDICES_CACHE = Path.home() / ".investment" / "indicators" / "cn_indices_history.json"
+
+_CN_INDICES = [
+    {"code": "sh.000001", "key": "sh_000001", "name": "上证指数"},
+    {"code": "sh.000300", "key": "sh_000300", "name": "沪深300"},
+    {"code": "sz.399006", "key": "sz_399006", "name": "创业板指"},
+    {"code": "sh.000905", "key": "sh_000905", "name": "中证500"},
+]
+
+
+def _read_cn_cache():
+    if not _CN_INDICES_CACHE.exists():
+        return None
+    try:
+        return json.loads(_CN_INDICES_CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _write_cn_cache(data):
+    try:
+        _CN_INDICES_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        _CN_INDICES_CACHE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        logger.warning("写入A股指数缓存失败: %s", e)
+
+
+def _is_cn_cache_valid(data):
+    try:
+        cached_at = datetime.fromisoformat(data.get("cached_at", ""))
+        return datetime.now() - cached_at < timedelta(hours=24)
+    except (ValueError, TypeError):
+        return False
+
+
+@router.get("/cn-indices-history", summary="获取A股主要指数历史月度数据")
+async def get_cn_indices_history(
+    force_refresh: bool = Query(False, description="强制刷新（忽略缓存）")
+):
+    """
+    获取A股主要指数月度收盘价历史（2000年至今）。
+
+    包含：上证指数、沪深300、创业板指、中证500。
+    数据来源：BaoStock；缓存有效期：24小时。
+    """
+    if not force_refresh:
+        cached = _read_cn_cache()
+        if cached and _is_cn_cache_valid(cached):
+            cached["from_cache"] = True
+            return JSONResponse(content={"success": True, "data": cached})
+
+    start_date = "1990-01-01"
+    end_date   = datetime.now().strftime("%Y-%m-%d")
+
+    def _query():
+        result = {}
+        for idx in _CN_INDICES:
+            rs = bs.query_history_k_data_plus(
+                idx["code"], "date,close",
+                start_date=start_date, end_date=end_date,
+                frequency="m", adjustflag="3",
+            )
+            labels, values = [], []
+            while rs.error_code == "0" and rs.next():
+                row = rs.get_row_data()
+                date_str, close_str = row[0], row[1]
+                if date_str and close_str and close_str != "":
+                    try:
+                        labels.append(date_str)
+                        values.append(round(float(close_str), 2))
+                    except (ValueError, TypeError):
+                        pass
+            result[idx["key"]] = {"labels": labels, "values": values, "name": idx["name"]}
+        return result
+
+    try:
+        indices = await run_bs(_query)
+        if indices is None:
+            raise HTTPException(status_code=503, detail="BaoStock 登录失败，请稍后重试")
+
+        result = {**indices, "cached_at": datetime.now().isoformat(), "from_cache": False}
+        _write_cn_cache(result)
+        return JSONResponse(content={"success": True, "data": result})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("获取A股指数历史失败")
+        stale = _read_cn_cache()
+        if stale:
+            stale["from_cache"] = True
+            stale["cache_expired"] = True
+            return JSONResponse(content={"success": True, "data": stale})
+        raise HTTPException(status_code=500, detail=f"获取A股指数历史数据失败: {str(e)}")
 
 
 @router.get("/{indicator_key}", summary="获取单个指标")
