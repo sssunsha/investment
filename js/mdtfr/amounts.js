@@ -3,6 +3,13 @@
 import { getMdtfrPoolDef } from './config.js';
 import { emit, call, on, register } from './bus.js';
 
+function _updateTotalLabel() {
+  const el = document.getElementById('mdtfr-total-amt');
+  if (!el) return;
+  const t = call('getTotalAmt') ?? getSumOfPositions();
+  el.textContent = t > 0 ? `总金额：¥${Math.round(t).toLocaleString()}` : '总金额：¥0';
+}
+
 // _rawData：服务端返回的原始 JSON（含 __available__ 及所有 code_c 键）
 const _rawData = {};
 // _amt[code_c] = 金额数值（0 = 未持仓），仅含非 __ 前缀键
@@ -138,11 +145,7 @@ function onAmtChange(code_c, val) {
   setAmt(code_c, val);
   saveAmounts();
   refreshAllPosPct();
-  const totalEl = document.getElementById('mdtfr-total-amt');
-  if (totalEl) {
-    const t = call('getTotalAmt') ?? getSumOfPositions();
-    totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
-  }
+  _updateTotalLabel();
   if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
 }
 
@@ -154,11 +157,7 @@ function clearAmt(code_c) {
   setCost(code_c, 0);
   saveAmounts();
   refreshAllPosPct();
-  const totalEl = document.getElementById('mdtfr-total-amt');
-  if (totalEl) {
-    const t = call('getTotalAmt') ?? getSumOfPositions();
-    totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
-  }
+  _updateTotalLabel();
   // 同步清空输入框 value，并重置盈亏颜色
   const inp = document.querySelector(`.amt-input[data-code="${code_c}"]`);
   if (inp) { inp.value = ''; inp.dataset.held = false; inp.style.color = ''; }
@@ -211,11 +210,7 @@ export function refreshAmtPnl(items) {
   });
   if (anyUpdated) {
     refreshAllPosPct();
-    const totalEl = document.getElementById('mdtfr-total-amt');
-    if (totalEl) {
-      const t = call('getTotalAmt') ?? getSumOfPositions();
-      totalEl.textContent = t > 0 ? `总金额：¥${Math.round(t).toLocaleString()}` : '总金额：¥0';
-    }
+    _updateTotalLabel();
     emit('pnl:refresh');
     if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
   }

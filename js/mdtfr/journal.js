@@ -217,6 +217,23 @@ function journalRow(r) {
   </tr>`;
 }
 
-export { saveJournalRecord, showToast, openJournal, closeJournal, loadJournal };
+export { saveJournalRecord, showToast, openJournal, closeJournal, loadJournal, loadRecentJournalRecords };
 
 on('mdtfr:toast', ({ msg, color }) => showToast(msg, color));
+
+async function loadRecentJournalRecords(months = 6) {
+  const now = new Date();
+  const allRecs = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = d.getFullYear().toString();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    try {
+      const res = await fetch(`/api/cache/journal/${year}/${month}`);
+      if (!res.ok) continue;
+      const recs = await res.json();
+      if (Array.isArray(recs)) allRecs.push(...recs);
+    } catch {}
+  }
+  return allRecs;
+}

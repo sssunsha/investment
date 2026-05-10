@@ -21,6 +21,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
@@ -215,7 +216,29 @@ async def indicators_page():
 
 
 # ──────────────────────────────────────────────
-# CORS
+# CSP
+# ──────────────────────────────────────────────
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "connect-src 'self' https://cdn.jsdelivr.net; "
+    "font-src 'self'; "
+    "object-src 'none'; "
+    "frame-ancestors 'none'"
+)
+
+class _CSPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = _CSP
+        return response
+
+app.add_middleware(_CSPMiddleware)
+
+# ──────────────────────────────────────────────
+# CORS（最外层，最后注册）
 # ──────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,

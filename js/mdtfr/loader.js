@@ -143,8 +143,6 @@ async function loadMdtfrPool() {
   // collected 从已有完整缓存出发，SSE 新数据会覆盖不完整行
   const collected = Object.values(cachedMap).filter(mdtfrRowComplete);
   const url = `/api/strategy/mdtfr-pool/stream${codesParam ? '?codes=' + codesParam : ''}`;
-  const es = new EventSource(url);
-  _mdtfrEventSource = es;
 
   // 将 collected 当前快照按文档顺序写入本地 JSON 文件
   const saveSnapshot = async (label) => {
@@ -160,48 +158,64 @@ async function loadMdtfrPool() {
     return snapshot;
   };
 
-  es.onmessage = async (e) => {
-    let d;
-    try { d = JSON.parse(e.data); } catch { return; }
+  const _retryDelays = [1000, 2000];
+  let _sseRetry = 0;
 
-    if (d.type === 'progress') {
-      mdtfrLog('info', `[${d.name}] ${d.msg}`);
-    } else if (d.type === 'item') {
-      // 用新数据替换或追加到 collected，立即写入缓存
-      const idx = collected.findIndex(x => x.code_c === d.code_c);
-      if (idx >= 0) collected.splice(idx, 1, d); else collected.push(d);
-      mdtfrFillRow(d);
-      if (d.error) {
-        mdtfrLog('error', `[${d.name}] ⚠ ${d.error}`);
-      } else {
-        const r = d.ret_20d != null ? (d.ret_20d>0?'+':'')+(d.ret_20d*100).toFixed(2)+'%' : '–';
-        mdtfrLog('ok', `[${d.name}] 完成 · 近20日: ${r} · MA20:${d.above_ma20?'站上':'跌破'} · MA60:${d.ma60_trend||'N/A'}${d.ma60_rate!=null?' ('+(d.ma60_rate>0?'+':'')+d.ma60_rate.toFixed(2)+'%)':''}`);
+  function openSse() {
+    const es = new EventSource(url);
+    _mdtfrEventSource = es;
+
+    es.onmessage = async (e) => {
+      let d;
+      try { d = JSON.parse(e.data); } catch { return; }
+
+      if (d.type === 'progress') {
+        mdtfrLog('info', `[${d.name}] ${d.msg}`);
+      } else if (d.type === 'item') {
+        // 用新数据替换或追加到 collected，立即写入缓存
+        const idx = collected.findIndex(x => x.code_c === d.code_c);
+        if (idx >= 0) collected.splice(idx, 1, d); else collected.push(d);
+        mdtfrFillRow(d);
+        if (d.error) {
+          mdtfrLog('error', `[${d.name}] ⚠ ${d.error}`);
+        } else {
+          const r = d.ret_20d != null ? (d.ret_20d>0?'+':'')+(d.ret_20d*100).toFixed(2)+'%' : '–';
+          mdtfrLog('ok', `[${d.name}] 完成 · 近20日: ${r} · MA20:${d.above_ma20?'站上':'跌破'} · MA60:${d.ma60_trend||'N/A'}${d.ma60_rate!=null?' ('+(d.ma60_rate>0?'+':'')+d.ma60_rate.toFixed(2)+'%)':''}`);
+        }
+        await saveSnapshot(d.name);  // 每条数据到达即写入本地 JSON 文件
+      } else if (d.type === 'error') {
+        mdtfrLog('error', `BaoStock 错误: ${d.msg}`);
+        es.close();
+        btn.disabled = false; btn.innerHTML = '↺ 重试';
+      } else if (d.type === 'done') {
+        es.close();
+        // 最终排名/建议在全部数据到齐后统一计算
+        const orderedCollected = await saveSnapshot('全部完成');
+        await loadWatchState();
+        await updateWatchState(orderedCollected);
+        saveWatchState();
+        mdtfrFillRanks(orderedCollected);
+        mdtfrRenderAdvice(orderedCollected);
+        mdtfrLog('done', `补全完成 · ${d.last_updated}`);
+        document.getElementById('mdtfr-last-updated').textContent = `已更新 · ${d.last_updated ? d.last_updated.slice(0,19) : today}`;
+        btn.disabled = false; btn.innerHTML = '↺ 刷新';
       }
-      await saveSnapshot(d.name);  // 每条数据到达即写入本地 JSON 文件
-    } else if (d.type === 'error') {
-      mdtfrLog('error', `BaoStock 错误: ${d.msg}`);
-      es.close();
-      btn.disabled = false; btn.innerHTML = '↺ 重试';
-    } else if (d.type === 'done') {
-      es.close();
-      // 最终排名/建议在全部数据到齐后统一计算
-      const orderedCollected = await saveSnapshot('全部完成');
-      await loadWatchState();
-      await updateWatchState(orderedCollected);
-      saveWatchState();
-      mdtfrFillRanks(orderedCollected);
-      mdtfrRenderAdvice(orderedCollected);
-      mdtfrLog('done', `补全完成 · ${d.last_updated}`);
-      document.getElementById('mdtfr-last-updated').textContent = `已更新 · ${d.last_updated ? d.last_updated.slice(0,19) : today}`;
-      btn.disabled = false; btn.innerHTML = '↺ 刷新';
-    }
-  };
+    };
 
-  es.onerror = () => {
-    mdtfrLog('error', 'SSE 连接中断');
-    es.close();
-    btn.disabled = false; btn.innerHTML = '↺ 重试';
-  };
+    es.onerror = () => {
+      es.close();
+      if (_sseRetry < _retryDelays.length) {
+        const delay = _retryDelays[_sseRetry++];
+        mdtfrLog('info', `SSE 连接中断，${delay / 1000}s 后重试（第 ${_sseRetry} 次）`);
+        setTimeout(openSse, delay);
+      } else {
+        mdtfrLog('error', 'SSE 连接中断，已达最大重试次数');
+        btn.disabled = false; btn.innerHTML = '↺ 重试';
+      }
+    };
+  }
+
+  openSse();
 }
 
 // ── 清空缓存并重置 UI（在 cache.js 纯数据层上增加 UI 副作用）──────

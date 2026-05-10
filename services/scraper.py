@@ -49,6 +49,8 @@ executor = ThreadPoolExecutor(max_workers=5)
 # Indicator Configuration
 # ══════════════════════════════════════════════════════════════════════════════
 
+_TTL_HOURS = {'daily': 6, 'weekly': 24, 'monthly': 168}
+
 INDICATORS_CONFIG = {
     # Market Valuation
     "a_share_pe": {
@@ -57,7 +59,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/PE.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "low": {"value": 15, "label": "低估", "color": "green"},
             "normal": {"value": 25, "label": "合理", "color": "yellow"},
@@ -70,7 +71,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/000300SHPEPB.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "pe_low": {"value": 12, "label": "PE低估", "color": "green"},
             "pb_low": {"value": 1.5, "label": "PB低估", "color": "green"},
@@ -82,7 +82,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/000905SHPEPB.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "pe_low": {"value": 25, "label": "低估", "color": "green"},
             "pe_high": {"value": 45, "label": "高估", "color": "red"},
@@ -94,7 +93,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/ep.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "very_low": {"value": 2.0, "op": ">=", "label": "极度低估", "color": "green"},
             "low": {"value": 1.5, "op": ">=", "label": "合理偏低", "color": "lightgreen"},
@@ -107,7 +105,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/BuffettIndex.asp",
         "category": "market_valuation",
         "update_frequency": "weekly",
-        "cache_hours": 24,
         "thresholds": {
             "low": {"value": 80, "label": "显著低估", "color": "green"},
             "normal": {"value": 100, "label": "合理", "color": "yellow"},
@@ -120,7 +117,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/HSIPE.html",
         "category": "market_valuation",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "low": {"value": 10, "label": "历史低位", "color": "green"},
             "high": {"value": 18, "label": "高位", "color": "red"},
@@ -133,7 +129,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/Shibor.asp",
         "category": "liquidity",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "overnight_loose": {"value": 1.5, "label": "流动性宽松", "color": "green"},
             "overnight_tight": {"value": 2.0, "label": "流动性紧张", "color": "orange"},
@@ -147,7 +142,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/10Bond.html",
         "category": "liquidity",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "low": {"value": 3.0, "label": "低利率环境", "color": "green"},
             "high": {"value": 4.5, "label": "高利率压力", "color": "red"},
@@ -159,7 +153,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/M1.asp",
         "category": "liquidity",
         "update_frequency": "monthly",
-        "cache_hours": 168,  # 7 days
         "thresholds": {
             "expansion": {"condition": "M1>M2", "label": "经济扩张", "color": "green"},
             "contraction": {"condition": "M1<M2", "label": "经济收缩", "color": "orange"},
@@ -172,7 +165,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/M2GDP.html",
         "category": "liquidity",
         "update_frequency": "monthly",
-        "cache_hours": 168,
         "thresholds": {
             "normal": {"value": 200, "label": "正常", "color": "green"},
             "high": {"value": 250, "label": "偏高", "color": "orange"},
@@ -185,7 +177,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/rzrj.asp",
         "category": "liquidity",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "overheat": {"value": 20, "label": "过热预警", "color": "orange"},
             "severe_overheat": {"value": 30, "label": "严重过热", "color": "red"},
@@ -199,7 +190,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/CPI.asp",
         "category": "macroeconomic",
         "update_frequency": "monthly",
-        "cache_hours": 168,
         "thresholds": {
             "deflation": {"value": 2, "op": "<", "label": "低通胀/通缩风险", "color": "blue"},
             "normal": {"value": 3, "label": "温和通胀", "color": "green"},
@@ -212,7 +202,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/PPI.asp",
         "category": "macroeconomic",
         "update_frequency": "monthly",
-        "cache_hours": 168,
         "thresholds": {
             "profit_pressure": {"value": 3, "condition": "PPI-CPI>3%", "label": "企业利润受压", "color": "red"},
             "profit_improve": {"value": -1, "condition": "PPI-CPI<-1%", "label": "企业利润改善", "color": "green"},
@@ -224,7 +213,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/BDI.asp",
         "category": "macroeconomic",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "boom": {"value": 2000, "label": "航运景气", "color": "green"},
             "depression": {"value": 1000, "label": "航运萧条", "color": "red"},
@@ -237,7 +225,6 @@ INDICATORS_CONFIG = {
         "url": "http://value500.com/ust10yr.asp",
         "category": "global",
         "update_frequency": "daily",
-        "cache_hours": 6,
         "thresholds": {
             "loose": {"value": 3.0, "label": "全球流动性宽松", "color": "green"},
             "tight": {"value": 4.5, "label": "紧缩压力", "color": "red"},
@@ -294,7 +281,7 @@ def _is_cache_valid(indicator_key: str) -> bool:
         return False
     
     config = INDICATORS_CONFIG.get(indicator_key, {})
-    cache_hours = config.get("cache_hours", 6)
+    cache_hours = _TTL_HOURS.get(config.get("update_frequency", "daily"), 6)
     
     updated_at = datetime.fromisoformat(data["updated_at"])
     expiry_time = updated_at + timedelta(hours=cache_hours)

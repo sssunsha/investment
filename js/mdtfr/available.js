@@ -8,6 +8,7 @@ import {
 import { getMdtfrPoolDef } from './config.js';
 import { escHtml } from '../utils.js';
 import { emit, call, on, register } from './bus.js';
+import { loadRecentJournalRecords } from './journal.js';
 
 let _available = 0;  // 可用金额（元）
 
@@ -91,33 +92,19 @@ async function onAvailableChange(val) {
  * 最多回溯 6 个月，找到第一条含非空 holdings[] 的 journal 记录。
  */
 async function recoverFromJournal() {
-  const today = new Date();
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    const year = d.getFullYear().toString();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    try {
-      const res = await fetch(`/api/cache/journal/${year}/${month}`);
-      if (!res.ok) continue;
-      const records = await res.json();
-      if (!Array.isArray(records) || records.length === 0) continue;
-      const sorted = [...records].sort((a, b) =>
-        (b.data_date || '').localeCompare(a.data_date || ''));
-      const rec = sorted.find(r => Array.isArray(r.holdings) && r.holdings.length > 0);
-      if (!rec) continue;
-      // 恢复各标的持仓
-      const amtsObj = {};
-      rec.holdings.forEach(h => { if (h.code_c) amtsObj[h.code_c] = h.amt || 0; });
-      setAmts(amtsObj);
-      _available = parseFloat(rec.available_amt || 0) || 0;
-      await saveAll();
-      refreshTotalDisplay();
-      emit('available:refresh');
-      emit('mdtfr:toast', { msg: `已从 ${rec.data_date} 的复盘记录恢复持仓`, color: 'var(--cyan)' });
-      return true;
-    } catch {}
-  }
-  return false;
+  const allRecs = await loadRecentJournalRecords();
+  const sorted = [...allRecs].sort((a, b) => (b.data_date || '').localeCompare(a.data_date || ''));
+  const rec = sorted.find(r => Array.isArray(r.holdings) && r.holdings.length > 0);
+  if (!rec) return false;
+  const amtsObj = {};
+  rec.holdings.forEach(h => { if (h.code_c) amtsObj[h.code_c] = h.amt || 0; });
+  setAmts(amtsObj);
+  _available = parseFloat(rec.available_amt || 0) || 0;
+  await saveAll();
+  refreshTotalDisplay();
+  emit('available:refresh');
+  emit('mdtfr:toast', { msg: `已从 ${rec.data_date} 的复盘记录恢复持仓`, color: 'var(--cyan)' });
+  return true;
 }
 
 // ── 收益明细弹窗 ──────────────────────────────────────────────
@@ -141,19 +128,7 @@ async function _loadPnlDialog() {
   const defs = getMdtfrPoolDef();
 
   // 扫描最近 6 个月 journal，查找买入日期和历史成交对
-  const now = new Date();
-  let allRecs = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const year = d.getFullYear().toString();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    try {
-      const res = await fetch(`/api/cache/journal/${year}/${month}`);
-      if (!res.ok) continue;
-      const recs = await res.json();
-      if (Array.isArray(recs)) allRecs = allRecs.concat(recs);
-    } catch {}
-  }
+  const allRecs = await loadRecentJournalRecords();
   allRecs.sort((a, b) => (a.data_date || '').localeCompare(b.data_date || ''));
 
   // 找到每个标的的最早买入日期

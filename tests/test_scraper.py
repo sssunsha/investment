@@ -1,6 +1,6 @@
-# tests/test_scraper.py — _parse_float / _parse_date / _evaluate_status 测试
+# tests/test_scraper.py — _parse_float / _parse_date / _evaluate_status / _TTL_HOURS 测试
 
-from services.scraper import _parse_float, _parse_date, _evaluate_status
+from services.scraper import _parse_float, _parse_date, _evaluate_status, _TTL_HOURS
 
 
 # ── _parse_float ──────────────────────────────────────────────────────────────
@@ -189,3 +189,18 @@ def test_unknown_indicator_defaults_to_normal():
 def test_stock_bond_ratio_missing_value_stays_normal():
     s = _evaluate_status(_ind('stock_bond_ratio', {}))
     assert s['level'] == 'normal'
+
+
+# ── _TTL_HOURS ────────────────────────────────────────────────────────────────
+
+def test_ttl_daily():
+    assert _TTL_HOURS['daily'] == 6
+
+def test_ttl_weekly():
+    assert _TTL_HOURS['weekly'] == 24
+
+def test_ttl_monthly():
+    assert _TTL_HOURS['monthly'] == 168
+
+def test_ttl_covers_all_frequencies():
+    assert set(_TTL_HOURS) == {'daily', 'weekly', 'monthly'}
