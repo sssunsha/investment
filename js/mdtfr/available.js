@@ -3,7 +3,7 @@
 import {
   getSumOfPositions, setAmts, saveAmounts,
   _getRawKey, _setRawKey,
-  getCost, getDynAmt,
+  getCost, getDynAmt, hasMktVal,
 } from './amounts.js';
 import { getMdtfrPoolDef } from './config.js';
 import { escHtml } from '../utils.js';
@@ -46,17 +46,17 @@ function getTotalAmt() {
   return _available + getSumOfPositions();
 }
 
-/** 计算总持仓盈亏（仅含有成本记录的标的） */
+/** 计算总持仓盈亏（仅含有成本记录且已加载动态市值的标的） */
 function _computeTotalPnl() {
   const defs = getMdtfrPoolDef();
   let totalCost = 0;
   let totalMktVal = 0;
   defs.forEach(d => {
     const cost = getCost(d.code_c);
-    if (cost > 0) {
-      totalCost += cost;
-      totalMktVal += getDynAmt(d.code_c);
-    }
+    if (cost <= 0) return;
+    if (!hasMktVal(d.code_c)) return;
+    totalCost += cost;
+    totalMktVal += getDynAmt(d.code_c);
   });
   return { pnl: totalMktVal - totalCost, cost: totalCost };
 }

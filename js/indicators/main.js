@@ -19,6 +19,37 @@ let fedRateData = null;
 let cnStockChart = null;
 let cnStockData = null;
 
+let _chartRange = 'all';
+
+const _RANGES = [
+  { key: '3m',  label: '近3月',  months: 3 },
+  { key: '6m',  label: '近半年', months: 6 },
+  { key: '1y',  label: '近1年',  months: 12 },
+  { key: '3y',  label: '近3年',  months: 36 },
+  { key: 'all', label: '全景',   months: null },
+];
+
+function _rangeCutoff(months) {
+  if (!months) return '2000-01-01';
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
+function setChartRange(key) {
+  _chartRange = key;
+  document.querySelectorAll('.chart-range-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.range === key);
+  });
+  const cutoff = _rangeCutoff(_RANGES.find(r => r.key === key)?.months ?? null);
+  [fedRateChart, cnStockChart].forEach(chart => {
+    if (!chart) return;
+    const labels = chart.data.labels;
+    chart.options.scales.x.min = labels.find(l => l >= cutoff) ?? labels[0];
+    chart.update('none');
+  });
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // API Functions
 // ══════════════════════════════════════════════════════════════════════════════
@@ -839,6 +870,13 @@ function renderFedRateChartCard() {
           <span class="chart-title-main">📈 美国利率走势</span>
           <span class="chart-title-sub">Federal Funds Rate · 2Y Treasury · 10Y Treasury (FRED) · 2000至今</span>
         </div>
+        <div class="chart-controls">
+          <button class="chart-range-btn" data-range="3m" onclick="setChartRange('3m')">近3月</button>
+          <button class="chart-range-btn" data-range="6m" onclick="setChartRange('6m')">近半年</button>
+          <button class="chart-range-btn" data-range="1y" onclick="setChartRange('1y')">近1年</button>
+          <button class="chart-range-btn" data-range="3y" onclick="setChartRange('3y')">近3年</button>
+          <button class="chart-range-btn active" data-range="all" onclick="setChartRange('all')">全景</button>
+        </div>
       </div>
       <div class="chart-wrapper">
         <canvas id="fed-rate-chart"></canvas>
@@ -1066,6 +1104,9 @@ function renderFedRateChart(data) {
   const dgs10Values = ffrLabels.map(d => dgs10Map.get(d.slice(0, 7)) ?? null);
   const dgs2Values = ffrLabels.map(d => dgs2Map.get(d.slice(0, 7)) ?? null);
 
+  const fedRangeCutoff = _rangeCutoff(_RANGES.find(r => r.key === _chartRange)?.months ?? null);
+  const fedXMin = ffrLabels.find(l => l >= fedRangeCutoff) ?? ffrLabels[0];
+
   if (fedRateChart) {
     fedRateChart.destroy();
     fedRateChart = null;
@@ -1124,6 +1165,7 @@ function renderFedRateChart(data) {
       },
       scales: {
         x: {
+          min: fedXMin,
           grid: { color: 'rgba(45, 50, 80, 0.3)' },
           ticks: {
             color: '#8892a4',
@@ -1197,6 +1239,9 @@ function renderCnStockChart(data) {
   if (!base) return;
   const labels = base.labels.filter(d => d >= '2000-01-01');
 
+  const cnRangeCutoff = _rangeCutoff(_RANGES.find(r => r.key === _chartRange)?.months ?? null);
+  const cnXMin = labels.find(l => l >= cnRangeCutoff) ?? labels[0];
+
   // 将各指数数据对齐到公共标签轴
   const buildMap = key => {
     const s = data[key];
@@ -1239,6 +1284,7 @@ function renderCnStockChart(data) {
       },
       scales: {
         x: {
+          min: cnXMin,
           grid: { color: 'rgba(45, 50, 80, 0.3)' },
           ticks: {
             color: '#8892a4',

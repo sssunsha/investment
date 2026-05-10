@@ -252,3 +252,5 @@ export {
 export function setLastMdtfrItems(items) { _lastMdtfrItems = items; }
 /** 供 journal.js / trade-confirm.js 读取最新标的列表 */
 export function getLastMdtfrItems() { return _lastMdtfrItems; }
+/** 判断指定标的是否已加载动态市值（用于避免成本=市值时误显示收益为0） */
+export function hasMktVal(code_c) { return code_c in _mktVal; }
