@@ -11,6 +11,7 @@
 #   install       安装依赖
 #   kill          释放占用端口
 #   commit        提交所有变更（以当前时间为 commit message，不 push）
+#   test          运行全套单元测试（Python pytest + JS Vitest）
 #   service       管理 macOS 后台自启动服务（子命令见下）
 #   help          显示帮助
 #
@@ -81,6 +82,7 @@ show_help() {
     printf "  %-24s %s\n" "install"           "安装所有依赖"
     printf "  %-24s %s\n" "kill"              "释放占用的端口（默认 9001）"
     printf "  %-24s %s\n" "commit"            "提交所有变更（以当前时间为 commit message，不 push）"
+    printf "  %-24s %s\n" "test"              "运行全套单元测试（Python pytest + JS Vitest）"
     printf "  %-24s %s\n" "service install"   "安装并启动开机自启动服务（launchd）"
     printf "  %-24s %s\n" "service uninstall" "停止并卸载开机自启动服务"
     printf "  %-24s %s\n" "service restart"   "重启后台服务（代码更新后使用）"
@@ -382,6 +384,49 @@ service_logs() {
 }
 
 # ==============================================================================
+# 单元测试
+# ==============================================================================
+run_tests() {
+    step "运行单元测试"
+    local failed=0
+
+    # Python 测试（pytest）
+    echo -e "\n${BOLD}${CYAN}── Python Tests (pytest) ──${NC}"
+    if [ ! -d "$VENV_DIR" ]; then
+        error "虚拟环境不存在，请先运行 ./invest.sh install"
+        exit 1
+    fi
+    source "$VENV_DIR/bin/activate"
+    if (cd "$SCRIPT_DIR" && python3 -m pytest tests/ -v --tb=short); then
+        success "Python 测试全部通过"
+    else
+        error "Python 测试存在失败"
+        failed=1
+    fi
+
+    # JavaScript 测试（Vitest）
+    echo -e "\n${BOLD}${CYAN}── JavaScript Tests (Vitest) ──${NC}"
+    if [ ! -f "$SCRIPT_DIR/node_modules/.bin/vitest" ]; then
+        warn "未找到 vitest，尝试安装 JS 依赖..."
+        (cd "$SCRIPT_DIR" && npm install)
+    fi
+    if (cd "$SCRIPT_DIR" && npx vitest run); then
+        success "JavaScript 测试全部通过"
+    else
+        error "JavaScript 测试存在失败"
+        failed=1
+    fi
+
+    echo ""
+    if [ "$failed" -eq 0 ]; then
+        success "所有测试通过 ✓"
+    else
+        error "部分测试失败，请查看上方输出。"
+        exit 1
+    fi
+}
+
+# ==============================================================================
 # 主流程
 # ==============================================================================
 case "$COMMAND" in
@@ -412,6 +457,10 @@ case "$COMMAND" in
 
     commit)
         git_commit
+        ;;
+
+    test)
+        run_tests
         ;;
 
     service)

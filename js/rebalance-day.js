@@ -125,4 +125,4 @@ async function initRebalanceDayStyle() {
   }
 }
 
-export { formatDate, applyRebalanceDayStyle, initRebalanceDayStyle };
+export { formatDate, applyRebalanceDayStyle, initRebalanceDayStyle, _addDays, _buildActualRebalanceDays };

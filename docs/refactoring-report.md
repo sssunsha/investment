@@ -5,6 +5,28 @@
 
 ---
 
+## 优先级汇总
+
+| 状态 | 优先级 | # | 问题 | 预估工作量 | 主要收益 |
+|------|--------|---|------|-----------|---------|
+| ✅ 已完成 | 🔴 P1 | 1 | `indicators/main.js` 拆分（1440行） | 3-4h | 可维护性大幅提升 |
+| ✅ 已完成 | 🔴 P1 | 2 | `basic-info/main.js` 拆分（1004行） | 2-3h | 同上 |
+| ✅ 已完成 | 🔴 P1 | 3 | `amounts.js` `_mktVal` 与 DOM 解耦 | 1h | 消除隐性时序 bug |
+| ⬜ 待处理 | 🟡 P2 | 4 | `main.js` 回调注入 → store/event 模式 | 4-6h | 架构安全，杜绝遗漏注入 |
+| ⬜ 待处理 | 🟡 P2 | 5 | `scraper.py` 解析器拆分（1395行） | 3-4h | 可测试性，降低改动风险 |
+| ⬜ 待处理 | 🟡 P2 | 6 | `strategy.py` 计算逻辑提取到 services | 2-3h | 可测试，可复用 |
+| ⬜ 待处理 | 🟡 P2 | 7 | 补充 MA60 / rebalance / amounts 单元测试 | 4-5h | 防止回归 |
+| ⬜ 待处理 | 🟡 P2 | 8 | `advice.js` 渲染与逻辑分离 | 2-3h | 逻辑可测试 |
+| ⬜ 待处理 | 🟢 P3 | 9 | 总金额标签更新函数提取 | 30min | 去重 |
+| ⬜ 待处理 | 🟢 P3 | 10 | journal 扫描逻辑提取为共享函数 | 30min | 去重 |
+| ⬜ 待处理 | 🟢 P3 | 11 | SSE 重连机制 | 1h | 健壮性 |
+| ⬜ 待处理 | 🟢 P3 | 12 | `_rowSnapshots` 清理 | 15min | 防内存泄漏 |
+| ⬜ 待处理 | 🟢 P3 | 13 | BaoStock 重连加锁 | 1h | 并发安全 |
+| ⬜ 待处理 | 🟢 P3 | 14 | 指标 TTL 配置化 | 1h | 可维护 |
+| ⬜ 待处理 | 🟢 P3 | 15 | 添加 CSP 响应头 | 30min | 安全 |
+
+---
+
 ## 项目概览
 
 | 维度 | 数值 |
@@ -313,28 +335,6 @@ async def add_security_headers(request, call_next):
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'"
     return response
 ```
-
----
-
-## 优先级汇总
-
-| 优先级 | # | 问题 | 预估工作量 | 主要收益 |
-|--------|---|------|-----------|---------|
-| 🔴 P1 | 1 | `indicators/main.js` 拆分（1440行） | 3-4h | 可维护性大幅提升 |
-| 🔴 P1 | 2 | `basic-info/main.js` 拆分（1004行） | 2-3h | 同上 |
-| 🔴 P1 | 3 | `amounts.js` `_mktVal` 与 DOM 解耦 | 1h | 消除隐性时序 bug |
-| 🟡 P2 | 4 | `main.js` 回调注入 → store/event 模式 | 4-6h | 架构安全，杜绝遗漏注入 |
-| 🟡 P2 | 5 | `scraper.py` 解析器拆分（1395行） | 3-4h | 可测试性，降低改动风险 |
-| 🟡 P2 | 6 | `strategy.py` 计算逻辑提取到 services | 2-3h | 可测试，可复用 |
-| 🟡 P2 | 7 | 补充 MA60 / rebalance / amounts 单元测试 | 4-5h | 防止回归 |
-| 🟡 P2 | 8 | `advice.js` 渲染与逻辑分离 | 2-3h | 逻辑可测试 |
-| 🟢 P3 | 9 | 总金额标签更新函数提取 | 30min | 去重 |
-| 🟢 P3 | 10 | journal 扫描逻辑提取为共享函数 | 30min | 去重 |
-| 🟢 P3 | 11 | SSE 重连机制 | 1h | 健壮性 |
-| 🟢 P3 | 12 | `_rowSnapshots` 清理 | 15min | 防内存泄漏 |
-| 🟢 P3 | 13 | BaoStock 重连加锁 | 1h | 并发安全 |
-| 🟢 P3 | 14 | 指标 TTL 配置化 | 1h | 可维护 |
-| 🟢 P3 | 15 | 添加 CSP 响应头 | 30min | 安全 |
 
 ---
 
