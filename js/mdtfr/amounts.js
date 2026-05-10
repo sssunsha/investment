@@ -210,21 +210,18 @@ export function refreshAmtPnl(items) {
     const c      = item.code_c;
     const shares = getShares(c);
     const cost   = getCost(c);
-    const inp    = document.getElementById(`mdtfr-amt-input-${c}`);
-    if (!inp) return;
     if (shares > 0) {
       const curVal = Math.round(shares * item.latest_close);
-      _mktVal[c] = curVal;
-      // 颜色：涨红跌绿不变白（A股惯例）
-      if (cost > 0) {
-        let clr = '';
-        if (curVal > cost) clr = 'var(--red)';
-        else if (curVal < cost) clr = 'var(--green)';
-        inp.style.color = clr;
-      }
+      _mktVal[c] = curVal;          // 数据填充不依赖 DOM
       anyUpdated = true;
+      const inp = document.getElementById(`mdtfr-amt-input-${c}`);
+      if (inp && cost > 0) {
+        // 颜色：涨红跌绿不变白（A股惯例）
+        inp.style.color = curVal > cost ? 'var(--red)' : curVal < cost ? 'var(--green)' : '';
+      }
     } else {
-      inp.style.color = '';
+      const inp = document.getElementById(`mdtfr-amt-input-${c}`);
+      if (inp) inp.style.color = '';
     }
   });
   if (anyUpdated) {
