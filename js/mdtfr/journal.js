@@ -3,8 +3,9 @@
 import { escHtml } from '../utils.js';
 import { getLastMdtfrItems } from './amounts.js';
 import { getWatchState } from './watch.js';
-import { getLastAdviceData } from './advice.js';
+import { getLastAdviceData } from './advice-logic.js';
 import { getAvailableAmt } from './available.js';
+import { on } from './bus.js';
 
 // 供 trade-confirm.js 注入确认注解（confirmed_at + trade_records）
 let _pendingAnnotation = null;
@@ -217,3 +218,5 @@ function journalRow(r) {
 }
 
 export { saveJournalRecord, showToast, openJournal, closeJournal, loadJournal };
+
+on('mdtfr:toast', ({ msg, color }) => showToast(msg, color));

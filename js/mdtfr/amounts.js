@@ -1,6 +1,7 @@
 // js/mdtfr/amounts.js
 // 持仓金额管理：加载、保存、查询、刷新仓位百分比、渲染单元格
 import { getMdtfrPoolDef } from './config.js';
+import { emit, call, on, register } from './bus.js';
 
 // _rawData：服务端返回的原始 JSON（含 __available__ 及所有 code_c 键）
 const _rawData = {};
@@ -11,18 +12,6 @@ const _mktVal = {};
 
 // 缓存最近一次 mdtfrRenderAdvice 调用的标的列表，金额变化时重新渲染建议
 let _lastMdtfrItems = null;
-
-// 供 main.js 注入，避免 amounts → advice 循环依赖
-let _adviceRenderer = null;
-export function setAdviceRenderer(cb) { _adviceRenderer = cb; }
-
-// 供 main.js 注入 available.js 的 getTotalAmt()，避免循环依赖
-let _getTotalAmtFn = null;
-export function setTotalAmtGetter(fn) { _getTotalAmtFn = fn; }
-
-// 供 main.js 注入 available.js 的 refreshPnlDisplay()，避免循环依赖
-let _refreshPnlDisplayFn = null;
-export function setRefreshPnlDisplayFn(fn) { _refreshPnlDisplayFn = fn; }
 
 async function loadAmounts() {
   try {
@@ -120,14 +109,14 @@ function getSumOfPositions() {
 
 /** 仓位百分比（以 getTotalAmt 为分母；未注入时退化为持仓之和）*/
 function getPosVal(code_c) {
-  const total = _getTotalAmtFn ? _getTotalAmtFn() : getSumOfPositions();
+  const total = call('getTotalAmt') ?? getSumOfPositions();
   if (total <= 0) return 0;
   return Math.round(getDynAmt(code_c) / total * 1000) / 10;
 }
 
 /** 更新所有行的持仓百分比展示 + 总金额标签 */
 function refreshAllPosPct() {
-  const total = _getTotalAmtFn ? _getTotalAmtFn() : getSumOfPositions();
+  const total = call('getTotalAmt') ?? getSumOfPositions();
   getMdtfrPoolDef().forEach(d => {
     const pct = total > 0 ? Math.round(getDynAmt(d.code_c) / total * 1000) / 10 : 0;
     const td = document.getElementById(`mdtfr-pos-${d.code_c}`);
@@ -149,14 +138,12 @@ function onAmtChange(code_c, val) {
   setAmt(code_c, val);
   saveAmounts();
   refreshAllPosPct();
-  if (_getTotalAmtFn) {
-    const totalEl = document.getElementById('mdtfr-total-amt');
-    if (totalEl) {
-      const t = _getTotalAmtFn();
-      totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
-    }
+  const totalEl = document.getElementById('mdtfr-total-amt');
+  if (totalEl) {
+    const t = call('getTotalAmt') ?? getSumOfPositions();
+    totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
   }
-  if (_lastMdtfrItems && _adviceRenderer) _adviceRenderer(_lastMdtfrItems);
+  if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
 }
 
 /** 清零指定标的持仓金额 */
@@ -167,17 +154,15 @@ function clearAmt(code_c) {
   setCost(code_c, 0);
   saveAmounts();
   refreshAllPosPct();
-  if (_getTotalAmtFn) {
-    const totalEl = document.getElementById('mdtfr-total-amt');
-    if (totalEl) {
-      const t = _getTotalAmtFn();
-      totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
-    }
+  const totalEl = document.getElementById('mdtfr-total-amt');
+  if (totalEl) {
+    const t = call('getTotalAmt') ?? getSumOfPositions();
+    totalEl.textContent = t > 0 ? `总金额：¥${t.toLocaleString()}` : '';
   }
   // 同步清空输入框 value，并重置盈亏颜色
   const inp = document.querySelector(`.amt-input[data-code="${code_c}"]`);
   if (inp) { inp.value = ''; inp.dataset.held = false; inp.style.color = ''; }
-  if (_lastMdtfrItems && _adviceRenderer) _adviceRenderer(_lastMdtfrItems);
+  if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
 }
 
 /** 生成金额输入框 + 清零按钮（输出 HTML 字符串） */
@@ -197,7 +182,7 @@ function mkAmtCell(code_c) {
 
 /** 生成仓位百分比展示（独立 td 内容） */
 function mkPosPct(code_c) {
-  const total = _getTotalAmtFn ? _getTotalAmtFn() : getSumOfPositions();
+  const total = call('getTotalAmt') ?? getSumOfPositions();
   const pct = total > 0 ? Math.round(getAmt(code_c) / total * 1000) / 10 : 0;
   const held = pct > 0;
   return `<span class="pos-pct" data-code="${code_c}" data-held="${held}">${pct > 0 ? pct.toFixed(1) + '%' : '–'}</span>`;
@@ -226,15 +211,13 @@ export function refreshAmtPnl(items) {
   });
   if (anyUpdated) {
     refreshAllPosPct();
-    if (_getTotalAmtFn) {
-      const totalEl = document.getElementById('mdtfr-total-amt');
-      if (totalEl) {
-        const t = _getTotalAmtFn();
-        totalEl.textContent = t > 0 ? `总金额：¥${Math.round(t).toLocaleString()}` : '总金额：¥0';
-      }
+    const totalEl = document.getElementById('mdtfr-total-amt');
+    if (totalEl) {
+      const t = call('getTotalAmt') ?? getSumOfPositions();
+      totalEl.textContent = t > 0 ? `总金额：¥${Math.round(t).toLocaleString()}` : '总金额：¥0';
     }
-    if (_refreshPnlDisplayFn) _refreshPnlDisplayFn();
-    if (_lastMdtfrItems && _adviceRenderer) _adviceRenderer(_lastMdtfrItems);
+    emit('pnl:refresh');
+    if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
   }
 }
 
@@ -251,3 +234,6 @@ export function setLastMdtfrItems(items) { _lastMdtfrItems = items; }
 export function getLastMdtfrItems() { return _lastMdtfrItems; }
 /** 判断指定标的是否已加载动态市值（用于避免成本=市值时误显示收益为0） */
 export function hasMktVal(code_c) { return code_c in _mktVal; }
+
+register('getLastItems', () => _lastMdtfrItems);
+on('available:refresh', refreshAllPosPct);

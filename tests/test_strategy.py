@@ -1,6 +1,6 @@
 # tests/test_strategy.py — _calc_ma60 核心逻辑测试
 
-from routers.strategy import _calc_ma60
+from services.strategy_calc import _calc_ma60
 
 
 # ── 数据不足 ──────────────────────────────────────────────────────────────────

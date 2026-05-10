@@ -5,8 +5,11 @@
 import sys
 sys.path.insert(0, '/Users/I340818/workspace/personal/workspace/investment')
 
-from services.scraper import _parse_m1_m2, _fetch_html
+import pytest
+from services.parsers.liquidity import _parse_m1_m2
+from services.scraper import _fetch_html
 
+@pytest.mark.skip(reason="integration test, makes real HTTP requests")
 def test_m1m2_parser():
     print("Fetching HTML from value500.com...")
     html = _fetch_html("http://value500.com/M1.asp")

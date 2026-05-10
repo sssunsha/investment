@@ -7,18 +7,9 @@ import {
 } from './amounts.js';
 import { getMdtfrPoolDef } from './config.js';
 import { escHtml } from '../utils.js';
+import { emit, call, on, register } from './bus.js';
 
 let _available = 0;  // 可用金额（元）
-
-// 注入 showToast 和 refreshAllPosPct（main.js 负责，避免循环依赖）
-let _showToastFn = null;
-let _refreshPosFn = null;
-let _adviceRenderer = null;
-let _lastItemsGetter = null;
-export function setAvailableToastFn(fn)    { _showToastFn = fn; }
-export function setAvailableRefreshFn(fn)  { _refreshPosFn = fn; }
-export function setAvailableAdviceRenderer(fn) { _adviceRenderer = fn; }
-export function setAvailableItemsGetter(fn)    { _lastItemsGetter = fn; }
 
 /** 加载可用金额（必须在 loadAmounts() 之后调用，共享同一次 GET 响应） */
 async function loadAvailable() {
@@ -90,11 +81,9 @@ async function onAvailableChange(val) {
   _available = parseFloat(val) || 0;
   await saveAvailable();
   refreshTotalDisplay();
-  if (_refreshPosFn) _refreshPosFn();
-  if (_lastItemsGetter && _adviceRenderer) {
-    const items = _lastItemsGetter();
-    if (items) _adviceRenderer(items);
-  }
+  emit('available:refresh');
+  const items = call('getLastItems');
+  if (items) emit('advice:render', items);
 }
 
 /**
@@ -123,8 +112,8 @@ async function recoverFromJournal() {
       _available = parseFloat(rec.available_amt || 0) || 0;
       await saveAll();
       refreshTotalDisplay();
-      if (_refreshPosFn) _refreshPosFn();
-      if (_showToastFn) _showToastFn(`已从 ${rec.data_date} 的复盘记录恢复持仓`, 'var(--cyan)');
+      emit('available:refresh');
+      emit('mdtfr:toast', { msg: `已从 ${rec.data_date} 的复盘记录恢复持仓`, color: 'var(--cyan)' });
       return true;
     } catch {}
   }
@@ -286,3 +275,6 @@ export {
   getTotalAmt, refreshTotalDisplay,
   onAvailableChange, recoverFromJournal,
 };
+
+register('getTotalAmt', getTotalAmt);
+on('pnl:refresh', refreshPnlDisplay);

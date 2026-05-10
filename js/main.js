@@ -21,38 +21,25 @@ import { openPoolAdjust, closePoolAdjust, applyPoolAdjust } from './mdtfr/pool-a
 import {
   toggleMdtfrDebug, closeDebugDrawer, clearMdtfrDebug,
 } from './mdtfr/debug.js';
-import { openJournal, closeJournal, loadJournal, saveJournalRecord, showToast } from './mdtfr/journal.js';
-import { mdtfrRenderAdvice, setJournalSaver }     from './mdtfr/advice.js';
+import { openJournal, closeJournal, loadJournal, saveJournalRecord } from './mdtfr/journal.js';
+import './mdtfr/advice.js';
 import {
-  setAdviceRenderer, loadAmounts, refreshAllPosPct,
-  onAmtChange, clearAmt, setTotalAmtGetter,
-  setLastMdtfrItems, getLastMdtfrItems, getSumOfPositions,
-  setRefreshPnlDisplayFn,
+  loadAmounts, refreshAllPosPct,
+  onAmtChange, clearAmt,
+  getSumOfPositions,
 } from './mdtfr/amounts.js';
 import {
   loadAvailable, onAvailableChange, refreshTotalDisplay,
-  getTotalAmt, recoverFromJournal, getAvailableAmt,
-  setAvailableToastFn, setAvailableRefreshFn,
-  setAvailableAdviceRenderer, setAvailableItemsGetter,
-  refreshPnlDisplay, openPnlDialog, closePnlDialog,
+  recoverFromJournal, getAvailableAmt,
+  openPnlDialog, closePnlDialog,
 } from './mdtfr/available.js';
 import {
   confirmTradeRow, undoTradeRow,
-  setAdviceRerenderer, clearRowSnapshots,
-  setRowConfirmJournalSaver,
 } from './mdtfr/trade-confirm.js';
+import { register } from './mdtfr/bus.js';
 
-// ── 连接跨模块回调（避免循环依赖）────────────────────────────────
-setJournalSaver(saveJournalRecord);           // advice → journal（自动复盘保存）
-setAdviceRenderer(mdtfrRenderAdvice);         // amounts → advice（金额变化时重渲建议）
-setTotalAmtGetter(getTotalAmt);               // amounts.refreshAllPosPct 使用完整总金额
-setAdviceRerenderer((items) => { clearRowSnapshots(); mdtfrRenderAdvice(items); }); // trade-confirm → advice
-setRowConfirmJournalSaver(saveJournalRecord);  // trade-confirm → journal（行级确认写入）
-setAvailableToastFn(showToast);               // available.recoverFromJournal 提示
-setAvailableRefreshFn(refreshAllPosPct);      // available.onAvailableChange 刷新仓位
-setAvailableAdviceRenderer(mdtfrRenderAdvice);// available.onAvailableChange 重渲建议
-setAvailableItemsGetter(getLastMdtfrItems);   // available 获取最新标的列表
-setRefreshPnlDisplayFn(refreshPnlDisplay);    // amounts.refreshAmtPnl 后刷新总收益标签
+// ── 连接跨模块回调（通过 EventBus）────────────────────────────────
+register('journalSaver', saveJournalRecord);
 
 // ── 挂载 HTML onclick 需要的全局函数 ──────────────────────────
 Object.assign(window, {

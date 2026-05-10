@@ -9,8 +9,11 @@ from bs4 import BeautifulSoup
 # Add services to path
 sys.path.insert(0, '/Users/I340818/workspace/personal/workspace/investment')
 
-from services.scraper import _parse_pe, _fetch_html, _parse_date, _parse_float
+import pytest
+from services.parsers.valuation import _parse_pe
+from services.scraper import _fetch_html, _parse_date, _parse_float
 
+@pytest.mark.skip(reason="integration test, makes real HTTP requests")
 def test_pe_parser():
     print("Fetching HTML from value500.com...")
     html = _fetch_html("http://value500.com/PE.asp")

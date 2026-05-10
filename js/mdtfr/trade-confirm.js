@@ -1,8 +1,8 @@
 // js/mdtfr/trade-confirm.js
 // 交易确认/撤销逻辑：每行独立快照
-import { getLastAdviceData } from './advice.js';
+import { getLastAdviceData } from './advice-logic.js';
 import {
-  getAmt, setAmt, setAmts, saveAmounts,
+  getAmt, setAmt, saveAmounts,
   refreshAllPosPct, getLastMdtfrItems,
   getShares, getCost, setShares, setCost,
 } from './amounts.js';
@@ -12,18 +12,13 @@ import {
 } from './available.js';
 import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
+import { call } from './bus.js';
 
 // 每行独立快照：rowId -> {code, prevAmt, prevAvailable}
 const _rowSnapshots = new Map();
 
 // journal 累计：跨多行确认累积 trade_records
 let _journalAccum = { confirmed_at: null, trade_records: [] };
-
-// 注入回调
-let _adviceRerenderer = null;
-let _journalSaverFn   = null;
-export function setAdviceRerenderer(fn)       { _adviceRerenderer = fn; }
-export function setRowConfirmJournalSaver(fn) { _journalSaverFn = fn; }
 
 /** 在 advice 重渲前由 main.js 调用，清除所有行快照和 journal 累计 */
 export function clearRowSnapshots() {
@@ -150,8 +145,7 @@ function _removeFromAccum(rowId) {
   if (_journalAccum.trade_records.length === 0) {
     _journalAccum.confirmed_at = null;
     setPendingConfirmAnnotation(null);
-    if (_journalSaverFn) _journalSaverFn(true);
-  } else {
+    call('journalSaver', true);  } else {
     _flushJournal();
   }
 }
@@ -162,7 +156,7 @@ function _flushJournal() {
     confirmed_at: _journalAccum.confirmed_at,
     trade_records: clean,
   });
-  if (_journalSaverFn) _journalSaverFn(true);
+  call('journalSaver', true);
 }
 
 function _updateRowCell(rowId, confirmed) {
