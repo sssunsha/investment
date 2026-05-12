@@ -100,6 +100,20 @@ export function updateFooter(footerId, count, startDate, endDate) {
 
 // ── 图表渲染 ──────────────────────────────────────────────────────────────────
 
+/**
+ * 在时间范围起点处注入最后已知利率锚点，使阶梯线在选中窗口内正确延伸。
+ * allData 须为全史数据；返回数组仅含锚点 + 范围内数据点。
+ */
+function _extendRateData(allData, startDate, dateField = 'pubDate') {
+  if (!allData || allData.length === 0) return [];
+  const sorted = [...allData].sort((a, b) => (a[dateField] || '').localeCompare(b[dateField] || ''));
+  const beforeOrAt = sorted.filter(d => (d[dateField] || '') <= startDate);
+  const after = sorted.filter(d => (d[dateField] || '') > startDate);
+  if (beforeOrAt.length === 0) return after;
+  const anchor = { ...beforeOrAt.at(-1), [dateField]: startDate };
+  return [anchor, ...after];
+}
+
 export function renderDepositRateChart(data, startDate, endDate) {
   const canvasId = 'deposit-rate-chart';
   const footerId = 'deposit-rate-footer';
@@ -111,6 +125,8 @@ export function renderDepositRateChart(data, startDate, endDate) {
     updateFooter(footerId, 0, startDate, endDate);
     return;
   }
+
+  const displayData = _extendRateData(data, startDate);
 
   const rateTypeMapping = {
     demandDepositRate:      '活期存款',
@@ -126,7 +142,7 @@ export function renderDepositRateChart(data, startDate, endDate) {
 
   const datasets = Object.entries(rateTypeMapping).map(([field, label], i) => ({
     label,
-    data: data.map(item => ({ x: item.pubDate || item.date, y: parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
+    data: displayData.map(item => ({ x: item.pubDate || item.date, y: parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
     borderColor: colors[i % colors.length],
     backgroundColor: colorsBg[i % colorsBg.length],
     borderWidth: 2, tension: 0.3, fill: false,
@@ -143,7 +159,7 @@ export function renderDepositRateChart(data, startDate, endDate) {
     options: {
       ...CHART_DEFAULTS,
       plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } },
-      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '利率 (%)', color: '#8892a4' } } },
+      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '利率 (%)', color: '#8892a4' } } },
     },
   });
 
@@ -162,6 +178,8 @@ export function renderLoanRateChart(data, startDate, endDate) {
     return;
   }
 
+  const displayData = _extendRateData(data, startDate);
+
   const rateTypeMapping = {
     loanRate6Month:          '6个月内',
     loanRate6MonthTo1Year:   '6个月-1年',
@@ -177,7 +195,7 @@ export function renderLoanRateChart(data, startDate, endDate) {
 
   const datasets = Object.entries(rateTypeMapping).map(([field, label], i) => ({
     label,
-    data: data.map(item => ({ x: item.pubDate || item.date, y: parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
+    data: displayData.map(item => ({ x: item.pubDate || item.date, y: parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
     borderColor: colors[i % colors.length],
     backgroundColor: colorsBg[i % colorsBg.length],
     borderWidth: 2, tension: 0.3, fill: false,
@@ -194,7 +212,7 @@ export function renderLoanRateChart(data, startDate, endDate) {
     options: {
       ...CHART_DEFAULTS,
       plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } },
-      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '利率 (%)', color: '#8892a4' } } },
+      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '利率 (%)', color: '#8892a4' } } },
     },
   });
 
@@ -213,17 +231,19 @@ export function renderReserveRatioChart(data, startDate, endDate) {
     return;
   }
 
+  const displayData = _extendRateData(data, startDate, 'effectiveDate');
+
   const datasets = [
     {
       label: '大型金融机构',
-      data: data.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: parseFloat(item.bigInstitutionsRatioAfter || item.ratioInLargeBank) || 0 })).filter(d => d.y > 0),
+      data: displayData.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: parseFloat(item.bigInstitutionsRatioAfter || item.ratioInLargeBank) || 0 })).filter(d => d.y > 0),
       borderColor: CHART_COLORS.purple, backgroundColor: CHART_COLORS.purpleLight,
       borderWidth: 2, tension: 0.3, fill: true,
       pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
     },
     {
       label: '中小型金融机构',
-      data: data.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: parseFloat(item.mediumInstitutionsRatioAfter || item.ratioInSmallBank) || 0 })).filter(d => d.y > 0),
+      data: displayData.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: parseFloat(item.mediumInstitutionsRatioAfter || item.ratioInSmallBank) || 0 })).filter(d => d.y > 0),
       borderColor: CHART_COLORS.green, backgroundColor: CHART_COLORS.greenLight,
       borderWidth: 2, tension: 0.3, fill: true,
       pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
@@ -240,7 +260,7 @@ export function renderReserveRatioChart(data, startDate, endDate) {
     options: {
       ...CHART_DEFAULTS,
       plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } },
-      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '准备金率 (%)', color: '#8892a4' } } },
+      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '准备金率 (%)', color: '#8892a4' } } },
     },
   });
 

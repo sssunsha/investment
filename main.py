@@ -233,6 +233,10 @@ class _CSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = _CSP
+        # 禁止浏览器缓存 JS/CSS，确保重构后的模块始终加载最新版本
+        path = request.url.path
+        if path.startswith("/js/") or path.startswith("/css/"):
+            response.headers["Cache-Control"] = "no-store"
         return response
 
 app.add_middleware(_CSPMiddleware)

@@ -14,6 +14,9 @@ import {
 const API_BASE  = '/api/macroscopic';
 const CACHE_API = '/api/cache/macro';
 
+// 存贷款利率、准备金率数据极少变动，最新记录停留在 2015 年，需回溯全史
+const RATE_HISTORY_START = '2000-01-01';
+
 const DATA_KEYS = {
   DEPOSIT_RATE:        'deposit_rate',
   LOAN_RATE:           'loan_rate',
@@ -237,7 +240,7 @@ async function loadAllData(forceRefresh = false) {
       depositData = state.cache[DATA_KEYS.DEPOSIT_RATE].data;
     }
     if (!depositData) {
-      const res = await fetchDepositRate(range.startDate, range.endDate);
+      const res = await fetchDepositRate(RATE_HISTORY_START, range.endDate);
       if (res.error) { showChartError('deposit-rate-chart', res.error); }
       else {
         depositData = res.data;
@@ -257,7 +260,7 @@ async function loadAllData(forceRefresh = false) {
       loanData = state.cache[DATA_KEYS.LOAN_RATE].data;
     }
     if (!loanData) {
-      const res = await fetchLoanRate(range.startDate, range.endDate);
+      const res = await fetchLoanRate(RATE_HISTORY_START, range.endDate);
       if (res.error) { showChartError('loan-rate-chart', res.error); }
       else {
         loanData = res.data;
@@ -277,7 +280,7 @@ async function loadAllData(forceRefresh = false) {
       reserveData = state.cache[DATA_KEYS.RESERVE_RATIO].data;
     }
     if (!reserveData) {
-      const res = await fetchReserveRatio(range.startDate, range.endDate);
+      const res = await fetchReserveRatio(RATE_HISTORY_START, range.endDate);
       if (res.error) { showChartError('reserve-ratio-chart', res.error); }
       else {
         reserveData = res.data;

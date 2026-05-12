@@ -47,6 +47,7 @@ function mdtfrInitTable(skeleton = false) {
 // ── 填充单行数据 ───────────────────────────────────────
 function mdtfrFillRow(item) {
   const c = item.code_c;
+  if (!document.getElementById(`mdtfr-close-${c}`)) return;
   if (item.error) {
     document.getElementById(`mdtfr-close-${c}`).innerHTML = `<span style="color:var(--text-dim);font-size:12px">${escHtml(item.error)}</span>`;
     ['ret','ma20','ma60'].forEach(k => { document.getElementById(`mdtfr-${k}-${c}`).textContent = '–'; });
