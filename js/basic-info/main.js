@@ -5,7 +5,6 @@ import {
   renderLoanRateChart,
   renderReserveRatioChart,
   renderMoneySupplyMonthChart,
-  renderMoneySupplyYearChart,
   showChartError,
 } from './charts.js';
 
@@ -22,7 +21,6 @@ const DATA_KEYS = {
   LOAN_RATE:           'loan_rate',
   RESERVE_RATIO:       'reserve_ratio',
   MONEY_SUPPLY_MONTH:  'money_supply_month',
-  MONEY_SUPPLY_YEAR:   'money_supply_year',
 };
 
 // ── 状态 ──────────────────────────────────────────────────────────────────────
@@ -93,8 +91,6 @@ function getDateRange(yearsBack) {
     endDate:    end.toISOString().split('T')[0],
     startMonth: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`,
     endMonth:   `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`,
-    startYear:  String(start.getFullYear()),
-    endYear:    String(end.getFullYear()),
   };
 }
 
@@ -148,7 +144,7 @@ async function saveCache(key, data, latestDate) {
 }
 
 function shouldRefreshCache(key) {
-  if (!state.cache || !state.cache[key]) {
+  if (!state.cache?.[key]) {
     debugLog('info', `${key}: 无缓存，需要刷新`);
     return true;
   }
@@ -169,8 +165,8 @@ function shouldRefreshCache(key) {
 
 function getLatestDateFromData(data, dateField = 'date') {
   if (!data || !Array.isArray(data) || data.length === 0) return null;
-  const dates = data.map(item => item[dateField]).filter(Boolean).sort();
-  return dates.length > 0 ? dates[dates.length - 1] : null;
+  const dates = data.map(item => item[dateField]).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  return dates.length > 0 ? dates.at(-1) : null;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -218,11 +214,63 @@ function fetchReserveRatio(startDate, endDate) {
 function fetchMoneySupplyMonth(startMonth, endMonth) {
   return fetchWithRetry(`${API_BASE}/query_money_supply_data_month?start_date=${startMonth}&end_date=${endMonth}`);
 }
-function fetchMoneySupplyYear(startYear, endYear) {
-  return fetchWithRetry(`${API_BASE}/query_money_supply_data_year?start_date=${startYear}&end_date=${endYear}`);
+
+// ── 数据加载（各数据源独立函数） ───────────────────────────────────────────────
+
+async function _loadRateData(key, fetchFn, canvasId, latestDateField, { renderFn, label, renderArgs, forceRefresh }) {
+  let data = (!forceRefresh && state.cache?.[key]?.data && !shouldRefreshCache(key))
+    ? state.cache[key].data
+    : null;
+  if (!data) {
+    const res = await fetchFn();
+    if (res.error) { showChartError(canvasId, res.error); return; }
+    data = res.data;
+    await saveCache(key, data, getLatestDateFromData(data, latestDateField));
+  }
+  if (data) {
+    renderFn(data, ...renderArgs);
+    debugLog('done', `${label}图表渲染完成，${data.length} 条数据`);
+  }
 }
 
-// ── 数据加载 ──────────────────────────────────────────────────────────────────
+async function loadDepositRate(range, forceRefresh) {
+  debugLog('info', '── 存款利率 ──');
+  const fetchFn = () => fetchDepositRate(RATE_HISTORY_START, range.endDate);
+  await _loadRateData(DATA_KEYS.DEPOSIT_RATE, fetchFn, 'deposit-rate-chart', 'date', { renderFn: renderDepositRateChart, label: '存款利率', renderArgs: [range.startDate, range.endDate], forceRefresh });
+}
+
+async function loadLoanRate(range, forceRefresh) {
+  debugLog('info', '── 贷款利率 ──');
+  const fetchFn = () => fetchLoanRate(RATE_HISTORY_START, range.endDate);
+  await _loadRateData(DATA_KEYS.LOAN_RATE, fetchFn, 'loan-rate-chart', 'date', { renderFn: renderLoanRateChart, label: '贷款利率', renderArgs: [range.startDate, range.endDate], forceRefresh });
+}
+
+async function loadReserveRatio(range, forceRefresh) {
+  debugLog('info', '── 存款准备金率 ──');
+  const fetchFn = () => fetchReserveRatio(RATE_HISTORY_START, range.endDate);
+  await _loadRateData(DATA_KEYS.RESERVE_RATIO, fetchFn, 'reserve-ratio-chart', 'date', { renderFn: renderReserveRatioChart, label: '存款准备金率', renderArgs: [range.startDate, range.endDate], forceRefresh });
+}
+
+async function loadMoneySupplyMonth(range, forceRefresh) {
+  debugLog('info', '── 货币供应量（月度） ──');
+  let data = (!forceRefresh && state.cache?.[DATA_KEYS.MONEY_SUPPLY_MONTH]?.data && !shouldRefreshCache(DATA_KEYS.MONEY_SUPPLY_MONTH))
+    ? state.cache[DATA_KEYS.MONEY_SUPPLY_MONTH].data
+    : null;
+  if (!data) {
+    const res = await fetchMoneySupplyMonth(range.startMonth, range.endMonth);
+    if (res.error) { showChartError('money-supply-month-chart', res.error); return; }
+    data = res.data;
+    const last = data?.length > 0 ? data.at(-1) : null;
+    const latestDate = last ? `${last.statYear}-${String(last.statMonth).padStart(2, '0')}-01` : null;
+    await saveCache(DATA_KEYS.MONEY_SUPPLY_MONTH, data, latestDate);
+  }
+  if (data) {
+    renderMoneySupplyMonthChart(data, range.startMonth, range.endMonth);
+    debugLog('done', `货币供应量图表渲染完成，${data.length} 条数据`);
+  }
+}
+
+// ── 数据加载入口 ──────────────────────────────────────────────────────────────
 
 async function loadAllData(forceRefresh = false) {
   const range = getDateRange(state.timeRange);
@@ -232,112 +280,10 @@ async function loadAllData(forceRefresh = false) {
 
   try {
     if (!state.cache) await loadCache();
-
-    // 1. 存款利率
-    debugLog('info', '── 存款利率 ──');
-    let depositData;
-    if (!forceRefresh && state.cache?.[DATA_KEYS.DEPOSIT_RATE]?.data && !shouldRefreshCache(DATA_KEYS.DEPOSIT_RATE)) {
-      depositData = state.cache[DATA_KEYS.DEPOSIT_RATE].data;
-    }
-    if (!depositData) {
-      const res = await fetchDepositRate(RATE_HISTORY_START, range.endDate);
-      if (res.error) { showChartError('deposit-rate-chart', res.error); }
-      else {
-        depositData = res.data;
-        await saveCache(DATA_KEYS.DEPOSIT_RATE, depositData, getLatestDateFromData(depositData, 'date'));
-      }
-    }
-    if (depositData) {
-      renderDepositRateChart(depositData, range.startDate, range.endDate);
-      debugLog('done', `存款利率图表渲染完成，${depositData.length} 条数据`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-
-    // 2. 贷款利率
-    debugLog('info', '── 贷款利率 ──');
-    let loanData;
-    if (!forceRefresh && state.cache?.[DATA_KEYS.LOAN_RATE]?.data && !shouldRefreshCache(DATA_KEYS.LOAN_RATE)) {
-      loanData = state.cache[DATA_KEYS.LOAN_RATE].data;
-    }
-    if (!loanData) {
-      const res = await fetchLoanRate(RATE_HISTORY_START, range.endDate);
-      if (res.error) { showChartError('loan-rate-chart', res.error); }
-      else {
-        loanData = res.data;
-        await saveCache(DATA_KEYS.LOAN_RATE, loanData, getLatestDateFromData(loanData, 'date'));
-      }
-    }
-    if (loanData) {
-      renderLoanRateChart(loanData, range.startDate, range.endDate);
-      debugLog('done', `贷款利率图表渲染完成，${loanData.length} 条数据`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-
-    // 3. 存款准备金率
-    debugLog('info', '── 存款准备金率 ──');
-    let reserveData;
-    if (!forceRefresh && state.cache?.[DATA_KEYS.RESERVE_RATIO]?.data && !shouldRefreshCache(DATA_KEYS.RESERVE_RATIO)) {
-      reserveData = state.cache[DATA_KEYS.RESERVE_RATIO].data;
-    }
-    if (!reserveData) {
-      const res = await fetchReserveRatio(RATE_HISTORY_START, range.endDate);
-      if (res.error) { showChartError('reserve-ratio-chart', res.error); }
-      else {
-        reserveData = res.data;
-        await saveCache(DATA_KEYS.RESERVE_RATIO, reserveData, getLatestDateFromData(reserveData, 'date'));
-      }
-    }
-    if (reserveData) {
-      renderReserveRatioChart(reserveData, range.startDate, range.endDate);
-      debugLog('done', `存款准备金率图表渲染完成，${reserveData.length} 条数据`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-
-    // 4. 货币供应量（月度）
-    debugLog('info', '── 货币供应量（月度） ──');
-    let moneyMonthData;
-    if (!forceRefresh && state.cache?.[DATA_KEYS.MONEY_SUPPLY_MONTH]?.data && !shouldRefreshCache(DATA_KEYS.MONEY_SUPPLY_MONTH)) {
-      moneyMonthData = state.cache[DATA_KEYS.MONEY_SUPPLY_MONTH].data;
-    }
-    if (!moneyMonthData) {
-      const res = await fetchMoneySupplyMonth(range.startMonth, range.endMonth);
-      if (res.error) { showChartError('money-supply-month-chart', res.error); }
-      else {
-        moneyMonthData = res.data;
-        const latestDate = moneyMonthData?.length > 0
-          ? `${moneyMonthData[moneyMonthData.length - 1].statYear}-${String(moneyMonthData[moneyMonthData.length - 1].statMonth).padStart(2, '0')}-01`
-          : null;
-        await saveCache(DATA_KEYS.MONEY_SUPPLY_MONTH, moneyMonthData, latestDate);
-      }
-    }
-    if (moneyMonthData) {
-      renderMoneySupplyMonthChart(moneyMonthData, range.startMonth, range.endMonth);
-      debugLog('done', `货币供应量（月度）图表渲染完成，${moneyMonthData.length} 条数据`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-
-    // 5. 货币供应量（年度）
-    debugLog('info', '── 货币供应量（年度） ──');
-    let moneyYearData;
-    if (!forceRefresh && state.cache?.[DATA_KEYS.MONEY_SUPPLY_YEAR]?.data && !shouldRefreshCache(DATA_KEYS.MONEY_SUPPLY_YEAR)) {
-      moneyYearData = state.cache[DATA_KEYS.MONEY_SUPPLY_YEAR].data;
-    }
-    if (!moneyYearData) {
-      const res = await fetchMoneySupplyYear(range.startYear, range.endYear);
-      if (res.error) { showChartError('money-supply-year-chart', res.error); }
-      else {
-        moneyYearData = res.data;
-        const latestDate = moneyYearData?.length > 0
-          ? `${moneyYearData[moneyYearData.length - 1].statYear}-12-31`
-          : null;
-        await saveCache(DATA_KEYS.MONEY_SUPPLY_YEAR, moneyYearData, latestDate);
-      }
-    }
-    if (moneyYearData) {
-      renderMoneySupplyYearChart(moneyYearData, range.startYear, range.endYear);
-      debugLog('done', `货币供应量（年度）图表渲染完成，${moneyYearData.length} 条数据`);
-    }
-
+    await loadDepositRate(range, forceRefresh);
+    await loadLoanRate(range, forceRefresh);
+    await loadReserveRatio(range, forceRefresh);
+    await loadMoneySupplyMonth(range, forceRefresh);
     debugLog('done', '所有数据加载完成！');
   } catch (error) {
     debugLog('error', `数据加载异常: ${error.message}`);

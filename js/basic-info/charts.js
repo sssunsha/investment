@@ -1,4 +1,4 @@
-// js/basic-info/charts.js — 图表常量、状态、5个渲染函数
+// js/basic-info/charts.js — 图表常量、状态、4个渲染函数
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -98,37 +98,98 @@ export function updateFooter(footerId, count, startDate, endDate) {
   }
 }
 
-// ── 图表渲染 ──────────────────────────────────────────────────────────────────
+// ── 私有辅助函数 ──────────────────────────────────────────────────────────────
 
 /**
- * 在时间范围起点处注入最后已知利率锚点，使阶梯线在选中窗口内正确延伸。
- * allData 须为全史数据；返回数组仅含锚点 + 范围内数据点。
+ * 销毁旧图表实例并用新配置创建新实例。
  */
-function _extendRateData(allData, startDate, dateField = 'pubDate') {
+function _createChart(canvasId, config) {
+  if (_charts[canvasId]) _charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId)?.getContext('2d');
+  if (!ctx) return;
+  _charts[canvasId] = new Chart(ctx, config);
+}
+
+/**
+ * 无数据时执行重置+提示+更新页脚，返回 true 表示调用方应提前退出。
+ */
+function _guardChart(canvasId, footerId, data, start, end) {
+  resetChartContainer(canvasId);
+  if (!data || data.length === 0) {
+    showNoData(canvasId);
+    updateFooter(footerId, 0, start, end);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 构建时间轴图表的通用 options 对象（存贷款利率、存款准备金率均使用）。
+ */
+function _timeScaleOptions(startDate, endDate, yTitle, tooltipSuffix = '%') {
+  return {
+    ...CHART_DEFAULTS,
+    plugins: {
+      ...CHART_DEFAULTS.plugins,
+      tooltip: {
+        ...CHART_DEFAULTS.plugins.tooltip,
+        callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}${tooltipSuffix}` },
+      },
+    },
+    scales: {
+      ...CHART_DEFAULTS.scales,
+      x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } },
+      y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: yTitle, color: '#8892a4' } },
+    },
+  };
+}
+
+/**
+ * 在时间范围起点和终点各注入锚点，使阶梯线在选中窗口内完整延伸。
+ * allData 须为全史数据；返回数组含起始锚点 + 范围内数据点 + 终止锚点。
+ */
+function _extendRateData(allData, startDate, endDate, dateField = 'pubDate') {
   if (!allData || allData.length === 0) return [];
   const sorted = [...allData].sort((a, b) => (a[dateField] || '').localeCompare(b[dateField] || ''));
   const beforeOrAt = sorted.filter(d => (d[dateField] || '') <= startDate);
-  const after = sorted.filter(d => (d[dateField] || '') > startDate);
-  if (beforeOrAt.length === 0) return after;
-  const anchor = { ...beforeOrAt.at(-1), [dateField]: startDate };
-  return [anchor, ...after];
+  const after = sorted.filter(d => (d[dateField] || '') > startDate && (d[dateField] || '') <= endDate);
+  const anchor = beforeOrAt.length > 0 ? { ...beforeOrAt.at(-1), [dateField]: startDate } : null;
+  const result = anchor ? [anchor, ...after] : after;
+  if (result.length > 0 && result.at(-1)[dateField] < endDate) {
+    result.push({ ...result.at(-1), [dateField]: endDate });
+  }
+  return result;
 }
 
+/**
+ * 渲染阶梯式利率折线图（存款利率与贷款利率共用）。
+ * @param {string} canvasId
+ * @param {string} footerId
+ * @param {Array}  data
+ * @param {string} startDate
+ * @param {string} endDate
+ * @param {{ dateField: string, rateFields: Object, colors: string[], colorsBg: string[], yTitle: string }} opts
+ */
+function _renderSteppedRateChart(canvasId, footerId, data, startDate, endDate, opts) {
+  if (_guardChart(canvasId, footerId, data, startDate, endDate)) return;
+  const { dateField, rateFields, colors, colorsBg, yTitle } = opts;
+  const displayData = _extendRateData(data, startDate, endDate, dateField);
+  const datasets = Object.entries(rateFields).map(([field, label], i) => ({
+    label,
+    data: displayData.map(item => ({ x: item[dateField] || item.pubDate || item.date, y: Number.parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
+    borderColor: colors[i % colors.length],
+    backgroundColor: colorsBg[i % colorsBg.length],
+    borderWidth: 2, tension: 0.3, fill: false,
+    pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
+  }));
+  _createChart(canvasId, { type: 'line', data: { datasets }, options: _timeScaleOptions(startDate, endDate, yTitle) });
+  updateFooter(footerId, data.length, startDate, endDate);
+}
+
+// ── 导出渲染函数 ──────────────────────────────────────────────────────────────
+
 export function renderDepositRateChart(data, startDate, endDate) {
-  const canvasId = 'deposit-rate-chart';
-  const footerId = 'deposit-rate-footer';
-
-  resetChartContainer(canvasId);
-
-  if (!data || data.length === 0) {
-    showNoData(canvasId);
-    updateFooter(footerId, 0, startDate, endDate);
-    return;
-  }
-
-  const displayData = _extendRateData(data, startDate);
-
-  const rateTypeMapping = {
+  const rateFields = {
     demandDepositRate:      '活期存款',
     fixedDepositRate3Month: '3个月定期',
     fixedDepositRate6Month: '6个月定期',
@@ -136,51 +197,13 @@ export function renderDepositRateChart(data, startDate, endDate) {
     fixedDepositRate2Year:  '2年定期',
     fixedDepositRate3Year:  '3年定期',
   };
-
   const colors   = [CHART_COLORS.cyan, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.pink, CHART_COLORS.yellow];
   const colorsBg = [CHART_COLORS.cyanLight, CHART_COLORS.greenLight, CHART_COLORS.orangeLight, CHART_COLORS.purpleLight, CHART_COLORS.pinkLight, CHART_COLORS.yellowLight];
-
-  const datasets = Object.entries(rateTypeMapping).map(([field, label], i) => ({
-    label,
-    data: displayData.map(item => ({ x: item.pubDate || item.date, y: parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
-    borderColor: colors[i % colors.length],
-    backgroundColor: colorsBg[i % colorsBg.length],
-    borderWidth: 2, tension: 0.3, fill: false,
-    pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
-  }));
-
-  if (_charts[canvasId]) _charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId)?.getContext('2d');
-  if (!ctx) return;
-
-  _charts[canvasId] = new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } },
-      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '利率 (%)', color: '#8892a4' } } },
-    },
-  });
-
-  updateFooter(footerId, data.length, startDate, endDate);
+  _renderSteppedRateChart('deposit-rate-chart', 'deposit-rate-footer', data, startDate, endDate, { dateField: 'pubDate', rateFields, colors, colorsBg, yTitle: '利率 (%)' });
 }
 
 export function renderLoanRateChart(data, startDate, endDate) {
-  const canvasId = 'loan-rate-chart';
-  const footerId = 'loan-rate-footer';
-
-  resetChartContainer(canvasId);
-
-  if (!data || data.length === 0) {
-    showNoData(canvasId);
-    updateFooter(footerId, 0, startDate, endDate);
-    return;
-  }
-
-  const displayData = _extendRateData(data, startDate);
-
-  const rateTypeMapping = {
+  const rateFields = {
     loanRate6Month:          '6个月内',
     loanRate6MonthTo1Year:   '6个月-1年',
     loanRate1YearTo3Year:    '1-3年',
@@ -189,106 +212,45 @@ export function renderLoanRateChart(data, startDate, endDate) {
     mortgateRateBelow5Year:  '公积金5年内',
     mortgateRateAbove5Year:  '公积金5年以上',
   };
-
   const colors   = [CHART_COLORS.orange, CHART_COLORS.cyan, CHART_COLORS.purple, CHART_COLORS.green, CHART_COLORS.pink, CHART_COLORS.yellow, CHART_COLORS.blue];
   const colorsBg = [CHART_COLORS.orangeLight, CHART_COLORS.cyanLight, CHART_COLORS.purpleLight, CHART_COLORS.greenLight, CHART_COLORS.pinkLight, CHART_COLORS.yellowLight, CHART_COLORS.blueLight];
-
-  const datasets = Object.entries(rateTypeMapping).map(([field, label], i) => ({
-    label,
-    data: displayData.map(item => ({ x: item.pubDate || item.date, y: parseFloat(item[field]) || 0 })).filter(d => d.y > 0),
-    borderColor: colors[i % colors.length],
-    backgroundColor: colorsBg[i % colorsBg.length],
-    borderWidth: 2, tension: 0.3, fill: false,
-    pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
-  }));
-
-  if (_charts[canvasId]) _charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId)?.getContext('2d');
-  if (!ctx) return;
-
-  _charts[canvasId] = new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } },
-      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '利率 (%)', color: '#8892a4' } } },
-    },
-  });
-
-  updateFooter(footerId, data.length, startDate, endDate);
+  _renderSteppedRateChart('loan-rate-chart', 'loan-rate-footer', data, startDate, endDate, { dateField: 'pubDate', rateFields, colors, colorsBg, yTitle: '利率 (%)' });
 }
 
 export function renderReserveRatioChart(data, startDate, endDate) {
   const canvasId = 'reserve-ratio-chart';
   const footerId = 'reserve-ratio-footer';
-
-  resetChartContainer(canvasId);
-
-  if (!data || data.length === 0) {
-    showNoData(canvasId);
-    updateFooter(footerId, 0, startDate, endDate);
-    return;
-  }
-
-  const displayData = _extendRateData(data, startDate, 'effectiveDate');
-
+  if (_guardChart(canvasId, footerId, data, startDate, endDate)) return;
+  const displayData = _extendRateData(data, startDate, endDate, 'effectiveDate');
   const datasets = [
     {
       label: '大型金融机构',
-      data: displayData.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: parseFloat(item.bigInstitutionsRatioAfter || item.ratioInLargeBank) || 0 })).filter(d => d.y > 0),
+      data: displayData.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: Number.parseFloat(item.bigInstitutionsRatioAfter || item.ratioInLargeBank) || 0 })).filter(d => d.y > 0),
       borderColor: CHART_COLORS.purple, backgroundColor: CHART_COLORS.purpleLight,
       borderWidth: 2, tension: 0.3, fill: true,
       pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
     },
     {
       label: '中小型金融机构',
-      data: displayData.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: parseFloat(item.mediumInstitutionsRatioAfter || item.ratioInSmallBank) || 0 })).filter(d => d.y > 0),
+      data: displayData.map(item => ({ x: item.effectiveDate || item.pubDate || item.date, y: Number.parseFloat(item.mediumInstitutionsRatioAfter || item.ratioInSmallBank) || 0 })).filter(d => d.y > 0),
       borderColor: CHART_COLORS.green, backgroundColor: CHART_COLORS.greenLight,
       borderWidth: 2, tension: 0.3, fill: true,
       pointRadius: 4, pointHoverRadius: 6, stepped: 'after',
     },
   ];
-
-  if (_charts[canvasId]) _charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId)?.getContext('2d');
-  if (!ctx) return;
-
-  _charts[canvasId] = new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } },
-      scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, type: 'time', min: startDate, max: endDate, time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } } }, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '准备金率 (%)', color: '#8892a4' } } },
-    },
-  });
-
+  _createChart(canvasId, { type: 'line', data: { datasets }, options: _timeScaleOptions(startDate, endDate, '准备金率 (%)') });
   updateFooter(footerId, data.length, startDate, endDate);
 }
 
 export function renderMoneySupplyMonthChart(data, startMonth, endMonth) {
   const canvasId = 'money-supply-month-chart';
   const footerId = 'money-supply-month-footer';
-
-  resetChartContainer(canvasId);
-
-  if (!data || data.length === 0) {
-    showNoData(canvasId);
-    updateFooter(footerId, 0, startMonth, endMonth);
-    return;
-  }
-
+  if (_guardChart(canvasId, footerId, data, startMonth, endMonth)) return;
   const labels = data.map(item => `${item.statYear}-${String(item.statMonth).padStart(2, '0')}`);
-  const m0YoY  = data.map(item => parseFloat(item.m0YoY  || item.m0YOY)  || 0);
-  const m1YoY  = data.map(item => parseFloat(item.m1YoY  || item.m1YOY)  || 0);
-  const m2YoY  = data.map(item => parseFloat(item.m2YoY  || item.m2YOY)  || 0);
-
-  if (_charts[canvasId]) _charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId)?.getContext('2d');
-  if (!ctx) return;
-
-  _charts[canvasId] = new Chart(ctx, {
+  const m0YoY  = data.map(item => Number.parseFloat(item.m0YoY  || item.m0YOY)  || 0);
+  const m1YoY  = data.map(item => Number.parseFloat(item.m1YoY  || item.m1YOY)  || 0);
+  const m2YoY  = data.map(item => Number.parseFloat(item.m2YoY  || item.m2YOY)  || 0);
+  _createChart(canvasId, {
     type: 'line',
     data: {
       labels,
@@ -304,47 +266,5 @@ export function renderMoneySupplyMonthChart(data, startMonth, endMonth) {
       scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '同比增长率 (%)', color: '#8892a4' } } },
     },
   });
-
   updateFooter(footerId, data.length, startMonth, endMonth);
-}
-
-export function renderMoneySupplyYearChart(data, startYear, endYear) {
-  const canvasId = 'money-supply-year-chart';
-  const footerId = 'money-supply-year-footer';
-
-  resetChartContainer(canvasId);
-
-  if (!data || data.length === 0) {
-    showNoData(canvasId);
-    updateFooter(footerId, 0, startYear, endYear);
-    return;
-  }
-
-  const labels = data.map(item => item.statYear);
-  const m0 = data.map(item => (parseFloat(item.m0) || 0) / 10000);
-  const m1 = data.map(item => (parseFloat(item.m1) || 0) / 10000);
-  const m2 = data.map(item => (parseFloat(item.m2) || 0) / 10000);
-
-  if (_charts[canvasId]) _charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId)?.getContext('2d');
-  if (!ctx) return;
-
-  _charts[canvasId] = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'M0 (流通中货币)', data: m0, backgroundColor: CHART_COLORS.cyan,   borderColor: CHART_COLORS.cyan,   borderWidth: 1, borderRadius: 4 },
-        { label: 'M1 (狭义货币)',   data: m1, backgroundColor: CHART_COLORS.orange, borderColor: CHART_COLORS.orange, borderWidth: 1, borderRadius: 4 },
-        { label: 'M2 (广义货币)',   data: m2, backgroundColor: CHART_COLORS.purple, borderColor: CHART_COLORS.purple, borderWidth: 1, borderRadius: 4 },
-      ],
-    },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: { ...CHART_DEFAULTS.plugins, tooltip: { ...CHART_DEFAULTS.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)} 万亿元` } } },
-      scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, title: { display: true, text: '余额 (万亿元)', color: '#8892a4' }, beginAtZero: true } },
-    },
-  });
-
-  updateFooter(footerId, data.length, startYear, endYear);
 }

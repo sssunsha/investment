@@ -9,7 +9,7 @@ const OFFENSIVE_CANDIDATES = [
   {name:"新能源",    code_c:"012832", code_a:"012831", etf:"516160", group:"行业", offensive:true, desc:"新能源全赛道，覆盖光伏、风电等，可替换防御类标的"},
 ];
 
-// ── 固定基础池（宽基5 + 非进攻行业4 + 防御1 = 10只）────────────────
+// ── 固定基础池（宽基5 + 非进攻行业7 + 防御1 = 13只）────────────────
 const MDTFR_POOL_BASE = [
   // 宽基（5 只）
   {name:"沪深300",   code_c:"006131", code_a:"460300", etf:"510300", group:"宽基",  offensive:false},
@@ -17,11 +17,14 @@ const MDTFR_POOL_BASE = [
   {name:"创业板",    code_c:"004744", code_a:"110026", etf:"159915", group:"宽基",  offensive:true},
   {name:"中证1000",  code_c:"011861", code_a:"011860", etf:"512100", group:"宽基",  offensive:true},
   {name:"科创50",    code_c:"011609", code_a:"011608", etf:"588080", group:"宽基",  offensive:true},
-  // 非进攻行业（4 只）
+  // 非进攻行业（7 只）
   {name:"医药卫生",  code_c:"007077", code_a:"007076", etf:"159929", group:"行业",  offensive:true},
   {name:"证券公司",  code_c:"012363", code_a:"012362", etf:"512880", group:"行业",  offensive:true},
   {name:"主要消费",  code_c:"012857", code_a:"000248", etf:"159928", group:"行业",  offensive:true},
   {name:"红利低波动",code_c:"007467", code_a:"007466", etf:"512890", group:"行业",  offensive:false},
+  {name:"有色金属",  code_c:"004433", code_a:"004432", etf:"512400", group:"行业",  offensive:true},
+  {name:"畜牧养殖",  code_c:"012725", code_a:"012724", etf:"159865", group:"行业",  offensive:true},
+  {name:"军工",      code_c:"005693", code_a:"003017", etf:"512680", group:"行业",  offensive:true},
   // 防御（1 只）
   {name:"黄金",      code_c:"000217", code_a:"000216", etf:"518880", group:"防御",  offensive:false},
 ];
