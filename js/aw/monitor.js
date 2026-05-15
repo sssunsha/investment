@@ -42,6 +42,7 @@ function _rowComplete(item) {
   if (!item || item.error) return false;
   if (item.ret_30d == null || item.latest_close == null) return false;
   if (item.ma60_trend == null) return false;
+  if (item.ret_1d === undefined) return false;  // 触发旧缓存重新获取新字段
   return true;
 }
 
@@ -70,8 +71,6 @@ function _labelBadge(label) {
 function awInitTable(skeleton = false) {
   const wrap = document.getElementById('aw-monitor-table-wrap');
   if (!wrap) return;
-  const sortBtn = document.getElementById('aw-sort-btn');
-  if (sortBtn) { sortBtn.style.display = 'none'; sortBtn.innerHTML = '↕ 排序'; sortBtn.style.color = ''; sortBtn.style.borderColor = ''; }
   const dash = '<span style="color:var(--border)">–</span>';
   const sk   = (w) => skeleton ? `<div class="skeleton" style="width:${w}"></div>` : dash;
 
@@ -82,6 +81,9 @@ function awInitTable(skeleton = false) {
     <td style="font-weight:600">${escHtml(def.fullName)}</td>
     <td style="color:var(--text-dim);font-size:13px">${def.code}</td>
     <td id="aw-ret-${def.code}">${sk('60%')}</td>
+    <td id="aw-ret15-${def.code}">${sk('55%')}</td>
+    <td id="aw-ret5-${def.code}">${sk('55%')}</td>
+    <td id="aw-ret1-${def.code}">${sk('55%')}</td>
     <td id="aw-close-${def.code}">${sk('70%')}</td>
     <td id="aw-ma20-${def.code}">${sk('55%')}</td>
     <td id="aw-ma60-${def.code}">${sk('55%')}</td>
@@ -92,11 +94,19 @@ function awInitTable(skeleton = false) {
       <table class="data-table">
         <thead><tr>
           <th>类别</th><th>类型</th><th>基金名称</th><th>代码</th>
-          <th>近30日涨跌</th><th>收盘价</th><th>vs MA20</th><th>MA60趋势</th>
+          <th class="sortable" data-sort="ret_30d">近30日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_15d">近15日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_5d">近5日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_1d">上一日涨跌 <span class="sort-icon">⇅</span></th>
+          <th>收盘价</th>
+          <th class="sortable" data-sort="above_ma20">vs MA20 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ma60_trend">MA60趋势 <span class="sort-icon">⇅</span></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+
+  setTimeout(() => _awInitColumnSorting(), 0);
 }
 
 // ── 填充单行数据 ───────────────────────────────────────────────
@@ -108,19 +118,24 @@ function awFillRow(item) {
     const closeEl = document.getElementById(`aw-close-${c}`);
     if (closeEl) closeEl.innerHTML =
       `<span style="color:var(--text-dim);font-size:12px">${escHtml(item.error)}</span>`;
-    ['ret','ma20','ma60'].forEach(k => {
+    ['ret','ret15','ret5','ret1','ma20','ma60'].forEach(k => {
       const el = document.getElementById(`aw-${k}-${c}`);
       if (el) el.innerHTML = '<span style="color:var(--border)">–</span>';
     });
     return;
   }
 
-  // 近30日涨跌
-  const ret = item.ret_30d;
-  const retColor = ret > 0 ? 'var(--red)' : ret < 0 ? 'var(--green)' : 'var(--text-dim)';
-  const retStr   = ret != null ? (ret > 0 ? '+' : '') + (ret * 100).toFixed(2) + '%' : '–';
-  document.getElementById(`aw-ret-${c}`).innerHTML =
-    `<span style="font-weight:700;color:${retColor}">${retStr}</span>`;
+  const formatRet = (val) => {
+    if (val == null) return '<span style="color:var(--border)">–</span>';
+    const color = val > 0 ? 'var(--red)' : val < 0 ? 'var(--green)' : 'var(--text-dim)';
+    const str = (val > 0 ? '+' : '') + (val * 100).toFixed(2) + '%';
+    return `<span style="font-weight:700;color:${color}">${str}</span>`;
+  };
+
+  document.getElementById(`aw-ret-${c}`).innerHTML   = formatRet(item.ret_30d);
+  document.getElementById(`aw-ret15-${c}`).innerHTML = formatRet(item.ret_15d);
+  document.getElementById(`aw-ret5-${c}`).innerHTML  = formatRet(item.ret_5d);
+  document.getElementById(`aw-ret1-${c}`).innerHTML  = formatRet(item.ret_1d);
 
   // 收盘价
   document.getElementById(`aw-close-${c}`).textContent =
@@ -151,7 +166,6 @@ function awFillRow(item) {
     const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
     return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
   })();
-  // 存储 tooltip 所需字段（复用 ma60-tooltip，ID前缀为 aw-ma60-）
   ma60El.dataset.trend      = item.ma60_trend      ?? '';
   ma60El.dataset.ma60       = item.ma60             ?? '';
   ma60El.dataset.ma60Avg5   = item.ma60_avg5        ?? '';
@@ -161,41 +175,78 @@ function awFillRow(item) {
   ma60El.style.cursor       = item.ma60_trend ? 'help' : '';
 }
 
-// ── 排序 ───────────────────────────────────────────────────────
-let _awSorted = false;
+// ── 列排序 ────────────────────────────────────────────────────
+let _awItems = [];
+let _awCurrentSort = { column: null, direction: 'desc' };
 
-function toggleAwSort() {
+function setAwItems(items) {
+  _awItems = items || [];
+}
+
+function _awInitColumnSorting() {
+  document.querySelectorAll('#aw-monitor-table-wrap .sortable').forEach(th => {
+    th.addEventListener('click', () => _handleAwSort(th.dataset.sort, th));
+  });
+}
+
+function _handleAwSort(sortKey, th) {
+  if (_awItems.length === 0) return;
+
+  if (_awCurrentSort.column === sortKey) {
+    _awCurrentSort.direction = _awCurrentSort.direction === 'desc' ? 'asc' : 'desc';
+  } else {
+    _awCurrentSort.column = sortKey;
+    _awCurrentSort.direction = 'desc';
+  }
+
+  document.querySelectorAll('#aw-monitor-table-wrap .sortable .sort-icon').forEach(icon => {
+    icon.textContent = '⇅';
+    icon.style.opacity = '0.3';
+  });
+  const icon = th.querySelector('.sort-icon');
+  icon.textContent = _awCurrentSort.direction === 'desc' ? '↓' : '↑';
+  icon.style.opacity = '1';
+
+  _awSortAndRender(_awItems, sortKey);
+}
+
+function _awSortAndRender(items, sortKey) {
   const tbody = document.querySelector('#aw-monitor-table-wrap tbody');
   if (!tbody) return;
-  const btn = document.getElementById('aw-sort-btn');
-  if (!btn) return;
 
-  if (!_awSorted) {
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.sort((a, b) => {
-      const getRet = (row) => {
-        const el = row.querySelector('[id^="aw-ret-"] span');
-        if (!el) return -Infinity;
-        const t = el.textContent.replace('%', '').replace('+', '');
-        return parseFloat(t) || -Infinity;
-      };
-      return getRet(b) - getRet(a);
-    });
-    rows.forEach(r => tbody.appendChild(r));
-    btn.innerHTML = '↩ 恢复';
-    btn.style.color = 'var(--cyan)';
-    btn.style.borderColor = 'var(--cyan)';
-    _awSorted = true;
-  } else {
-    _getAwPoolDef().forEach(def => {
-      const row = document.getElementById(`aw-row-${def.code}`);
-      if (row) tbody.appendChild(row);
-    });
-    btn.innerHTML = '↕ 排序';
-    btn.style.color = '';
-    btn.style.borderColor = '';
-    _awSorted = false;
-  }
+  const trendOrder = { '趋势向好': 3, '未达标': 2, '持续下行': 1 };
+  const validItems = items.filter(x => !x.error);
+  const errorItems = items.filter(x => x.error);
+
+  validItems.sort((a, b) => {
+    let aVal, bVal;
+    switch (sortKey) {
+      case 'ret_30d': case 'ret_15d': case 'ret_5d': case 'ret_1d':
+        aVal = a[sortKey] ?? -Infinity;
+        bVal = b[sortKey] ?? -Infinity;
+        break;
+      case 'above_ma20':
+        aVal = a.above_ma20 ? 1 : 0;
+        bVal = b.above_ma20 ? 1 : 0;
+        break;
+      case 'ma60_trend':
+        aVal = trendOrder[a.ma60_trend] ?? 0;
+        bVal = trendOrder[b.ma60_trend] ?? 0;
+        break;
+      default:
+        return 0;
+    }
+    return _awCurrentSort.direction === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
+  validItems.forEach(item => {
+    const row = document.getElementById(`aw-row-${item.code_c}`);
+    if (row) tbody.appendChild(row);
+  });
+  errorItems.forEach(item => {
+    const row = document.getElementById(`aw-row-${item.code_c}`);
+    if (row) tbody.appendChild(row);
+  });
 }
 
 // ── SSE EventSource 句柄（避免重复打开）─────────────────────────
@@ -203,7 +254,7 @@ let _awEventSource = null;
 
 // ── 主加载入口 ─────────────────────────────────────────────────
 async function loadAwPool() {
-  _awSorted = false;
+  _awCurrentSort = { column: null, direction: 'desc' };
   awLog('info', '开始加载全天候标的监控数据...');
   const btn = document.getElementById('aw-load-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 加载中'; }
@@ -230,9 +281,8 @@ async function loadAwPool() {
 
   if (incomplete.length === 0) {
     cached.forEach(awFillRow);
+    setAwItems(cached);
     document.getElementById('aw-monitor-time').textContent = `缓存数据 · ${today}`;
-    const sortBtn = document.getElementById('aw-sort-btn');
-    if (sortBtn) sortBtn.style.display = '';
     if (btn) { btn.disabled = false; btn.innerHTML = '↺ 刷新'; }
     awLog('done', '全部命中缓存，无需 SSE 请求');
     return;
@@ -242,9 +292,9 @@ async function loadAwPool() {
   Object.values(cachedMap).filter(_rowComplete).forEach(awFillRow);
   const sk = (w) => `<div class="skeleton" style="width:${w}"></div>`;
   incomplete.forEach(def => {
-    ['ret','close','ma20','ma60'].forEach((k, i) => {
+    ['ret','ret15','ret5','ret1','close','ma20','ma60'].forEach((k, i) => {
       const el = document.getElementById(`aw-${k}-${def.code}`);
-      if (el) el.innerHTML = sk(['60%','70%','55%','55%'][i]);
+      if (el) el.innerHTML = sk(['60%','55%','55%','55%','70%','55%','55%'][i]);
     });
   });
 
@@ -280,11 +330,10 @@ async function loadAwPool() {
       if (btn) { btn.disabled = false; btn.innerHTML = '↺ 重试'; }
     } else if (d.type === 'done') {
       es.close();
-      await saveSnapshot();
+      const snapshot = await saveSnapshot();
+      setAwItems(snapshot);
       document.getElementById('aw-monitor-time').textContent =
         `已更新 · ${d.last_updated ? d.last_updated.slice(0, 19) : today}`;
-      const sortBtn = document.getElementById('aw-sort-btn');
-      if (sortBtn) sortBtn.style.display = '';
       if (btn) { btn.disabled = false; btn.innerHTML = '↺ 刷新'; }
       awLog('done', `加载完成，共 ${collected.length} 条数据`);
     }
@@ -299,7 +348,8 @@ async function loadAwPool() {
 
 // ── 清空缓存并重置 UI ──────────────────────────────────────────
 async function clearAndResetAw() {
-  _awSorted = false;
+  _awCurrentSort = { column: null, direction: 'desc' };
+  _awItems = [];
   const today = new Date().toISOString().slice(0, 10);
   try {
     await _cacheDelete(today);
@@ -314,16 +364,15 @@ async function clearAndResetAw() {
 // ── 页面初始化入口（仅首次，避免重复渲染）─────────────────────
 async function awMaybeInitEmpty() {
   const wrap = document.getElementById('aw-monitor-table-wrap');
-  if (!wrap || wrap.querySelector('table')) return; // 已初始化
+  if (!wrap || wrap.querySelector('table')) return;
   awInitTable(false);
   const today = new Date().toISOString().slice(0, 10);
   try {
     const cached = await _cacheGet(today);
     if (cached && Array.isArray(cached) && cached.length > 0) {
       cached.forEach(awFillRow);
+      setAwItems(cached);
       document.getElementById('aw-monitor-time').textContent = `缓存数据 · ${today}`;
-      const sortBtn = document.getElementById('aw-sort-btn');
-      if (sortBtn) sortBtn.style.display = '';
       awLog('cache', `页面初始化：命中今日缓存（${cached.length} 条）`);
     } else {
       awLog('info', '页面初始化：无今日缓存，等待用户手动加载');
@@ -333,4 +382,4 @@ async function awMaybeInitEmpty() {
   }
 }
 
-export { awMaybeInitEmpty, awInitTable, loadAwPool, awFillRow, clearAndResetAw, toggleAwSort };
+export { awMaybeInitEmpty, awInitTable, loadAwPool, awFillRow, clearAndResetAw };

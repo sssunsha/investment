@@ -2,6 +2,22 @@
    mdtfr.css — 动量趋势轮动策略专属样式
 ════════════════════════════════════════════════ */
 
+/* ── C类代码悬浮提示 ── */
+.mdtfr-code-tooltip {
+  position: absolute;
+  display: none;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 10000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  pointer-events: none;
+  line-height: 1.6;
+}
+
   /* ── Sector rotation styles ── */
   .sr-layout { padding: 28px 40px 60px; max-width: 1400px; }
   .mdtfr-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin: 0 20px 16px; }
@@ -29,6 +45,10 @@
   .data-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 600px; }
   .data-table thead { position: sticky; top: 0; z-index: 2; }
   .data-table th { background: var(--surface2); color: var(--text-dim); padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 13px; }
+  .data-table th.sortable { cursor: pointer; user-select: none; }
+  .data-table th.sortable:hover { background: rgba(255,255,255,.05); }
+  .data-table th .sort-icon { opacity: 0.3; margin-left: 4px; font-size: 11px; transition: opacity .2s; }
+  .data-table th.sortable:hover .sort-icon { opacity: 0.6; }
   .data-table td { padding: 9px 12px; border-bottom: 1px solid rgba(45,50,80,.4); white-space: nowrap; }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tbody tr:hover td { background: var(--surface2); }
@@ -135,4 +155,12 @@
 /* ── 份额列 + 盈亏着色 ── */
 .amt-input[style*="color"] {
   font-weight: 700;
+}
+
+/* ── 备用标的行：灰色背景，与活跃标的视觉区分 ── */
+.mdtfr-backup-row td {
+  background: rgba(128, 128, 128, 0.06);
+}
+.data-table tbody tr.mdtfr-backup-row:hover td {
+  background: rgba(128, 128, 128, 0.11);
 }

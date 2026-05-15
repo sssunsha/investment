@@ -58,6 +58,9 @@ export { OFFENSIVE_CANDIDATES, MDTFR_POOL_BASE };
 
 export function getActiveCodes() { return new Set(_activeOffensiveCodes); }
 export function getMdtfrPoolDef() { return [...MDTFR_POOL_DEF]; }
+export function getInactiveDefs() {
+  return OFFENSIVE_CANDIDATES.filter(c => !_activeOffensiveCodes.has(c.code_c));
+}
 export function setActiveCodes(newSet) {
   _activeOffensiveCodes = newSet;
   localStorage.setItem(_OFFENSIVE_KEY, JSON.stringify([...newSet]));

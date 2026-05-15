@@ -50,7 +50,6 @@
         <span class="section-title">全天候标的监控</span>
         <span id="aw-monitor-time" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
         <div class="section-actions">
-          <button class="btn btn-ghost btn-sm" id="aw-sort-btn" onclick="toggleAwSort()" style="display:none">↕ 排序</button>
           <button class="btn btn-ghost btn-sm" id="aw-debug-btn" onclick="toggleAwDebug()">🐛 调试</button>
           <button class="btn btn-ghost btn-sm" onclick="clearAndResetAw()" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
           <button class="btn btn-primary" id="aw-load-btn" onclick="loadAwPool()">▶ 加载数据</button>
@@ -170,8 +169,8 @@
             placeholder="0" oninput="onAvailableChange(this.value)">
         </span>
         <div class="section-actions">
-          <button class="btn btn-ghost btn-sm" id="mdtfr-sort-btn" onclick="toggleMdtfrSort()" style="display:none">↕ 排序</button>
-          <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>          <button class="btn btn-ghost btn-sm" onclick="openPoolAdjust()" style="border-color:var(--blue);color:var(--blue)">⚙ 标的池调整</button>
+          <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>
+          <button class="btn btn-ghost btn-sm" onclick="openPoolAdjust()" style="border-color:var(--blue);color:var(--blue)">⚙ 标的池调整</button>
           <button class="btn btn-ghost btn-sm" onclick="showConfirm('确认清空今日缓存数据？下次加载将重新获取行情。', clearMdtfrCache, '清空')" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
           <button class="btn btn-primary" id="mdtfr-btn" onclick="loadMdtfrPool()">▶ 加载数据</button>
         </div>

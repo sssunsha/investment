@@ -1,12 +1,12 @@
 // js/mdtfr/loader.js
 // 数据加载入口：负责初始化表格、缓存优先加载、SSE 实时补全、清空缓存等编排逻辑
 
-import { getMdtfrPoolDef } from './config.js';
+import { getMdtfrPoolDef, getInactiveDefs } from './config.js';
 import { cacheGet, cachePut, clearMdtfrCache } from './cache.js';
 import { mdtfrLog, clearMdtfrDebug } from './debug.js';
 import {
   mdtfrInitTable, mdtfrFillRow, mdtfrFillRanks,
-  mdtfrRenderFromCache, mdtfrRowComplete,
+  mdtfrRowComplete, setMdtfrItems,
 } from './table.js';
 import { loadAmounts, refreshAllPosPct } from './amounts.js';
 import { loadWatchState, updateWatchState, saveWatchState } from './watch.js';
@@ -24,11 +24,14 @@ async function mdtfrMaybeInitEmpty() {
     const cached = await cacheGet(today);
     if (cached && Array.isArray(cached) && cached.length > 0) {
       cached.forEach(mdtfrFillRow);
+      const poolCodes = new Set(getMdtfrPoolDef().map(d => d.code_c));
+      const poolItems = cached.filter(x => poolCodes.has(x.code_c));
+      setMdtfrItems(cached);
       await loadWatchState();
-      await updateWatchState(cached);
+      await updateWatchState(poolItems);
       saveWatchState();
-      mdtfrFillRanks(cached);
-      mdtfrRenderAdvice(cached);
+      mdtfrFillRanks(poolItems);
+      mdtfrRenderAdvice(poolItems);
       document.getElementById('mdtfr-last-updated').textContent = `缓存数据 · ${today}`;
       mdtfrLog('cache', `页面初始化：命中今日缓存（${cached.length} 条）`);
     }
@@ -46,21 +49,27 @@ function toggleMdtfrSort() {
   const btn = document.getElementById('mdtfr-sort-btn');
 
   if (!_mdtfrSorted) {
-    // 按排名升序排列（无排名的行移到末尾）
-    const rows = Array.from(tbody.querySelectorAll('tr'));
+    // 按排名升序排列（无排名的行移到末尾，备用行始终最后）
+    const rows = Array.from(tbody.querySelectorAll('tr:not([data-backup])'));
     rows.sort((a, b) => {
-      const ra = parseInt(a.querySelector('[id^="mdtfr-rank-"] .rank-badge')?.textContent) || 999;
-      const rb = parseInt(b.querySelector('[id^="mdtfr-rank-"] .rank-badge')?.textContent) || 999;
+      const ra = Number.parseInt(a.querySelector('[id^="mdtfr-rank-"] .rank-badge')?.textContent) || 999;
+      const rb = Number.parseInt(b.querySelector('[id^="mdtfr-rank-"] .rank-badge')?.textContent) || 999;
       return ra - rb;
     });
     rows.forEach(r => tbody.appendChild(r));
+    // 备用行始终追加到末尾
+    tbody.querySelectorAll('tr[data-backup]').forEach(r => tbody.appendChild(r));
     btn.innerHTML = '↩ 恢复';
     btn.style.color = 'var(--cyan)';
     btn.style.borderColor = 'var(--cyan)';
     _mdtfrSorted = true;
   } else {
-    // 恢复原始顺序（按 MDTFR_POOL_DEF 顺序）
+    // 恢复原始顺序（按 MDTFR_POOL_DEF 顺序，备用行在末尾）
     getMdtfrPoolDef().forEach(def => {
+      const row = document.getElementById(`mdtfr-row-${def.code_c}`);
+      if (row) tbody.appendChild(row);
+    });
+    getInactiveDefs().forEach(def => {
       const row = document.getElementById(`mdtfr-row-${def.code_c}`);
       if (row) tbody.appendChild(row);
     });
@@ -96,17 +105,22 @@ async function loadMdtfrPool() {
   if (cached && Array.isArray(cached)) cached.forEach(x => { cachedMap[x.code_c] = x; });
 
   const poolDef = getMdtfrPoolDef();
-  const incomplete = poolDef.filter(def => !mdtfrRowComplete(cachedMap[def.code_c]));
+  const backupDef = getInactiveDefs();
+  const allDefs = [...poolDef, ...backupDef];
+  const poolCodes = new Set(poolDef.map(d => d.code_c));
+  const incomplete = allDefs.filter(def => !mdtfrRowComplete(cachedMap[def.code_c]));
 
   if (incomplete.length === 0) {
     // 全部完整：直接渲染，不调用 SDK
     mdtfrLog('cache', `今日缓存完整（${cached.length} 条），跳过 SDK 分析`);
     cached.forEach(mdtfrFillRow);
+    const poolItems = cached.filter(x => poolCodes.has(x.code_c));
+    setMdtfrItems(cached);
     await loadWatchState();
-    await updateWatchState(cached);
+    await updateWatchState(poolItems);
     saveWatchState();
-    mdtfrFillRanks(cached);
-    mdtfrRenderAdvice(cached);
+    mdtfrFillRanks(poolItems);
+    mdtfrRenderAdvice(poolItems);
     document.getElementById('mdtfr-last-updated').textContent = `缓存数据 · ${today}`;
     btn.disabled = false;
     btn.innerHTML = '↺ 刷新';
@@ -120,17 +134,21 @@ async function loadMdtfrPool() {
     // 先把完整缓存行填进去
     Object.values(cachedMap).filter(mdtfrRowComplete).forEach(mdtfrFillRow);
   }
+  const backupCodes = new Set(backupDef.map(d => d.code_c));
   incomplete.forEach(def => {
     ['close','ret','ma20','ma60'].forEach((k, i) => {
       const el = document.getElementById(`mdtfr-${k}-${def.code_c}`);
       if (el) el.innerHTML = skeletonCell(['70%','60%','55%','55%'][i]);
     });
-    const rankEl = document.getElementById(`mdtfr-rank-${def.code_c}`);
-    if (rankEl) rankEl.innerHTML = skeletonCell('22px');
+    // 备用行排名格始终显示"备"，不显示骨架屏
+    if (!backupCodes.has(def.code_c)) {
+      const rankEl = document.getElementById(`mdtfr-rank-${def.code_c}`);
+      if (rankEl) rankEl.innerHTML = skeletonCell('22px');
+    }
   });
 
   const codesParam = incomplete.map(d => d.code_c).join(',');
-  const isPartial = incomplete.length < poolDef.length;
+  const isPartial = incomplete.length < allDefs.length;
   if (isPartial) {
     mdtfrLog('info', `缓存中 ${incomplete.length} 行不完整（${incomplete.map(d=>d.name).join('、')}），仅重新获取这些行`);
   } else {
@@ -144,9 +162,9 @@ async function loadMdtfrPool() {
   const collected = Object.values(cachedMap).filter(mdtfrRowComplete);
   const url = `/api/strategy/mdtfr-pool/stream${codesParam ? '?codes=' + codesParam : ''}`;
 
-  // 将 collected 当前快照按文档顺序写入本地 JSON 文件
+  // 将 collected 当前快照按文档顺序写入缓存（含备用标的）
   const saveSnapshot = async (label) => {
-    const snapshot = poolDef
+    const snapshot = allDefs
       .map(def => collected.find(x => x.code_c === def.code_c))
       .filter(Boolean);
     try {
@@ -189,13 +207,14 @@ async function loadMdtfrPool() {
         btn.disabled = false; btn.innerHTML = '↺ 重试';
       } else if (d.type === 'done') {
         es.close();
-        // 最终排名/建议在全部数据到齐后统一计算
         const orderedCollected = await saveSnapshot('全部完成');
+        const poolItems = orderedCollected.filter(x => poolCodes.has(x.code_c));
+        setMdtfrItems(orderedCollected);
         await loadWatchState();
-        await updateWatchState(orderedCollected);
+        await updateWatchState(poolItems);
         saveWatchState();
-        mdtfrFillRanks(orderedCollected);
-        mdtfrRenderAdvice(orderedCollected);
+        mdtfrFillRanks(poolItems);
+        mdtfrRenderAdvice(poolItems);
         mdtfrLog('done', `补全完成 · ${d.last_updated}`);
         document.getElementById('mdtfr-last-updated').textContent = `已更新 · ${d.last_updated ? d.last_updated.slice(0,19) : today}`;
         btn.disabled = false; btn.innerHTML = '↺ 刷新';

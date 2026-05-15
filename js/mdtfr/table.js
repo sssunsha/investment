@@ -1,13 +1,10 @@
 // js/mdtfr/table.js
 import { escHtml } from '../utils.js';
-import { getMdtfrPoolDef } from './config.js';
-import { mkAmtCell, mkPosPct, getShares, refreshAmtPnl } from './amounts.js';
+import { getMdtfrPoolDef, getInactiveDefs } from './config.js';
+import { mkAmtCell, mkPosPct, getShares, getDynAmt, refreshAmtPnl, mkDisabledAmtCell } from './amounts.js';
 
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）─
 function mdtfrInitTable(skeleton = false) {
-  // 重置排序按钮 UI（_mdtfrSorted 状态由 loader.js/toggleMdtfrSort 管理）
-  const sortBtn = document.getElementById('mdtfr-sort-btn');
-  if (sortBtn) { sortBtn.style.display = 'none'; sortBtn.innerHTML = '↕ 排序'; sortBtn.style.color = ''; sortBtn.style.borderColor = ''; }
   const body = document.getElementById('mdtfr-body');
   const dash = '<span style="color:var(--border)">–</span>';
   const mkRow = (def) => `<tr id="mdtfr-row-${def.code_c}">
@@ -21,27 +18,219 @@ function mdtfrInitTable(skeleton = false) {
       return `<span style="font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700;background:${bg};color:${color}">${label}</span>${offTag}`;
     })()}</td>
     <td style="font-weight:600">${escHtml(def.name)}</td>
-    <td style="color:var(--text-dim);font-size:13px">${def.code_c}</td>
-    <td style="color:var(--text-dim);font-size:13px">${def.code_a}</td>
-    <td style="color:var(--text-dim);font-size:13px">${def.etf}</td>
+    <td id="mdtfr-code-${def.code_c}" style="color:var(--text-dim);font-size:13px;cursor:pointer;text-decoration:underline dotted" data-a-code="${def.code_a}" data-etf="${def.etf}">${def.code_c}</td>
     <td id="mdtfr-close-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:70%"></div>' : dash}</td>
-    <td id="mdtfr-ret-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-ret20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-ret10-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-ret5-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-ret1-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
     <td style="white-space:nowrap">${mkAmtCell(def.code_c)}</td>
     <td id="mdtfr-pos-${def.code_c}" style="text-align:right">${mkPosPct(def.code_c)}</td>
   </tr>`;
+
+  const backupBadge = `<span style="font-size:11px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(128,128,128,.12);color:var(--text-dim);margin-left:5px">⊡ 备用</span>`;
+  const mkBackupRow = (def) => `<tr id="mdtfr-row-${def.code_c}" class="mdtfr-backup-row" data-backup="true">
+    <td id="mdtfr-rank-${def.code_c}"><span class="rank-badge" style="background:rgba(128,128,128,.15);color:var(--text-dim);font-size:10px;padding:2px 5px">备</span></td>
+    <td>${(()=>{
+      const cfg = {宽基:['rgba(59,130,246,.15)','var(--blue)','📊 宽基'],行业:['rgba(6,182,212,.15)','var(--cyan)','⚙ 行业'],防御:['rgba(168,85,247,.15)','var(--purple)','🛡 防御']};
+      const [bg,color,label] = cfg[def.group]||cfg['防御'];
+      return `<span style="font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700;background:${bg};color:${color}">${label}</span>${backupBadge}`;
+    })()}</td>
+    <td style="font-weight:600;color:var(--text-dim)">${escHtml(def.name)}</td>
+    <td id="mdtfr-code-${def.code_c}" style="color:var(--text-dim);font-size:13px;cursor:pointer;text-decoration:underline dotted" data-a-code="${def.code_a}" data-etf="${def.etf}">${def.code_c}</td>
+    <td id="mdtfr-close-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:70%"></div>' : dash}</td>
+    <td id="mdtfr-ret20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-ret10-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-ret5-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-ret1-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
+    <td style="white-space:nowrap">${mkDisabledAmtCell()}</td>
+    <td id="mdtfr-pos-${def.code_c}" style="text-align:right"><span class="pos-pct" style="color:var(--text-dim)">–</span></td>
+  </tr>`;
+
   body.innerHTML = `
     <div class="mdtfr-table-wrap">
       <table class="data-table">
         <thead><tr>
-          <th>排名</th><th>属性</th><th>名称</th><th>C类代码</th><th>A类代码</th><th>场内ETF</th>
-          <th>最新收盘</th><th>近20日涨跌</th><th>收盘/MA20</th><th>MA60趋势</th><th>份额</th><th>金额(元)</th><th>持仓情况(%)</th>
+          <th>排名</th>
+          <th>属性</th>
+          <th>名称</th>
+          <th>C类代码</th>
+          <th>最新收盘</th>
+          <th class="sortable" data-sort="ret_20d">近20日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_10d">近10日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_5d">近5日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_1d">上一日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="above_ma20">收盘/MA20 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ma60_trend">MA60趋势 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="shares">份额 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="amount">金额(元) <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="position">持仓情况(%) <span class="sort-icon">⇅</span></th>
         </tr></thead>
-        <tbody>${getMdtfrPoolDef().map(mkRow).join('')}</tbody>
+        <tbody>
+          ${getMdtfrPoolDef().map(mkRow).join('')}
+          ${getInactiveDefs().map(mkBackupRow).join('')}
+        </tbody>
       </table>
     </div>`;
+
+  // Add tooltip functionality for C类代码
+  setTimeout(() => {
+    document.querySelectorAll('[id^="mdtfr-code-"]').forEach(el => {
+      el.addEventListener('mouseenter', (e) => {
+        const aCode = e.target.dataset.aCode;
+        const etf = e.target.dataset.etf;
+        showCodeTooltip(e.target, aCode, etf);
+      });
+      el.addEventListener('mouseleave', hideCodeTooltip);
+    });
+
+    // Add click handlers for sortable columns
+    initColumnSorting();
+  }, 0);
+}
+
+// Column sorting functionality
+let currentSort = { column: null, direction: 'desc' };
+let _mdtfrItems = [];
+
+function setMdtfrItems(items) {
+  _mdtfrItems = items || [];
+}
+
+function initColumnSorting() {
+  document.querySelectorAll('.sortable').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    th.addEventListener('click', () => {
+      const sortKey = th.dataset.sort;
+      handleColumnSort(sortKey, th);
+    });
+  });
+}
+
+function handleColumnSort(sortKey, th) {
+  if (_mdtfrItems.length === 0) {
+    console.warn('No data available for sorting');
+    return;
+  }
+
+  if (currentSort.column === sortKey) {
+    currentSort.direction = currentSort.direction === 'desc' ? 'asc' : 'desc';
+  } else {
+    currentSort.column = sortKey;
+    currentSort.direction = 'desc';
+  }
+
+  document.querySelectorAll('.sortable .sort-icon').forEach(icon => {
+    icon.textContent = '⇅';
+    icon.style.opacity = '0.3';
+  });
+  const icon = th.querySelector('.sort-icon');
+  icon.textContent = currentSort.direction === 'desc' ? '↓' : '↑';
+  icon.style.opacity = '1';
+
+  sortAndRenderTable(_mdtfrItems, sortKey);
+}
+
+function sortAndRenderTable(items, sortKey) {
+  const tbody = document.querySelector('#mdtfr-body tbody');
+  if (!tbody) return;
+
+  // Separate backup rows (pinned at bottom) from active pool rows
+  const backupRows = [...tbody.querySelectorAll('tr[data-backup]')];
+  const backupCodes = new Set(backupRows.map(tr => tr.id.replace('mdtfr-row-', '')));
+
+  const mainItems  = items.filter(x => !x.error && !backupCodes.has(x.code_c));
+  const errorItems = items.filter(x =>  x.error && !backupCodes.has(x.code_c));
+  const backupItems = items.filter(x => backupCodes.has(x.code_c));
+
+  const totalAmt = mainItems.reduce((sum, item) => sum + getDynAmt(item.code_c), 0);
+
+  mainItems.sort((a, b) => {
+    let aVal, bVal;
+
+    switch (sortKey) {
+      case 'ret_20d':
+      case 'ret_10d':
+      case 'ret_5d':
+      case 'ret_1d':
+        aVal = a[sortKey] ?? -Infinity;
+        bVal = b[sortKey] ?? -Infinity;
+        break;
+      case 'above_ma20':
+        aVal = a.above_ma20 ? 1 : 0;
+        bVal = b.above_ma20 ? 1 : 0;
+        break;
+      case 'ma60_trend': {
+        const trendOrder = { '趋势向好': 3, '未达标': 2, '持续下行': 1 };
+        aVal = trendOrder[a.ma60_trend] ?? 0;
+        bVal = trendOrder[b.ma60_trend] ?? 0;
+        break;
+      }
+      case 'shares':
+        aVal = getShares(a.code_c);
+        bVal = getShares(b.code_c);
+        break;
+      case 'amount':
+        aVal = getDynAmt(a.code_c);
+        bVal = getDynAmt(b.code_c);
+        break;
+      case 'position':
+        aVal = totalAmt > 0 ? getDynAmt(a.code_c) / totalAmt : 0;
+        bVal = totalAmt > 0 ? getDynAmt(b.code_c) / totalAmt : 0;
+        break;
+      default:
+        return 0;
+    }
+
+    return currentSort.direction === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
+  // Active pool rows (sorted) → error rows → backup rows (always last)
+  mainItems.forEach(item => {
+    const row = document.getElementById(`mdtfr-row-${item.code_c}`);
+    if (row) tbody.appendChild(row);
+  });
+  errorItems.forEach(item => {
+    const row = document.getElementById(`mdtfr-row-${item.code_c}`);
+    if (row) tbody.appendChild(row);
+  });
+  backupItems.forEach(item => {
+    const row = document.getElementById(`mdtfr-row-${item.code_c}`);
+    if (row) tbody.appendChild(row);
+  });
+}
+
+// Tooltip for C类代码
+function showCodeTooltip(target, aCode, etf) {
+  let tooltip = document.getElementById('mdtfr-code-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'mdtfr-code-tooltip';
+    tooltip.className = 'mdtfr-code-tooltip';
+    document.body.appendChild(tooltip);
+  }
+  
+  tooltip.innerHTML = `
+    <div style="margin-bottom:6px"><span style="color:#999">A类代码:</span> <span style="margin-left:8px;font-weight:500">${aCode || '–'}</span></div>
+    <div><span style="color:#999">场内ETF:</span> <span style="margin-left:8px;font-weight:500">${etf || '–'}</span></div>
+  `;
+  
+  const rect = target.getBoundingClientRect();
+  tooltip.style.display = 'block';
+  tooltip.style.left = `${rect.left + window.scrollX}px`;
+  tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+}
+
+function hideCodeTooltip() {
+  const tooltip = document.getElementById('mdtfr-code-tooltip');
+  if (tooltip) tooltip.style.display = 'none';
 }
 
 // ── 填充单行数据 ───────────────────────────────────────
@@ -53,14 +242,22 @@ function mdtfrFillRow(item) {
     ['ret','ma20','ma60'].forEach(k => { document.getElementById(`mdtfr-${k}-${c}`).textContent = '–'; });
     return;
   }
-  const ret = item.ret_20d;
-  const retColor = ret > 0 ? 'var(--red)' : ret < 0 ? 'var(--green)' : 'var(--text-dim)';
-  const retStr   = ret != null ? (ret>0?'+':'') + (ret*100).toFixed(2)+'%' : '–';
+  // Helper function to format return percentage
+  const formatRet = (ret) => {
+    if (ret == null) return '–';
+    const color = ret > 0 ? 'var(--red)' : ret < 0 ? 'var(--green)' : 'var(--text-dim)';
+    const str = (ret>0?'+':'') + (ret*100).toFixed(2)+'%';
+    return `<span style="font-weight:700;color:${color}">${str}</span>`;
+  };
 
   document.getElementById(`mdtfr-close-${c}`).innerHTML =
     `${item.latest_close!=null?item.latest_close.toFixed(3):'–'}<span style="font-size:11px;padding:1px 4px;border-radius:3px;background:rgba(6,182,212,.12);color:var(--cyan);font-weight:600;margin-left:5px">C类</span><span style="color:var(--border);font-size:12px;margin-left:4px">${item.latest_date||''}</span>`;
-  document.getElementById(`mdtfr-ret-${c}`).innerHTML =
-    `<span style="font-weight:700;color:${retColor}">${retStr}</span>`;
+  
+  // Populate return columns
+  document.getElementById(`mdtfr-ret20-${c}`).innerHTML = formatRet(item.ret_20d);
+  document.getElementById(`mdtfr-ret10-${c}`).innerHTML = formatRet(item.ret_10d);
+  document.getElementById(`mdtfr-ret5-${c}`).innerHTML = formatRet(item.ret_5d);
+  document.getElementById(`mdtfr-ret1-${c}`).innerHTML = formatRet(item.ret_1d);
   document.getElementById(`mdtfr-ma20-${c}`).innerHTML = item.above_ma20==null ? '<span style="color:var(--border)">–</span>'
     : item.above_ma20 ? '<span style="color:var(--red)">↑ 站上</span>' : '<span style="color:var(--green)">↓ 跌破</span>';
   const ma60El = document.getElementById(`mdtfr-ma60-${c}`);
@@ -107,9 +304,6 @@ function mdtfrFillRanks(items) {
     const bg    = x.ret_20d > 0 ? 'rgba(239,68,68,.2)' : x.ret_20d < 0 ? 'rgba(34,197,94,.2)' : 'var(--surface2)';
     el.innerHTML = `<span class="rank-badge" style="background:${bg};color:${color}">${x.rank}</span>`;
   });
-  // 有数据后显示排序按钮
-  const sortBtn = document.getElementById('mdtfr-sort-btn');
-  if (sortBtn) sortBtn.style.display = '';
 }
 
 // ── 从缓存渲染 ─────────────────────────────────────────
@@ -204,4 +398,4 @@ function mdtfrRowComplete(item) {
   return true;
 }
 
-export { mdtfrInitTable, mdtfrFillRow, mdtfrFillRanks, mdtfrRenderFromCache, mdtfrRowComplete };
+export { mdtfrInitTable, mdtfrFillRow, mdtfrFillRanks, mdtfrRenderFromCache, mdtfrRowComplete, setMdtfrItems };

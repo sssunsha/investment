@@ -179,6 +179,14 @@ function mkAmtCell(code_c) {
   </div>`;
 }
 
+/** 备用标的：禁用状态的金额单元格（不可编辑） */
+function mkDisabledAmtCell() {
+  return `<div style="display:flex;gap:4px;align-items:center;opacity:0.35;pointer-events:none">
+    <input class="amt-input" type="number" disabled placeholder="0" />
+    <button class="amt-clear-btn" disabled title="清零">×</button>
+  </div>`;
+}
+
 /** 生成仓位百分比展示（独立 td 内容） */
 function mkPosPct(code_c) {
   const total = call('getTotalAmt') ?? getSumOfPositions();
@@ -220,7 +228,7 @@ export {
   loadAmounts, saveAmounts,
   getAmt, getDynAmt, setAmt, setAmts, getSumOfPositions,
   getPosVal, refreshAllPosPct, onAmtChange, clearAmt,
-  mkAmtCell, mkPosPct,
+  mkAmtCell, mkDisabledAmtCell, mkPosPct,
   _getRawKey, _setRawKey,
 };
 /** 供 advice.js 回写最新标的列表 */

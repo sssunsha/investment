@@ -190,11 +190,21 @@ async def mdtfr_pool():
             closes = [r["close"] for r in rows]
             ma20 = round(sum(closes[-20:]) / 20, 3)
             ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
+            
+            # Calculate various period returns
+            ret_20d = round((closes[-1] - closes[-21]) / closes[-21], 6) if n >= 21 else None
+            ret_10d = round((closes[-1] - closes[-11]) / closes[-11], 6) if n >= 11 else None
+            ret_5d = round((closes[-1] - closes[-6]) / closes[-6], 6) if n >= 6 else None
+            ret_1d = round((closes[-1] - closes[-2]) / closes[-2], 6) if n >= 2 else None
+            
             results.append({
                 **etf,
                 "latest_close":   round(closes[-1], 3),
                 "latest_date":    rows[-1]["date"],
-                "ret_20d":        round((closes[-1] - closes[-21]) / closes[-21], 6),
+                "ret_20d":        ret_20d,
+                "ret_10d":        ret_10d,
+                "ret_5d":         ret_5d,
+                "ret_1d":         ret_1d,
                 "ma20": ma20, "ma60": ma60,
                 "above_ma20":     closes[-1] > ma20,
                 "ma60_rising":    ma60_rising,
@@ -254,11 +264,21 @@ async def mdtfr_pool_stream(
                     closes = [r["close"] for r in rows]
                     ma20 = round(sum(closes[-20:]) / 20, 3)
                     ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
+                    
+                    # Calculate various period returns
+                    ret_20d = round((closes[-1] - closes[-21]) / closes[-21], 6) if n >= 21 else None
+                    ret_10d = round((closes[-1] - closes[-11]) / closes[-11], 6) if n >= 11 else None
+                    ret_5d = round((closes[-1] - closes[-6]) / closes[-6], 6) if n >= 6 else None
+                    ret_1d = round((closes[-1] - closes[-2]) / closes[-2], 6) if n >= 2 else None
+                    
                     ev({"type": "item", **etf,
                         "latest_close": round(closes[-1], 3),
                         "prev_close":   round(closes[-2], 3),
                         "latest_date":  rows[-1]["date"],
-                        "ret_20d":      round((closes[-1] - closes[-21]) / closes[-21], 6),
+                        "ret_20d":      ret_20d,
+                        "ret_10d":      ret_10d,
+                        "ret_5d":       ret_5d,
+                        "ret_1d":       ret_1d,
                         "ma20": ma20, "ma60": ma60,
                         "above_ma20":   closes[-1] > ma20,
                         "ma60_rising":  ma60_rising,
@@ -354,6 +374,7 @@ async def aw_pool_stream():
                     if n < 21:
                         ev({"type": "item", **fund,
                             "latest_close": None, "ret_30d": None,
+                            "ret_15d": None, "ret_5d": None, "ret_1d": None,
                             "ma20": None, "above_ma20": None,
                             "ma60": None, "ma60_rising": None,
                             "ma60_rate": None, "ma60_trend": None,
@@ -363,11 +384,17 @@ async def aw_pool_stream():
                     closes = rows
                     ma20 = round(sum(closes[-20:]) / 20, 3)
                     ret_30d = round((closes[-1] / closes[-31] - 1), 6) if n >= 31 else None
+                    ret_15d = round((closes[-1] / closes[-16] - 1), 6) if n >= 16 else None
+                    ret_5d  = round((closes[-1] / closes[-6]  - 1), 6) if n >= 6  else None
+                    ret_1d  = round((closes[-1] / closes[-2]  - 1), 6) if n >= 2  else None
                     ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
 
                     ev({"type": "item", **fund,
                         "latest_close": round(closes[-1], 3),
                         "ret_30d":      ret_30d,
+                        "ret_15d":      ret_15d,
+                        "ret_5d":       ret_5d,
+                        "ret_1d":       ret_1d,
                         "ma20":         ma20,
                         "above_ma20":   closes[-1] > ma20,
                         "ma60":         ma60,
@@ -376,12 +403,13 @@ async def aw_pool_stream():
                         "ma60_trend":   ma60_trend,
                         "ma60_has_uptick": ma60_has_uptick,
                         "ma60_above_avg":  ma60_above_avg,
-                "ma60_avg5":       ma60_avg5,
+                        "ma60_avg5":       ma60_avg5,
                         "error":        None})
                     time.sleep(0.3)
                 except Exception as e:
                     ev({"type": "item", **fund,
                         "latest_close": None, "ret_30d": None,
+                        "ret_15d": None, "ret_5d": None, "ret_1d": None,
                         "ma20": None, "above_ma20": None,
                         "ma60": None, "ma60_rising": None,
                         "ma60_rate": None, "ma60_trend": None,
