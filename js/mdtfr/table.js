@@ -3,6 +3,13 @@ import { escHtml } from '../utils.js';
 import { getMdtfrPoolDef, getInactiveDefs } from './config.js';
 import { mkAmtCell, mkPosPct, getShares, getDynAmt, refreshAmtPnl, mkDisabledAmtCell } from './amounts.js';
 
+function formatVol(v) {
+  if (v == null) return '–';
+  if (v >= 100000000) return (v / 100000000).toFixed(2) + '亿手';
+  if (v >= 10000) return (v / 10000).toFixed(1) + '万手';
+  return v.toLocaleString() + '手';
+}
+
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）─
 function mdtfrInitTable(skeleton = false) {
   const body = document.getElementById('mdtfr-body');
@@ -17,13 +24,17 @@ function mdtfrInitTable(skeleton = false) {
         : '';
       return `<span style="font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700;background:${bg};color:${color}">${label}</span>${offTag}`;
     })()}</td>
-    <td style="font-weight:600">${escHtml(def.name)}</td>
-    <td id="mdtfr-code-${def.code_c}" style="color:var(--text-dim);font-size:13px;cursor:pointer;text-decoration:underline dotted" data-a-code="${def.code_a}" data-etf="${def.etf}">${def.code_c}</td>
+    <td id="mdtfr-name-${def.code_c}" style="font-weight:600;cursor:help" data-code-c="${def.code_c}" data-a-code="${def.code_a}" data-etf="${def.etf}">${escHtml(def.name)}</td>
     <td id="mdtfr-close-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:70%"></div>' : dash}</td>
+    <td id="mdtfr-volsig-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-ret20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-vol20-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ret10-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-vol10-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ret5-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-vol5-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ret1-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-vol1-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
@@ -39,13 +50,17 @@ function mdtfrInitTable(skeleton = false) {
       const [bg,color,label] = cfg[def.group]||cfg['防御'];
       return `<span style="font-size:12px;padding:2px 7px;border-radius:4px;font-weight:700;background:${bg};color:${color}">${label}</span>${backupBadge}`;
     })()}</td>
-    <td style="font-weight:600;color:var(--text-dim)">${escHtml(def.name)}</td>
-    <td id="mdtfr-code-${def.code_c}" style="color:var(--text-dim);font-size:13px;cursor:pointer;text-decoration:underline dotted" data-a-code="${def.code_a}" data-etf="${def.etf}">${def.code_c}</td>
+    <td id="mdtfr-name-${def.code_c}" style="font-weight:600;color:var(--text-dim);cursor:help" data-code-c="${def.code_c}" data-a-code="${def.code_a}" data-etf="${def.etf}">${escHtml(def.name)}</td>
     <td id="mdtfr-close-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:70%"></div>' : dash}</td>
+    <td id="mdtfr-volsig-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-ret20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-vol20-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ret10-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
+    <td id="mdtfr-vol10-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ret5-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-vol5-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ret1-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
+    <td id="mdtfr-vol1-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
     <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
@@ -60,17 +75,21 @@ function mdtfrInitTable(skeleton = false) {
           <th>排名</th>
           <th>属性</th>
           <th>名称</th>
-          <th>C类代码</th>
-          <th>最新收盘</th>
-          <th class="sortable" data-sort="ret_20d">近20日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ret_10d">近10日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ret_5d">近5日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ret_1d">上一日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="above_ma20">收盘/MA20 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ma60_trend">MA60趋势 <span class="sort-icon">⇅</span></th>
+          <th id="mdtfr-th-close">最新收盘</th>
+          <th class="sortable" data-sort="vol_ratio">量信号 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_20d">20日 <span class="sort-icon">⇅</span></th>
+          <th>均20</th>
+          <th class="sortable" data-sort="ret_10d">10日 <span class="sort-icon">⇅</span></th>
+          <th>均10</th>
+          <th class="sortable" data-sort="ret_5d">5日 <span class="sort-icon">⇅</span></th>
+          <th>均5</th>
+          <th class="sortable" data-sort="ret_1d">昨日 <span class="sort-icon">⇅</span></th>
+          <th>昨量</th>
+          <th class="sortable" data-sort="above_ma20">MA20 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ma60_trend">MA60 <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="shares">份额 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="amount">金额(元) <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="position">持仓情况(%) <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="amount">金额 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="position">仓位 <span class="sort-icon">⇅</span></th>
         </tr></thead>
         <tbody>
           ${getMdtfrPoolDef().map(mkRow).join('')}
@@ -79,13 +98,11 @@ function mdtfrInitTable(skeleton = false) {
       </table>
     </div>`;
 
-  // Add tooltip functionality for C类代码
+  // Add tooltip functionality for 名称 hover
   setTimeout(() => {
-    document.querySelectorAll('[id^="mdtfr-code-"]').forEach(el => {
+    document.querySelectorAll('[id^="mdtfr-name-"]').forEach(el => {
       el.addEventListener('mouseenter', (e) => {
-        const aCode = e.target.dataset.aCode;
-        const etf = e.target.dataset.etf;
-        showCodeTooltip(e.target, aCode, etf);
+        showCodeTooltip(e.target, e.target.dataset.codeC, e.target.dataset.aCode, e.target.dataset.etf);
       });
       el.addEventListener('mouseleave', hideCodeTooltip);
     });
@@ -156,6 +173,10 @@ function sortAndRenderTable(items, sortKey) {
     let aVal, bVal;
 
     switch (sortKey) {
+      case 'vol_ratio':
+        aVal = a.vol_ratio ?? -Infinity;
+        bVal = b.vol_ratio ?? -Infinity;
+        break;
       case 'ret_20d':
       case 'ret_10d':
       case 'ret_5d':
@@ -208,7 +229,7 @@ function sortAndRenderTable(items, sortKey) {
 }
 
 // Tooltip for C类代码
-function showCodeTooltip(target, aCode, etf) {
+function showCodeTooltip(target, codeC, aCode, etf) {
   let tooltip = document.getElementById('mdtfr-code-tooltip');
   if (!tooltip) {
     tooltip = document.createElement('div');
@@ -216,8 +237,9 @@ function showCodeTooltip(target, aCode, etf) {
     tooltip.className = 'mdtfr-code-tooltip';
     document.body.appendChild(tooltip);
   }
-  
+
   tooltip.innerHTML = `
+    <div style="margin-bottom:6px"><span style="color:#999">C类代码:</span> <span style="margin-left:8px;font-weight:500">${codeC || '–'}</span></div>
     <div style="margin-bottom:6px"><span style="color:#999">A类代码:</span> <span style="margin-left:8px;font-weight:500">${aCode || '–'}</span></div>
     <div><span style="color:#999">场内ETF:</span> <span style="margin-left:8px;font-weight:500">${etf || '–'}</span></div>
   `;
@@ -233,13 +255,40 @@ function hideCodeTooltip() {
   if (tooltip) tooltip.style.display = 'none';
 }
 
+function _updateCloseHeader(date) {
+  if (!date) return;
+  const el = document.getElementById('mdtfr-th-close');
+  if (el) el.innerHTML = `最新收盘<br><span style="color:var(--text-dim);font-weight:400">${date}</span>`;
+}
+
+// ── 量信号渲染（抽取为独立函数，降低 mdtfrFillRow 复杂度）──
+const _VOL_SIG_CFG = {
+  '巨额放量': ['var(--red)',    'rgba(239,68,68,.2)'],
+  '放量':     ['var(--red)',    'rgba(239,68,68,.12)'],
+  '温和放量': ['var(--yellow)', 'rgba(245,158,11,.15)'],
+  '正常':     ['var(--text-dim)', 'rgba(128,128,128,.1)'],
+  '温和缩量': ['var(--green)',  'rgba(34,197,94,.1)'],
+  '缩量':     ['var(--green)',  'rgba(34,197,94,.15)'],
+  '巨额缩量': ['var(--green)',  'rgba(34,197,94,.2)'],
+};
+function _renderVolSignal(c, signal) {
+  const el = document.getElementById(`mdtfr-volsig-${c}`);
+  if (!el) return;
+  if (signal == null) { el.innerHTML = '<span style="color:var(--border)">–</span>'; return; }
+  const [sc, bg] = _VOL_SIG_CFG[signal] || ['var(--text-dim)', 'var(--surface2)'];
+  el.innerHTML = `<span style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:700;background:${bg};color:${sc}">${signal}</span>`;
+}
+
 // ── 填充单行数据 ───────────────────────────────────────
 function mdtfrFillRow(item) {
   const c = item.code_c;
   if (!document.getElementById(`mdtfr-close-${c}`)) return;
   if (item.error) {
     document.getElementById(`mdtfr-close-${c}`).innerHTML = `<span style="color:var(--text-dim);font-size:12px">${escHtml(item.error)}</span>`;
-    ['ret','ma20','ma60'].forEach(k => { document.getElementById(`mdtfr-${k}-${c}`).textContent = '–'; });
+    ['volsig','ret20','vol20','ret10','vol10','ret5','vol5','ret1','vol1','ma20','ma60'].forEach(k => {
+      const el = document.getElementById(`mdtfr-${k}-${c}`);
+      if (el) el.textContent = '–';
+    });
     return;
   }
   // Helper function to format return percentage
@@ -251,13 +300,25 @@ function mdtfrFillRow(item) {
   };
 
   document.getElementById(`mdtfr-close-${c}`).innerHTML =
-    `${item.latest_close!=null?item.latest_close.toFixed(3):'–'}<span style="font-size:11px;padding:1px 4px;border-radius:3px;background:rgba(6,182,212,.12);color:var(--cyan);font-weight:600;margin-left:5px">C类</span><span style="color:var(--border);font-size:12px;margin-left:4px">${item.latest_date||''}</span>`;
-  
+    item.latest_close == null ? '–' : item.latest_close.toFixed(3);
+  _updateCloseHeader(item.latest_date);
+
+  // 量信号
+  _renderVolSignal(c, item.vol_signal);
+
   // Populate return columns
   document.getElementById(`mdtfr-ret20-${c}`).innerHTML = formatRet(item.ret_20d);
+  const _vol20El = document.getElementById(`mdtfr-vol20-${c}`);
+  if (_vol20El) _vol20El.innerHTML = `<span style="color:var(--text-dim)">${formatVol(item.vol_avg_20d)}</span>`;
   document.getElementById(`mdtfr-ret10-${c}`).innerHTML = formatRet(item.ret_10d);
+  const _vol10El = document.getElementById(`mdtfr-vol10-${c}`);
+  if (_vol10El) _vol10El.innerHTML = `<span style="color:var(--text-dim)">${formatVol(item.vol_avg_10d)}</span>`;
   document.getElementById(`mdtfr-ret5-${c}`).innerHTML = formatRet(item.ret_5d);
+  const _vol5El = document.getElementById(`mdtfr-vol5-${c}`);
+  if (_vol5El) _vol5El.innerHTML = `<span style="color:var(--text-dim)">${formatVol(item.vol_avg_5d)}</span>`;
   document.getElementById(`mdtfr-ret1-${c}`).innerHTML = formatRet(item.ret_1d);
+  const _vol1El = document.getElementById(`mdtfr-vol1-${c}`);
+  if (_vol1El) _vol1El.innerHTML = `<span style="color:var(--text-dim)">${formatVol(item.vol_1d)}</span>`;
   document.getElementById(`mdtfr-ma20-${c}`).innerHTML = item.above_ma20==null ? '<span style="color:var(--border)">–</span>'
     : item.above_ma20 ? '<span style="color:var(--red)">↑ 站上</span>' : '<span style="color:var(--green)">↓ 跌破</span>';
   const ma60El = document.getElementById(`mdtfr-ma60-${c}`);
@@ -395,6 +456,7 @@ function mdtfrRowComplete(item) {
   if (!item || item.error) return false;
   if (item.ret_20d == null || item.latest_close == null) return false;
   if (item.ma60_trend == null) return false;  // MA60 趋势未计算（数据不足）
+  if (item.vol_1d === undefined) return false;
   return true;
 }
 

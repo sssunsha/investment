@@ -249,6 +249,65 @@ async def mdtfr_pool_stream(
     def _run():
         ev = lambda d: loop.call_soon_threadsafe(queue.put_nowait, json.dumps(d, ensure_ascii=False))
 
+        # BaoStock 仅用于获取 ETF 成交量，NAV 数据仍来自天天基金
+        import baostock as _bs
+        bs_ok = False
+        try:
+            lg = _bs.login()
+            bs_ok = lg.error_code == '0'
+            if not bs_ok:
+                ev({"type": "progress", "name": "系统", "msg": f"BaoStock 登录失败，成交量不可用: {lg.error_msg}"})
+        except Exception as _e:
+            ev({"type": "progress", "name": "系统", "msg": f"BaoStock 初始化失败: {_e}"})
+
+        def _fetch_etf_volumes(bs_code):
+            """返回 {date: volume(手)} 字典，失败返回空字典。"""
+            try:
+                rs = _bs.query_history_k_data_plus(
+                    bs_code, "date,volume",
+                    start_date=start_date, end_date=end_date,
+                    frequency="d", adjustflag="3"
+                )
+                vol_map = {}
+                while rs.error_code == '0' and rs.next():
+                    row = rs.get_row_data()
+                    if row[0] and row[1]:
+                        vol_map[row[0]] = int(float(row[1]))
+                return vol_map
+            except Exception:
+                return {}
+
+        def _calc_vol_stats(rows, vol_map):
+            """对齐 NAV 日期与 ETF 成交量，返回量统计字典。"""
+            vols = [vol_map.get(r["date"]) for r in rows]
+            aligned = [v for v in vols if v is not None]
+            nv = len(aligned)
+            if nv < 2:
+                return {"vol_1d": None, "vol_avg_5d": None, "vol_avg_10d": None, "vol_avg_20d": None,
+                        "vol_signal": None, "vol_ratio": None}
+            vol_1d      = aligned[-1]
+            vol_avg_5d  = round(sum(aligned[-5:])  / min(5,  nv)) if nv >= 5  else None
+            vol_avg_10d = round(sum(aligned[-10:]) / min(10, nv)) if nv >= 10 else None
+            vol_avg_20d = round(sum(aligned[-20:]) / min(20, nv)) if nv >= 20 else None
+            # 信号基准：今日与前 20 个交易日均量对比
+            prev = aligned[:-1]
+            prev_avg = sum(prev[-20:]) / min(20, len(prev)) if prev else 0
+            vol_signal = vol_ratio = None
+            if prev_avg > 0:
+                vol_ratio = round(vol_1d / prev_avg, 3)
+                if   vol_ratio >= 3.0: vol_signal = "巨额放量"
+                elif vol_ratio >= 1.5: vol_signal = "放量"
+                elif vol_ratio >= 1.2: vol_signal = "温和放量"
+                elif vol_ratio >= 0.8: vol_signal = "正常"
+                elif vol_ratio >= 0.5: vol_signal = "温和缩量"
+                elif vol_ratio >= 0.3: vol_signal = "缩量"
+                else:                  vol_signal = "巨额缩量"
+            return {"vol_1d": vol_1d, "vol_avg_5d": vol_avg_5d, "vol_avg_10d": vol_avg_10d,
+                    "vol_avg_20d": vol_avg_20d, "vol_signal": vol_signal, "vol_ratio": vol_ratio}
+
+        _vol_null = {"vol_1d": None, "vol_avg_5d": None, "vol_avg_10d": None,
+                     "vol_avg_20d": None, "vol_signal": None, "vol_ratio": None}
+
         try:
             for etf in etfs_to_process:
                 ev({"type": "progress", "name": etf["name"], "msg": "获取净值数据..."})
@@ -257,20 +316,26 @@ async def mdtfr_pool_stream(
                     rows = fetch_fund_nav_series(etf["code_c"], start_date, end_date)
                     n = len(rows)
                     if n < 21:
-                        ev({"type": "item", **etf,
+                        ev({"type": "item", **etf, **_vol_null,
                             "error": f"数据不足（{n} 条，需至少 21 条）",
                             "latest_close": None, "prev_close": None, "latest_date": None})
                         continue
                     closes = [r["close"] for r in rows]
                     ma20 = round(sum(closes[-20:]) / 20, 3)
                     ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
-                    
-                    # Calculate various period returns
+
                     ret_20d = round((closes[-1] - closes[-21]) / closes[-21], 6) if n >= 21 else None
                     ret_10d = round((closes[-1] - closes[-11]) / closes[-11], 6) if n >= 11 else None
-                    ret_5d = round((closes[-1] - closes[-6]) / closes[-6], 6) if n >= 6 else None
-                    ret_1d = round((closes[-1] - closes[-2]) / closes[-2], 6) if n >= 2 else None
-                    
+                    ret_5d  = round((closes[-1] - closes[-6])  / closes[-6],  6) if n >= 6  else None
+                    ret_1d  = round((closes[-1] - closes[-2])  / closes[-2],  6) if n >= 2  else None
+
+                    # 成交量：通过 BaoStock 查场内 ETF 日线量
+                    vol_stats = _vol_null
+                    if bs_ok and etf.get("code"):
+                        vol_map = _fetch_etf_volumes(etf["code"])
+                        if vol_map:
+                            vol_stats = _calc_vol_stats(rows, vol_map)
+
                     ev({"type": "item", **etf,
                         "latest_close": round(closes[-1], 3),
                         "prev_close":   round(closes[-2], 3),
@@ -287,12 +352,15 @@ async def mdtfr_pool_stream(
                         "ma60_has_uptick": ma60_has_uptick,
                         "ma60_above_avg":  ma60_above_avg,
                         "ma60_avg5":       ma60_avg5,
+                        **vol_stats,
                         "error": None})
                     time.sleep(0.2)
                 except Exception as e:
-                    ev({"type": "item", **etf, "error": str(e),
+                    ev({"type": "item", **etf, **_vol_null, "error": str(e),
                         "latest_close": None, "prev_close": None, "latest_date": None})
         finally:
+            if bs_ok:
+                _bs.logout()
             ev({"type": "done", "last_updated": datetime.now().isoformat()})
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
