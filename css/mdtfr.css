@@ -157,13 +157,8 @@
   font-weight: 700;
 }
 
-/* ── 表格整体压缩：减小内边距和字号，单屏无横向滚动 ── */
-.mdtfr-table-wrap .data-table { font-size: 12px; min-width: unset; }
-.mdtfr-table-wrap .data-table th { padding: 5px 6px; font-size: 11px; }
-.mdtfr-table-wrap .data-table td { padding: 4px 6px; }
-.mdtfr-table-wrap .amt-input  { width: 72px; font-size: 12px; }
-.mdtfr-table-wrap .amt-clear-btn { padding: 1px 4px; font-size: 11px; }
-#mdtfr-th-close { white-space: normal; line-height: 1.4; text-align: left; }
+/* ── 上一日涨跌列：允许标题折行，日期竖排显示 ── */
+#mdtfr-th-ret1 { white-space: normal; line-height: 1.4; }
 
 /* ── 备用标的行：灰色背景，与活跃标的视觉区分 ── */
 .mdtfr-backup-row td {
