@@ -121,10 +121,12 @@ async function loadFedRateChart(forceRefresh = false) {
       const ffr   = fedRateData.fedfunds;
       const dgs10 = fedRateData.dgs10;
       const dgs2  = fedRateData.dgs2;
-      const ffrLatest  = ffr.values[ffr.values.length - 1]?.toFixed(2);
+      const dgs30 = fedRateData.dgs30;
+      const ffrLatest   = ffr.values[ffr.values.length - 1]?.toFixed(2);
       const dgs10Latest = dgs10.values[dgs10.values.length - 1]?.toFixed(2);
       const dgs2Latest  = dgs2.values[dgs2.values.length - 1]?.toFixed(2);
-      latestEl.innerHTML = `FFR <strong>${ffrLatest}%</strong> · 10Y <strong>${dgs10Latest}%</strong> · 2Y <strong>${dgs2Latest}%</strong> <span class="indicator-cache-badge">${badge}</span>`;
+      const dgs30Latest = dgs30?.values[dgs30.values.length - 1]?.toFixed(2);
+      latestEl.innerHTML = `FFR <strong>${ffrLatest}%</strong> · 10Y <strong>${dgs10Latest}%</strong> · 30Y <strong>${dgs30Latest ?? '–'}%</strong> · 2Y <strong>${dgs2Latest}%</strong> <span class="indicator-cache-badge">${badge}</span>`;
     }
   } catch (error) {
     const wrapper = card.querySelector('.chart-wrapper');

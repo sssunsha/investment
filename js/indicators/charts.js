@@ -78,7 +78,7 @@ const syncedCrosshairPlugin = {
     const { type } = args.event;
     if (type === 'mouseout') {
       this._activeDate = null;
-      this._lastDate = null;
+      this._lastIdx = null;
       const fedEl = document.getElementById('chart-hover-info');
       const cnEl = document.getElementById('cn-stock-hover-info');
       if (fedEl) fedEl.style.display = 'none';
@@ -88,29 +88,33 @@ const syncedCrosshairPlugin = {
     }
     const active = chart.tooltip._active;
     if (!active?.length) return;
-    const date = chart.data.labels[active[0].index]?.slice(0, 7);
-    if (!date) return;
-    this._activeDate = date;
-    if (date !== this._lastDate) {
-      this._lastDate = date;
-      this._updatePanels(date);
+    const activeIdx = active[0].index;
+    const fullDate = chart.data.labels[activeIdx];
+    if (!fullDate) return;
+    const monthDate = fullDate.slice(0, 7);
+    this._activeDate = monthDate;
+    if (activeIdx !== this._lastIdx) {
+      this._lastIdx = activeIdx;
+      this._updatePanels(fullDate, chart === fedRateChart ? activeIdx : null);
     }
     this._sibling(chart)?.update('none');
   },
 
-  _updatePanels(date) {
+  _updatePanels(fullDate, fedIdx) {
+    const monthDate = fullDate.slice(0, 7);
     const fedEl = document.getElementById('chart-hover-info');
     if (fedEl && fedRateChart) {
-      const idx = fedRateChart.data.labels.findIndex(l => l.slice(0, 7) === date);
+      const idx = fedIdx ?? fedRateChart.data.labels.findIndex(l => l.slice(0, 7) === monthDate);
       if (idx >= 0) {
         const ds = fedRateChart.data.datasets;
         const fmt = v => v == null ? '—' : v.toFixed(2) + '%';
         fedEl.style.display = 'flex';
         fedEl.innerHTML = `
-          <div class="hover-date">${date}</div>
+          <div class="hover-date">${fedIdx == null ? monthDate : fullDate}</div>
           <div class="hover-row"><span class="hover-dot" style="background:rgba(239,68,68,0.9)"></span><span>FFR</span><strong>${fmt(ds[0]?.data[idx])}</strong></div>
           <div class="hover-row"><span class="hover-dot" style="background:rgba(249,115,22,0.9)"></span><span>10Y</span><strong>${fmt(ds[1]?.data[idx])}</strong></div>
-          <div class="hover-row"><span class="hover-dot" style="background:rgba(59,130,246,0.9)"></span><span>2Y</span><strong>${fmt(ds[2]?.data[idx])}</strong></div>
+          <div class="hover-row"><span class="hover-dot" style="background:rgba(168,85,247,0.9)"></span><span>30Y</span><strong>${fmt(ds[2]?.data[idx])}</strong></div>
+          <div class="hover-row"><span class="hover-dot" style="background:rgba(59,130,246,0.9)"></span><span>2Y</span><strong>${fmt(ds[3]?.data[idx])}</strong></div>
         `;
       } else {
         fedEl.style.display = 'none';
@@ -143,7 +147,7 @@ export function renderFedRateChartCard() {
       <div class="chart-card-header">
         <div class="chart-title">
           <span class="chart-title-main">📈 美国利率走势</span>
-          <span class="chart-title-sub">Federal Funds Rate · 2Y Treasury · 10Y Treasury (FRED) · 2000至今</span>
+          <span class="chart-title-sub">Federal Funds Rate · 2Y Treasury · 10Y Treasury · 30Y Treasury (FRED) · 2000至今</span>
         </div>
         <div class="chart-controls">
           <button class="chart-range-btn" data-range="3m" onclick="setChartRange('3m')">近3月</button>
@@ -203,28 +207,33 @@ export function renderMacroTrendSection() {
 
 // ── 图表渲染 ──────────────────────────────────────────────────────────────────
 
-function resampleToMonthly(labels, values) {
-  const map = new Map();
-  labels.forEach((date, i) => map.set(date.slice(0, 7), values[i]));
-  return map;
-}
-
 export function renderFedRateChart(data) {
   const canvas = document.getElementById('fed-rate-chart');
   if (!canvas || !data) return;
 
+  // 以 DGS10 日度日期为主轴，覆盖最新数据（DGS2/10/30 每日更新）
   const cutoffStr = '2000-01-01';
-  const startIdx = data.fedfunds.labels.findIndex(l => l >= cutoffStr);
-  const ffrLabels = startIdx > 0 ? data.fedfunds.labels.slice(startIdx) : data.fedfunds.labels;
-  const ffrValues = startIdx > 0 ? data.fedfunds.values.slice(startIdx) : data.fedfunds.values;
+  const dailyLabels = data.dgs10.labels.filter(d => d >= cutoffStr);
 
-  const dgs10Map = resampleToMonthly(data.dgs10.labels, data.dgs10.values);
-  const dgs2Map  = resampleToMonthly(data.dgs2.labels,  data.dgs2.values);
-  const dgs10Values = ffrLabels.map(d => dgs10Map.get(d.slice(0, 7)) ?? null);
-  const dgs2Values  = ffrLabels.map(d => dgs2Map.get(d.slice(0, 7)) ?? null);
+  // 联邦基金利率为月度序列，前向填充至日度时间轴（当月尚未发布时沿用上月值）
+  const ffrMonthMap = new Map(data.fedfunds.labels.map((d, i) => [d.slice(0, 7), data.fedfunds.values[i]]));
+  let ffrLast = null;
+  const ffrValues = dailyLabels.map(d => {
+    const m = d.slice(0, 7);
+    if (ffrMonthMap.has(m)) ffrLast = ffrMonthMap.get(m);
+    return ffrLast;
+  });
+
+  // 美债收益率日度数据直接按日期映射
+  const dgs10Map = new Map(data.dgs10.labels.map((d, i) => [d, data.dgs10.values[i]]));
+  const dgs2Map  = new Map(data.dgs2.labels.map((d, i)  => [d, data.dgs2.values[i]]));
+  const dgs30Map = data.dgs30 ? new Map(data.dgs30.labels.map((d, i) => [d, data.dgs30.values[i]])) : new Map();
+  const dgs10Values = dailyLabels.map(d => dgs10Map.get(d) ?? null);
+  const dgs2Values  = dailyLabels.map(d => dgs2Map.get(d) ?? null);
+  const dgs30Values = dailyLabels.map(d => dgs30Map.get(d) ?? null);
 
   const fedRangeCutoff = _rangeCutoff(_RANGES.find(r => r.key === _chartRange)?.months ?? null);
-  const fedXMin = ffrLabels.find(l => l >= fedRangeCutoff) ?? ffrLabels[0];
+  const fedXMin = dailyLabels.find(l => l >= fedRangeCutoff) ?? dailyLabels[0];
 
   if (fedRateChart) { fedRateChart.destroy(); fedRateChart = null; }
 
@@ -232,7 +241,7 @@ export function renderFedRateChart(data) {
     type: 'line',
     plugins: [syncedCrosshairPlugin],
     data: {
-      labels: ffrLabels,
+      labels: dailyLabels,
       datasets: [
         {
           label: '联邦基金利率',
@@ -248,6 +257,17 @@ export function renderFedRateChart(data) {
           label: '10年期美债收益率',
           data: dgs10Values,
           borderColor: 'rgba(249, 115, 22, 0.9)',
+          backgroundColor: 'transparent',
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.8,
+          spanGaps: true,
+        },
+        {
+          label: '30年期美债收益率',
+          data: dgs30Values,
+          borderColor: 'rgba(168, 85, 247, 0.9)',
           backgroundColor: 'transparent',
           tension: 0.2,
           pointRadius: 0,

@@ -922,6 +922,7 @@ def fetch_us_rates_history(force_refresh: bool = False) -> Dict[str, Any]:
         ffr_labels, ffr_values = _fetch_fred_series_data("FEDFUNDS")
         dgs10_labels, dgs10_values = _fetch_fred_series_data("DGS10")
         dgs2_labels, dgs2_values = _fetch_fred_series_data("DGS2")
+        dgs30_labels, dgs30_values = _fetch_fred_series_data("DGS30")
     except RuntimeError:
         stale = _read_cache(_US_RATES_CACHE_KEY)
         if stale:
@@ -934,6 +935,7 @@ def fetch_us_rates_history(force_refresh: bool = False) -> Dict[str, Any]:
         "fedfunds": {"labels": ffr_labels, "values": ffr_values},
         "dgs10": {"labels": dgs10_labels, "values": dgs10_values},
         "dgs2": {"labels": dgs2_labels, "values": dgs2_values},
+        "dgs30": {"labels": dgs30_labels, "values": dgs30_values},
         "cached_at": datetime.now().isoformat(),
         "from_cache": False,
     }

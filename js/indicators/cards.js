@@ -354,6 +354,10 @@ export function renderIndicatorValues(key, values) {
           <div class="indicator-value-number small">${formatNumber(values['10_year'], 2)}<span class="indicator-value-unit">%</span></div>
         </div>
         <div class="indicator-value">
+          <div class="indicator-value-label">30年期</div>
+          <div class="indicator-value-number small">${formatNumber(values['30_year'], 2)}<span class="indicator-value-unit">%</span></div>
+        </div>
+        <div class="indicator-value">
           <div class="indicator-value-label">利差</div>
           <div class="indicator-value-number small">${values.spread_bp > 0 ? '+' : ''}${values.spread_bp || '—'}<span class="indicator-value-unit">bp</span></div>
         </div>
