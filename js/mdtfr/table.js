@@ -165,17 +165,18 @@ function sortAndRenderTable(items, sortKey) {
   const tbody = document.querySelector('#mdtfr-body tbody');
   if (!tbody) return;
 
-  // Separate backup rows (pinned at bottom) from active pool rows
+  // Separate backup rows from active pool rows
   const backupRows = [...tbody.querySelectorAll('tr[data-backup]')];
   const backupCodes = new Set(backupRows.map(tr => tr.id.replace('mdtfr-row-', '')));
 
-  const mainItems  = items.filter(x => !x.error && !backupCodes.has(x.code_c));
-  const errorItems = items.filter(x =>  x.error && !backupCodes.has(x.code_c));
-  const backupItems = items.filter(x => backupCodes.has(x.code_c));
+  // Separate error items (these can't be sorted meaningfully)
+  const errorItems = items.filter(x => x.error);
+  // All valid items (both active pool and backup) should be sorted together
+  const validItems = items.filter(x => !x.error);
 
-  const totalAmt = mainItems.reduce((sum, item) => sum + getDynAmt(item.code_c), 0);
+  const totalAmt = validItems.reduce((sum, item) => sum + getDynAmt(item.code_c), 0);
 
-  mainItems.sort((a, b) => {
+  validItems.sort((a, b) => {
     let aVal, bVal;
 
     switch (sortKey) {
@@ -219,16 +220,14 @@ function sortAndRenderTable(items, sortKey) {
     return currentSort.direction === 'desc' ? bVal - aVal : aVal - bVal;
   });
 
-  // Active pool rows (sorted) → error rows → backup rows (always last)
-  mainItems.forEach(item => {
+  // Render sorted valid items (includes both active pool and backup funds)
+  validItems.forEach(item => {
     const row = document.getElementById(`mdtfr-row-${item.code_c}`);
     if (row) tbody.appendChild(row);
   });
+  
+  // Error rows always at the end (they have no valid data to sort)
   errorItems.forEach(item => {
-    const row = document.getElementById(`mdtfr-row-${item.code_c}`);
-    if (row) tbody.appendChild(row);
-  });
-  backupItems.forEach(item => {
     const row = document.getElementById(`mdtfr-row-${item.code_c}`);
     if (row) tbody.appendChild(row);
   });
@@ -283,7 +282,7 @@ function _showCloseTooltip(target) {
 function _updateRet1Header(date) {
   if (!date) return;
   const el = document.getElementById('mdtfr-th-ret1');
-  if (el) el.innerHTML = `上一日涨跌<br><span style="color:var(--text-dim);font-weight:400">${date}</span>`;
+  if (el) el.innerHTML = `上一日涨跌 <span class="sort-icon">⇅</span><br><span style="color:var(--text-dim);font-weight:400">${date}</span>`;
 }
 
 // ── 量信号渲染（抽取为独立函数，降低 mdtfrFillRow 复杂度）──
