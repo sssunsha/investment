@@ -1,0 +1,208 @@
+/**
+ * Fund Error Display Styles
+ * 基金错误显示样式
+ */
+
+.fund-error-message {
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+    border: 1px solid #ffcccc;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fund-error-message .error-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #c53030;
+}
+
+.fund-error-message .icon-warning {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c53030'%3E%3Cpath d='M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z'/%3E%3C/svg%3E") no-repeat center;
+    background-size: contain;
+}
+
+.fund-error-message .error-details {
+    color: #742a2a;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.fund-error-message .error-details p {
+    margin: 8px 0;
+}
+
+.fund-error-message .error-details .status {
+    font-size: 13px;
+    color: #9b2c2c;
+    font-weight: 500;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 8px;
+}
+
+.fund-error-message .error-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.fund-error-message .error-actions button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.fund-error-message .btn-retry {
+    background: #e53e3e;
+    color: white;
+}
+
+.fund-error-message .btn-retry:hover {
+    background: #c53030;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(197, 48, 48, 0.3);
+}
+
+.fund-error-message .btn-alternatives {
+    background: white;
+    color: #e53e3e;
+    border: 1px solid #e53e3e;
+}
+
+.fund-error-message .btn-alternatives:hover {
+    background: #fff5f5;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(229, 62, 62, 0.2);
+}
+
+/* Warning message for suspended funds */
+.fund-warning-banner {
+    background: linear-gradient(135deg, #fffaf0 0%, #feebc8 100%);
+    border: 1px solid #f6ad55;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    color: #7c2d12;
+    font-size: 14px;
+}
+
+.fund-warning-banner .icon-info {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c05621'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E") no-repeat center;
+    background-size: contain;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Alternative funds modal */
+.alternatives-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.alternatives-modal .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.alternatives-modal .modal-header {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #2d3748;
+}
+
+.alternatives-modal .fund-item {
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.alternatives-modal .fund-item:hover {
+    background: #f7fafc;
+    border-color: #4299e1;
+    transform: translateX(4px);
+}
+
+.alternatives-modal .fund-item .fund-code {
+    font-weight: 600;
+    color: #2b6cb0;
+}
+
+.alternatives-modal .fund-item .fund-name {
+    color: #4a5568;
+    margin: 4px 0;
+}
+
+.alternatives-modal .fund-item .fund-category {
+    font-size: 12px;
+    color: #718096;
+    background: #edf2f7;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}

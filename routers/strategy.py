@@ -408,35 +408,45 @@ async def aw_pool_stream():
             for fund in AW_POOL_FUNDS:
                 try:
                     bscode = fund.get("baostock_code")
-                    if not bscode:
-                        ev({"type": "item", **fund,
-                            "latest_close": None, "ret_30d": None,
-                            "ma20": None, "above_ma20": None,
-                            "ma60": None, "ma60_rising": None,
-                            "ma60_rate": None, "ma60_trend": None,
-                            "error": "暂无场内价格数据"})
-                        continue
-
+                    code_c = fund.get("code_c")
+                    
                     ev({"type": "progress", "name": fund["name"], "msg": "获取数据中..."})
-                    rs = _bs.query_history_k_data_plus(
-                        bscode, "date,close",
-                        start_date=start_date, end_date=end_date,
-                        frequency="d", adjustflag="2"
-                    )
-                    if rs.error_code != '0':
-                        ev({"type": "item", **fund,
-                            "latest_close": None, "ret_30d": None,
-                            "ma20": None, "above_ma20": None,
-                            "ma60": None, "ma60_rising": None,
-                            "ma60_rate": None, "ma60_trend": None,
-                            "error": f"查询失败: {rs.error_msg}"})
-                        continue
+                    
+                    # 如果没有场内代码，使用天天基金C类基金净值
+                    if not bscode:
+                        nav_series = fetch_fund_nav_series(code_c, start_date, end_date)
+                        if not nav_series:
+                            ev({"type": "item", **fund,
+                                "latest_close": None, "ret_30d": None,
+                                "ret_15d": None, "ret_5d": None, "ret_1d": None,
+                                "ma20": None, "above_ma20": None,
+                                "ma60": None, "ma60_rising": None,
+                                "ma60_rate": None, "ma60_trend": None,
+                                "error": "无法获取净值数据"})
+                            continue
+                        rows = [item["close"] for item in nav_series]
+                    else:
+                        # 使用BaoStock获取场内ETF数据
+                        rs = _bs.query_history_k_data_plus(
+                            bscode, "date,close",
+                            start_date=start_date, end_date=end_date,
+                            frequency="d", adjustflag="2"
+                        )
+                        if rs.error_code != '0':
+                            ev({"type": "item", **fund,
+                                "latest_close": None, "ret_30d": None,
+                                "ret_15d": None, "ret_5d": None, "ret_1d": None,
+                                "ma20": None, "above_ma20": None,
+                                "ma60": None, "ma60_rising": None,
+                                "ma60_rate": None, "ma60_trend": None,
+                                "error": f"查询失败: {rs.error_msg}"})
+                            continue
 
-                    rows = []
-                    while rs.error_code == '0' and rs.next():
-                        row = rs.get_row_data()
-                        if row[1]:
-                            rows.append(float(row[1]))
+                        rows = []
+                        while rs.error_code == '0' and rs.next():
+                            row = rs.get_row_data()
+                            if row[1]:
+                                rows.append(float(row[1]))
 
                     n = len(rows)
                     if n < 21:
