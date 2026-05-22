@@ -48,7 +48,14 @@
       <div class="section-head">
         <span class="section-icon">📈</span>
         <span class="section-title">全天候标的监控</span>
-        <span id="aw-monitor-time" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
+        <span id="aw-monitor-time" style="font-size:13px;color:var(--text-dim);margin-left:8px"></span>
+        <span id="aw-total-amt" style="font-size:13px;font-weight:700;color:var(--yellow);margin-left:12px">总金额：¥0</span>
+        <span id="aw-total-pnl" style="font-size:13px;font-weight:700;margin-left:10px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openAwPnlDialog()" title="点击查看收益明细"></span>
+        <span class="available-input-wrap" style="margin-left:auto">
+          <label class="available-label">可用金额(元)：</label>
+          <input id="aw-available-input" class="available-input" type="number" min="0" step="1000"
+            placeholder="0" oninput="onAwAvailableChange(this.value)">
+        </span>
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="aw-debug-btn" onclick="toggleAwDebug()">🐛 调试</button>
           <button class="btn btn-ghost btn-sm" onclick="clearAndResetAw()" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
@@ -72,14 +79,8 @@
       </div>
 
       <div class="section-body">
-        <!-- 总资产输入 -->
-        <div style="margin-bottom:14px; display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap">
-          <div class="form-field" style="min-width:260px">
-            <label class="form-label" style="color:var(--cyan)">组合总市值（元）</label>
-            <input class="form-input" id="total-assets" type="number" placeholder="可不填，自动从各类别加总">
-          </div>
-          <div id="total-hint" style="font-size:13px; color:var(--text-dim); padding-bottom:6px; line-height:1.5"></div>
-        </div>
+        <!-- 总资产提示（自动计算） -->
+        <div id="total-hint" style="font-size:13px; color:var(--text-dim); margin-bottom:14px; line-height:1.5"></div>
 
         <!-- 各资产类别（按类别分行，动态生成） -->
         <div id="asset-inputs"></div>
@@ -292,6 +293,19 @@
     </div>
     <div class="journal-table-wrap">
       <div id="pnl-body" style="padding:8px 0">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- AW 收益明细弹窗 -->
+<div class="journal-overlay" id="aw-pnl-overlay" onclick="if(event.target===this)closeAwPnlDialog()">
+  <div class="journal-modal">
+    <div class="journal-modal-head">
+      <span style="font-size:18px;font-weight:700;flex:1">📊 全天候策略收益明细</span>
+      <button onclick="closeAwPnlDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
+    </div>
+    <div class="journal-table-wrap">
+      <div id="aw-pnl-body" style="padding:8px 0">加载中...</div>
     </div>
   </div>
 </div>
