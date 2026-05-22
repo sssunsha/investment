@@ -170,7 +170,6 @@
         </span>
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>
-          <button class="btn btn-ghost btn-sm" onclick="openPoolAdjust()" style="border-color:var(--blue);color:var(--blue)">⚙ 标的池调整</button>
           <button class="btn btn-ghost btn-sm" onclick="showConfirm('确认清空今日缓存数据？下次加载将重新获取行情。', clearMdtfrCache, '清空')" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
           <button class="btn btn-primary" id="mdtfr-btn" onclick="loadMdtfrPool()">▶ 加载数据</button>
         </div>
@@ -280,25 +279,6 @@
     <div class="check-type-btns">
       <button class="btn btn-ghost btn-sm" onclick="closeCheckTypePicker()">取消</button>
       <button class="btn btn-primary btn-sm" onclick="confirmCheckType()">确认并计算</button>
-    </div>
-  </div>
-</div>
-
-<!-- 标的池调整弹窗 -->
-<div class="pool-adjust-overlay" id="pool-adjust-overlay" onclick="if(event.target===this)closePoolAdjust()">
-  <div class="pool-adjust-modal">
-    <div class="pool-adjust-head">
-      <span class="pool-adjust-title">⚙ 标的池调整 — 进攻行业</span>
-      <button onclick="closePoolAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:13px;cursor:pointer">✕</button>
-    </div>
-    <div class="pool-adjust-body">
-      <div class="pool-adjust-hint">请从以下 5 只进攻行业候选中选择 <strong>恰好 2 只</strong> 纳入日常轮动标的池。</div>
-      <div id="pool-adjust-list"></div>
-    </div>
-    <div class="pool-adjust-foot">
-      <span class="pool-adjust-count" id="pool-adjust-count">已选 0 / 2</span>
-      <button class="btn btn-ghost btn-sm" onclick="closePoolAdjust()">取消</button>
-      <button class="btn btn-primary btn-sm" id="pool-adjust-ok" onclick="applyPoolAdjust()">确认调整</button>
     </div>
   </div>
 </div>

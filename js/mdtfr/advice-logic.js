@@ -57,6 +57,8 @@ export function mdtfrBuildAdvice(items) {
 
   // 条件1：趋势破位（跌破MA20）
   const sellBelowMa20 = holdings.filter(x => x.above_ma20 === false);
+  // 条件1b：价格跌破MA60 → 清仓
+  const sellBelowMa60 = holdings.filter(x => x.ma60 != null && x.latest_close != null && x.latest_close < x.ma60);
   // 条件2：排名跌出前6
   const sellOutTop6   = holdings.filter(x => x._globalRank > 6);
 
@@ -66,7 +68,7 @@ export function mdtfrBuildAdvice(items) {
     isAttack, cond1, cond2,
     modeCond1Text, modeCond1Note, modeCond2Text, modeCond2Note,
     pool, ranked, top2, buyCandidates,
-    holdings, sellBelowMa20, sellOutTop6,
+    holdings, sellBelowMa20, sellBelowMa60, sellOutTop6,
     valid, aboveMa20Count, aboveMa20Pct, hs300,
     _watchState,
   };

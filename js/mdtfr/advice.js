@@ -22,7 +22,7 @@ export function mdtfrRenderAdvice(items) {
     isAttack, cond1, cond2,
     modeCond1Text, modeCond1Note, modeCond2Text, modeCond2Note,
     pool, ranked, top2, buyCandidates,
-    holdings, sellBelowMa20, sellOutTop6, valid,
+    holdings, sellBelowMa20, sellBelowMa60, sellOutTop6, valid,
     _watchState,
   } = advice;
 
@@ -54,6 +54,8 @@ export function mdtfrRenderAdvice(items) {
   const hiLaser  = (t) => `<span style="color:#ff4d4d;font-weight:700;text-shadow:0 0 8px rgba(255,77,77,.8)">${t}</span>`;
   const hiPurple = (t) => `<span style="color:var(--purple);font-weight:700">${t}</span>`;
 
+  const ma60BelowCodes = new Set(sellBelowMa60.map(x => x.code_c));
+
   // 持仓分类
   const holdingCodes  = new Set(holdings.map(x => x.code_c));
   const buyCodes      = new Set(buyCandidates.map(x => x.code_c));
@@ -64,7 +66,7 @@ export function mdtfrRenderAdvice(items) {
     _watchState.filter(w => w.status === 'triggered').map(w => w.code_c)
   );
   const urgentSell    = holdings.filter(x =>
-    x._globalRank > 6 || posOverLimit.includes(x) || ma20TriggeredCodes.has(x.code_c));
+    x._globalRank > 6 || posOverLimit.includes(x) || ma20TriggeredCodes.has(x.code_c) || ma60BelowCodes.has(x.code_c));
   const watchSell     = sellBelowMa20.filter(x =>
     !urgentSell.includes(x));
 
@@ -79,6 +81,8 @@ export function mdtfrRenderAdvice(items) {
       const keepAmt  = totalAmt * 0.50;
       const sellAmt  = x._amt - keepAmt;
       lines.push(`卖出 ${hiRed(fmtY(sellAmt))}（仓位 ${x._posVal.toFixed(1)}% 超出50%，保留 ${hiGreen(fmtY(keepAmt))}）`);
+    } else if (ma60BelowCodes.has(x.code_c)) {
+      lines.push(`跌破60日均线 → 清仓：卖出全部 ${hiRed(fmtY(x._amt))} → 转入货币基金`);
     } else if (ma20TriggeredCodes.has(x.code_c)) {
       const ws = _watchState.find(w => w.code_c === x.code_c);
       const keepAmt = totalAmt * 0.15;
@@ -184,6 +188,9 @@ export function mdtfrRenderAdvice(items) {
       const keepAmt = totalAmt * 0.50;
       sellRows.push({ from: x.name, amt: x._amt - keepAmt, watch: false,
         to: '货币基金', note: `仓位 ${x._posVal.toFixed(1)}% 超出50%，保留 ${fmtY(keepAmt)}` });
+    } else if (ma60BelowCodes.has(x.code_c)) {
+      sellRows.push({ from: x.name, amt: x._amt, watch: false,
+        to: '货币基金', note: `跌破60日均线，清仓：收盘 ${x.latest_close?.toFixed(3)} < MA60 ${x.ma60?.toFixed(3)}` });
     } else if (ma20TriggeredCodes.has(x.code_c)) {
       const ws = _watchState.find(w => w.code_c === x.code_c);
       const keepAmt = totalAmt * 0.15;
@@ -289,7 +296,7 @@ export function mdtfrRenderAdvice(items) {
     <div style="padding:6px 0 6px 26px;font-size:13px">${modeSummary}</div>`;
 
   const poolText = isAttack
-    ? `进攻模式：12只标的全部纳入候选，正常执行动量轮动选股`
+    ? `进攻模式：22只标的全部纳入候选，正常执行动量轮动选股`
     : `防守模式：仅可从沪深300、中证500、红利低波动、黄金（4只）中选择买入`;
   const poolNote = `候选池 ${pool.length} 只` + (isAttack ? '' : `（防御标的）`) +
     `，动量最高：${ranked[0]?.name||'–'} ${fmtRet(ranked[0]?.ret_20d)}`;
@@ -353,6 +360,7 @@ export function mdtfrRenderAdvice(items) {
     sellHtml = holdings.map(x => {
       const rankTriggered = x._globalRank > 6;
       const posTriggered  = x._posVal > 50;
+      const ma60Below     = ma60BelowCodes.has(x.code_c);
       const lossTriggered = null;
 
       const ws = _watchState.find(w => w.code_c === x.code_c);
@@ -367,6 +375,9 @@ export function mdtfrRenderAdvice(items) {
       const posNote = posTriggered
         ? `当前仓位 ${x._posVal.toFixed(1)}%，超出50% → 立即卖出超额部分`
         : `当前仓位 ${x._posVal.toFixed(1)}%，未超过50%`;
+      const ma60Note = ma60Below
+        ? `收盘 ${x.latest_close?.toFixed(3)} < MA60 ${x.ma60?.toFixed(3)} → 清仓`
+        : `收盘 ${x.latest_close?.toFixed(3)} > MA60 ${x.ma60?.toFixed(3)}`;
 
       let ma20Type, ma20WarnText, ma20SafeText, ma20Note;
       if (ma20IsTriggered) {
@@ -388,7 +399,7 @@ export function mdtfrRenderAdvice(items) {
         ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} > MA20 ${x.ma20?.toFixed(3)}`;
       }
 
-      const anyTriggered = rankTriggered || ma20Below || posTriggered;
+      const anyTriggered = rankTriggered || ma20Below || ma60Below || posTriggered;
       const border = anyTriggered ? 'rgba(34,197,94,.3)'  : 'rgba(255,255,255,.08)';
       const bg     = anyTriggered ? 'rgba(34,197,94,.06)' : 'rgba(255,255,255,.02)';
       const nameClr = anyTriggered ? 'var(--green)' : 'var(--text-dim)';
@@ -399,7 +410,7 @@ export function mdtfrRenderAdvice(items) {
           <span style="color:${nameClr}">${nameIcon}</span>
           <span style="color:var(--text)">${escHtml(x.name)}</span>
           <span style="color:var(--text-dim);font-size:12px;font-weight:400">${x.code_c}</span>
-          ${ma20IsTriggered ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.15);color:var(--red);font-weight:700">🔔 连续${watchDays}日跌破MA20</span>` : ma20Watching ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:var(--yellow);font-weight:700">⏱ 观察第${watchDays}日</span>` : ''}
+          ${ma60Below ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.2);color:var(--red);font-weight:700">🚨 跌破MA60</span>` : ma20IsTriggered ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.15);color:var(--red);font-weight:700">🔔 连续${watchDays}日跌破MA20</span>` : ma20Watching ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:var(--yellow);font-weight:700">⏱ 观察第${watchDays}日</span>` : ''}
           <span style="font-size:12px;color:var(--yellow);font-weight:600;margin-left:auto">¥${x._amt.toLocaleString()} · ${x._posVal.toFixed(1)}%</span>
         </div>
         ${sellCondRow(rankTriggered,
@@ -407,6 +418,11 @@ export function mdtfrRenderAdvice(items) {
           '排名过滤：近20日涨幅排名仍在前6名内，无需操作',
           rankNote)}
         ${sellCondRow(ma20IsTriggered, ma20WarnText, ma20SafeText || '', ma20Note, ma20Type)}
+        ${sellCondRow(ma60Below,
+          '趋势破位：价格跌破60日均线 → 立即清仓，转入货币基金',
+          '趋势完好：收盘价站上60日均线，无清仓信号',
+          ma60Note,
+          ma60Below ? 'triggered' : 'normal')}
         ${sellCondRow(posTriggered,
           '仓位控制：仓位已超过50% → 立即卖出超额部分，补入另一只或转货币基金',
           '仓位控制：仓位未超过50%，无需操作',

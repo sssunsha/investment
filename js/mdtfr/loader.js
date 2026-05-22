@@ -1,7 +1,7 @@
 // js/mdtfr/loader.js
 // 数据加载入口：负责初始化表格、缓存优先加载、SSE 实时补全、清空缓存等编排逻辑
 
-import { getMdtfrPoolDef, getInactiveDefs } from './config.js';
+import { getMdtfrPoolDef } from './config.js';
 import { cacheGet, cachePut, clearMdtfrCache } from './cache.js';
 import { mdtfrLog, clearMdtfrDebug } from './debug.js';
 import {
@@ -49,27 +49,21 @@ function toggleMdtfrSort() {
   const btn = document.getElementById('mdtfr-sort-btn');
 
   if (!_mdtfrSorted) {
-    // 按排名升序排列（无排名的行移到末尾，备用行始终最后）
-    const rows = Array.from(tbody.querySelectorAll('tr:not([data-backup])'));
+    // 按排名升序排列（无排名的行移到末尾）
+    const rows = Array.from(tbody.querySelectorAll('tr'));
     rows.sort((a, b) => {
       const ra = Number.parseInt(a.querySelector('[id^="mdtfr-rank-"] .rank-badge')?.textContent) || 999;
       const rb = Number.parseInt(b.querySelector('[id^="mdtfr-rank-"] .rank-badge')?.textContent) || 999;
       return ra - rb;
     });
     rows.forEach(r => tbody.appendChild(r));
-    // 备用行始终追加到末尾
-    tbody.querySelectorAll('tr[data-backup]').forEach(r => tbody.appendChild(r));
     btn.innerHTML = '↩ 恢复';
     btn.style.color = 'var(--cyan)';
     btn.style.borderColor = 'var(--cyan)';
     _mdtfrSorted = true;
   } else {
-    // 恢复原始顺序（按 MDTFR_POOL_DEF 顺序，备用行在末尾）
+    // 恢复原始顺序（按 MDTFR_POOL_DEF 顺序）
     getMdtfrPoolDef().forEach(def => {
-      const row = document.getElementById(`mdtfr-row-${def.code_c}`);
-      if (row) tbody.appendChild(row);
-    });
-    getInactiveDefs().forEach(def => {
       const row = document.getElementById(`mdtfr-row-${def.code_c}`);
       if (row) tbody.appendChild(row);
     });
@@ -105,8 +99,7 @@ async function loadMdtfrPool() {
   if (cached && Array.isArray(cached)) cached.forEach(x => { cachedMap[x.code_c] = x; });
 
   const poolDef = getMdtfrPoolDef();
-  const backupDef = getInactiveDefs();
-  const allDefs = [...poolDef, ...backupDef];
+  const allDefs = poolDef;
   const poolCodes = new Set(poolDef.map(d => d.code_c));
   const incomplete = allDefs.filter(def => !mdtfrRowComplete(cachedMap[def.code_c]));
 
@@ -134,17 +127,13 @@ async function loadMdtfrPool() {
     // 先把完整缓存行填进去
     Object.values(cachedMap).filter(mdtfrRowComplete).forEach(mdtfrFillRow);
   }
-  const backupCodes = new Set(backupDef.map(d => d.code_c));
   incomplete.forEach(def => {
     ['close','ret','ma20','ma60'].forEach((k, i) => {
       const el = document.getElementById(`mdtfr-${k}-${def.code_c}`);
       if (el) el.innerHTML = skeletonCell(['70%','60%','55%','55%'][i]);
     });
-    // 备用行排名格始终显示"备"，不显示骨架屏
-    if (!backupCodes.has(def.code_c)) {
-      const rankEl = document.getElementById(`mdtfr-rank-${def.code_c}`);
-      if (rankEl) rankEl.innerHTML = skeletonCell('22px');
-    }
+    const rankEl = document.getElementById(`mdtfr-rank-${def.code_c}`);
+    if (rankEl) rankEl.innerHTML = skeletonCell('22px');
   });
 
   const codesParam = incomplete.map(d => d.code_c).join(',');

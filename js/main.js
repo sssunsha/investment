@@ -17,7 +17,6 @@ import { awMaybeInitEmpty, loadAwPool, clearAndResetAw } from './aw/monitor.js';
 import { toggleAwDebug, closeAwDebugDrawer, clearAwDebug } from './aw/debug.js';
 import { loadMdtfrPool, toggleMdtfrSort, clearAndResetMdtfr } from './mdtfr/loader.js';
 import { showConfirm, closeConfirm }              from './mdtfr/confirm.js';
-import { openPoolAdjust, closePoolAdjust, applyPoolAdjust } from './mdtfr/pool-adjust.js';
 import {
   toggleMdtfrDebug, closeDebugDrawer, clearMdtfrDebug,
 } from './mdtfr/debug.js';
@@ -57,7 +56,6 @@ Object.assign(window, {
   clearMdtfrCache: clearAndResetMdtfr,
   clearAndResetMdtfr,
   showConfirm, closeConfirm,
-  openPoolAdjust, closePoolAdjust, applyPoolAdjust,
   toggleMdtfrDebug, closeDebugDrawer, clearMdtfrDebug,
   openJournal, closeJournal, loadJournal,
   // AW 监控

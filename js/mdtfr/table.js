@@ -1,7 +1,7 @@
 // js/mdtfr/table.js
 import { escHtml } from '../utils.js';
-import { getMdtfrPoolDef, getInactiveDefs } from './config.js';
-import { mkAmtCell, mkPosPct, getShares, getDynAmt, refreshAmtPnl, mkDisabledAmtCell } from './amounts.js';
+import { getMdtfrPoolDef } from './config.js';
+import { mkAmtCell, mkPosPct, getShares, getDynAmt, refreshAmtPnl } from './amounts.js';
 
 function formatVol(v) {
   if (v == null) return '–';
@@ -19,8 +19,7 @@ function mdtfrInitTable(skeleton = false) {
     <td id="mdtfr-name-${def.code_c}" style="font-weight:600;cursor:help" data-code-c="${def.code_c}" data-a-code="${def.code_a}" data-etf="${def.etf}">${(()=>{
       const gCfg = {宽基:['宽','var(--blue)'],行业:['行','var(--cyan)'],防御:['防','var(--purple)']};
       const [gc,gcol] = gCfg[def.group] || ['防','var(--purple)'];
-      const offDeco = def.offensive ? 'text-decoration:underline;text-decoration-color:var(--red);text-underline-offset:2px' : '';
-      return `<span style="${offDeco}">${escHtml(def.name)}</span><span style="font-size:10px;margin-left:5px;font-weight:700;color:${gcol}">${gc}</span>`;
+      return `<span>${escHtml(def.name)}</span><span style="font-size:10px;margin-left:5px;font-weight:700;color:${gcol}">${gc}</span>`;
     })()}</td>
     <td id="mdtfr-ret20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
     <td id="mdtfr-vol20-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
@@ -36,31 +35,6 @@ function mdtfrInitTable(skeleton = false) {
     <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
     <td style="white-space:nowrap">${mkAmtCell(def.code_c)}</td>
     <td id="mdtfr-pos-${def.code_c}" style="text-align:right">${mkPosPct(def.code_c)}</td>
-  </tr>`;
-
-  const backupBadge = `<span style="font-size:11px;padding:1px 5px;border-radius:3px;font-weight:600;background:rgba(128,128,128,.12);color:var(--text-dim);margin-left:5px">⊡ 备用</span>`;
-  const mkBackupRow = (def) => `<tr id="mdtfr-row-${def.code_c}" class="mdtfr-backup-row" data-backup="true">
-    <td id="mdtfr-rank-${def.code_c}"><span class="rank-badge" style="background:rgba(128,128,128,.15);color:var(--text-dim);font-size:10px;padding:2px 5px">备</span></td>
-    <td id="mdtfr-name-${def.code_c}" style="font-weight:600;color:var(--text-dim);cursor:help" data-code-c="${def.code_c}" data-a-code="${def.code_a}" data-etf="${def.etf}">${(()=>{
-      const gCfg = {宽基:['宽','var(--blue)'],行业:['行','var(--cyan)'],防御:['防','var(--purple)']};
-      const [gc,gcol] = gCfg[def.group] || ['防','var(--purple)'];
-      const offDeco = def.offensive ? 'text-decoration:underline;text-decoration-color:var(--red);text-underline-offset:2px' : '';
-      return `<span style="${offDeco}">${escHtml(def.name)}</span>${backupBadge}<span style="font-size:10px;margin-left:5px;font-weight:700;opacity:0.7;color:${gcol}">${gc}</span>`;
-    })()}</td>
-    <td id="mdtfr-ret20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
-    <td id="mdtfr-vol20-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-ret10-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
-    <td id="mdtfr-vol10-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-ret5-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-vol5-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-ret1-${def.code_c}" style="cursor:help">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-vol1-${def.code_c}" style="text-align:right;font-size:12px">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-volsig-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:60%"></div>' : dash}</td>
-    <td id="mdtfr-ma20-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-ma60-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:55%"></div>' : dash}</td>
-    <td id="mdtfr-shares-${def.code_c}" style="text-align:right;color:var(--text-dim);font-size:13px">–</td>
-    <td style="white-space:nowrap">${mkDisabledAmtCell()}</td>
-    <td id="mdtfr-pos-${def.code_c}" style="text-align:right"><span class="pos-pct" style="color:var(--text-dim)">–</span></td>
   </tr>`;
 
   body.innerHTML = `
@@ -86,7 +60,6 @@ function mdtfrInitTable(skeleton = false) {
         </tr></thead>
         <tbody>
           ${getMdtfrPoolDef().map(mkRow).join('')}
-          ${getInactiveDefs().map(mkBackupRow).join('')}
         </tbody>
       </table>
     </div>`;
@@ -164,10 +137,6 @@ function handleColumnSort(sortKey, th) {
 function sortAndRenderTable(items, sortKey) {
   const tbody = document.querySelector('#mdtfr-body tbody');
   if (!tbody) return;
-
-  // Separate backup rows from active pool rows
-  const backupRows = [...tbody.querySelectorAll('tr[data-backup]')];
-  const backupCodes = new Set(backupRows.map(tr => tr.id.replace('mdtfr-row-', '')));
 
   // Separate error items (these can't be sorted meaningfully)
   const errorItems = items.filter(x => x.error);
@@ -483,7 +452,7 @@ function mdtfrRowComplete(item) {
   if (!item || item.error) return false;
   if (item.ret_20d == null || item.latest_close == null) return false;
   if (item.ma60_trend == null) return false;  // MA60 趋势未计算（数据不足）
-  if (item.vol_1d === undefined) return false;
+  if (item.vol_1d == null) return false;
   return true;
 }
 
