@@ -5,7 +5,6 @@ import { initRebalanceDayStyle }                  from './rebalance-day.js';
 import { buildInputs, toggleAwAlt, populateCalcInputsFromPositions } from './aw/inputs.js';
 import {
   calcRebalance, resetCalc,
-  selectCheckType, closeCheckTypePicker, confirmCheckType,
 } from './aw/calc.js';
 import { renderLog, saveToLog, deleteLog, clearLog } from './aw/log.js';
 import {
@@ -48,7 +47,6 @@ Object.assign(window, {
   switchTab, openDrawer, closeDrawer,
   // AW 再平衡
   calcRebalance, resetCalc, toggleAwAlt,
-  selectCheckType, closeCheckTypePicker, confirmCheckType,
   saveToLog, deleteLog, clearLog,
   // AW 复盘
   saveAwJournalRecord, showAwToast,

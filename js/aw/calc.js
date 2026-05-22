@@ -7,28 +7,14 @@ import { getAwDynAmt } from './amounts.js';
 
 let lastCalcResult = null;
 
-// ── 检查类型选择器 ──
-let _pendingCheckType = 'monthly';
+// ── 自动判断检查类型 ──
+function _detectCheckType() {
+  const month = new Date().getMonth() + 1;
+  return [4, 7, 10, 1].includes(month) ? 'quarterly' : 'monthly';
+}
 
 function calcRebalance() {
-  document.getElementById('check-type-overlay').classList.add('open');
-}
-
-function selectCheckType(type, labelEl) {
-  _pendingCheckType = type;
-  document.querySelectorAll('.check-type-option').forEach(el => el.classList.remove('selected'));
-  labelEl.classList.add('selected');
-  const radio = labelEl.querySelector('input[type=radio]');
-  if (radio) radio.checked = true;
-}
-
-function closeCheckTypePicker() {
-  document.getElementById('check-type-overlay').classList.remove('open');
-}
-
-function confirmCheckType() {
-  closeCheckTypePicker();
-  _runCalc(_pendingCheckType);
+  _runCalc(_detectCheckType());
 }
 
 function _runCalc(checkType) {
@@ -55,6 +41,9 @@ function _runCalc(checkType) {
   const weights = {};
   for (const a of PORTFOLIO) { weights[a.id] = assets[a.id] / total; }
 
+  // ── 极端熔断并行检查（始终运行，与主检查类型无关）──
+  const realtimeAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.10);
+  const realtimeTriggered = realtimeAssets.length > 0;
 
   // ── Trigger checks（按检查类型过滤）──
   const hs300w  = weights['hs300'];
@@ -65,12 +54,6 @@ function _runCalc(checkType) {
 
   const triggerResults = [];
   const triggeredTypes = [];
-
-  const checkTypeLabel = {
-    monthly:   '📅 每月检查日',
-    quarterly: '📊 每季度检查日',
-    realtime:  '⚡ 实时监控',
-  }[checkType] || '';
 
   if (checkType === 'monthly') {
     // 每月检查日：仅常规阈值再平衡(±5%)
@@ -114,23 +97,39 @@ function _runCalc(checkType) {
         : '中债为 0，无法计算',
     });
     if (bondTriggered) triggeredTypes.push('债券内部结构');
-
-  } else {
-    // 实时监控：极端熔断再平衡(±10%)
-    const extremeAssets = PORTFOLIO.filter(a => Math.abs(weights[a.id] - a.target) >= 0.10);
-    triggerResults.push({
-      label: '极端熔断再平衡 (±10%)',
-      triggered: extremeAssets.length > 0,
-      detail: extremeAssets.length ? `触发：${extremeAssets.map(a=>a.label).join('、')}` : '无资产偏离超过 ±10%',
-    });
-    if (extremeAssets.length) triggeredTypes.push('极端熔断再平衡');
   }
 
-  const anyTriggered = triggeredTypes.length > 0;
+  // ── 渲染检查类型横幅 ──
+  const _month = new Date().getMonth() + 1;
+  let _bannerHtml = '';
+
+  if (realtimeTriggered) {
+    const _alertLines = realtimeAssets.map(a => {
+      const _drift = (weights[a.id] - a.target) * 100;
+      const _driftStr = (_drift >= 0 ? '+' : '') + _drift.toFixed(1) + '%';
+      return `${a.label} 偏离 ${_driftStr}（目标${(a.target * 100).toFixed(0)}%，当前${(weights[a.id] * 100).toFixed(1)}%）`;
+    }).join('；');
+    _bannerHtml += `<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:10px 14px;margin-bottom:8px;color:var(--red);font-size:13px;font-weight:600;line-height:1.7">`
+      + `⚡ 极端熔断！${_alertLines}<br>`
+      + `<span style="font-weight:400;color:var(--text-dim)">建议立即执行再平衡，无需等待月度检查日</span></div>`;
+  }
+
+  if (checkType === 'quarterly') {
+    _bannerHtml += `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.28);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:var(--text-dim)">`
+      + `📊 每季度检查日 ｜ 当前${_month}月，季度首月（4/7/10/1月），执行定期体检（±3%）及内部结构检查</div>`;
+  } else {
+    _bannerHtml += `<div style="background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:var(--text-dim)">`
+      + `📅 每月检查日 ｜ 当前${_month}月，非季度首月，执行常规阈值检查（±5%）</div>`;
+  }
+
+  document.getElementById('check-type-banner').innerHTML = _bannerHtml;
+
+  const primaryTriggered = triggeredTypes.length > 0;
+  const anyTriggered = primaryTriggered || realtimeTriggered;
+  const allTriggeredTypes = [...triggeredTypes, ...(realtimeTriggered ? ['极端熔断再平衡'] : [])];
 
   // ── Render trigger status badges ──
   document.getElementById('trigger-status').innerHTML =
-    `<span style="font-size:13px;font-weight:700;color:var(--cyan);margin-right:4px">${checkTypeLabel}</span>` +
     '<span style="font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">触发点：</span>' +
     triggerResults.map(t =>
       `<span class="sum-chip ${t.triggered ? 'sum-sell' : 'sum-ok'}" title="${t.detail}">${t.triggered ? '⚠' : '✓'} ${t.label}</span>`
@@ -204,7 +203,7 @@ function _runCalc(checkType) {
        <span class="sum-chip sum-buy">↑ 申购合计：${fmtMoney(totalBuy)}</span>
        <span class="sum-chip sum-info">可用：${fmtMoney(available)}</span>
        ${availableWarning}
-       <span class="sum-chip sum-info" style="margin-left:auto">触发：${triggeredTypes.join(' / ')}</span>`
+       <span class="sum-chip sum-info" style="margin-left:auto">触发：${allTriggeredTypes.join(' / ')}</span>`
     : `<span class="sum-chip sum-ok">✓ 所有触发点均未触发，投资组合无需调整</span>`;
 
   // ── Operation plans ──
@@ -319,7 +318,7 @@ function _runCalc(checkType) {
       weights,
       ops: [...sells.map(o => ({ op: '赎回', name: o.name, code: o.code, amount: Math.abs(o.diff) })),
             ...buys.map(o  => ({ op: '申购', name: o.name, code: o.code, amount: o.diff }))],
-      triggers: triggeredTypes,
+      triggers: allTriggeredTypes,
     };
     // 自动保存复盘记录（静默模式）
     window.saveAwJournalRecord?.(true);
@@ -342,7 +341,4 @@ function resetCalc() {
 
 export function getLastCalcResult() { return lastCalcResult; }
 
-export {
-  calcRebalance, selectCheckType, closeCheckTypePicker, confirmCheckType,
-  resetCalc,
-};
+export { calcRebalance, resetCalc };
