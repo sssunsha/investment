@@ -333,6 +333,7 @@ function _runCalc(checkType) {
 
 function resetCalc() {
   document.getElementById('total-hint').innerHTML = '';
+  document.getElementById('check-type-banner').innerHTML = '';
   PORTFOLIO.forEach(a => { document.getElementById('inp-' + a.id).value = ''; });
   document.getElementById('calc-result').style.display = 'none';
   clearHighlights();
