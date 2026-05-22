@@ -1,5 +1,6 @@
 // js/aw/inputs.js
 import { PORTFOLIO, ASSET_COLORS, CAT_GROUPS, awAltSet, getActiveAsset, AW_ALT_KEY } from './config.js';
+import { getAwDynAmt } from './amounts.js';
 
 function buildInputs() {
   const el = document.getElementById('asset-inputs');
@@ -52,6 +53,7 @@ function toggleAwAlt(id) {
     const inp = document.getElementById('inp-' + xid);
     if (inp) inp.value = val;
   });
+  populateCalcInputsFromPositions();
   const active = getActiveAsset(a);
   window.showAwToast?.(`已切换为：${active.name}（${active.code}）`);
 }
@@ -70,6 +72,17 @@ function highlightInputs(ops) {
 function clearHighlights() {
   document.querySelectorAll('.form-field[data-id]').forEach(el => {
     el.classList.remove('field-sell', 'field-buy');
+  });
+}
+
+export function populateCalcInputsFromPositions() {
+  PORTFOLIO.forEach(a => {
+    const active = getActiveAsset(a);
+    const v      = getAwDynAmt(active.code);
+    const inp    = document.getElementById('inp-' + a.id);
+    if (inp && document.activeElement !== inp) {
+      inp.value = v > 0 ? v : '';
+    }
   });
 }
 

@@ -2,6 +2,8 @@
 import { PORTFOLIO, ASSET_COLORS, getActiveAsset } from './config.js';
 import { fmtMoney } from '../utils.js';
 import { highlightInputs, clearHighlights } from './inputs.js';
+import { getAwAvailableAmt, getAwTotalAmt } from './aw-available.js';
+import { getAwDynAmt } from './amounts.js';
 
 let lastCalcResult = null;
 
@@ -30,40 +32,23 @@ function confirmCheckType() {
 }
 
 function _runCalc(checkType) {
-  const inputTotal = parseFloat(document.getElementById('total-assets').value) || 0;
-
   const assets = {};
   for (const a of PORTFOLIO) {
     assets[a.id] = parseFloat(document.getElementById('inp-' + a.id).value) || 0;
   }
 
-  // ── 确定有效总市值 ──
+  // ── 确定有效总金额（持仓 + 可用金额）──
   const assetSum = Object.values(assets).reduce((s, v) => s + v, 0);
+  const available = getAwAvailableAmt();
+  const total     = assetSum + available;
 
-  let total, totalMode;
-  if (assetSum > 0) {
-    // 各类别市值之和优先（无论总市值框是否填写）
-    total = assetSum;
-    if (inputTotal > 0 && Math.abs(inputTotal - assetSum) > 1) {
-      // 两者都填且不一致：提示已用各类别之和修正
-      totalMode = `⚠ 已用各类别市值之和修正：${fmtMoney(total)}（原填 ${fmtMoney(inputTotal)}）`;
-      document.getElementById('total-assets').value = total.toFixed(2);
-    } else if (inputTotal <= 0) {
-      totalMode = `✦ 总市值由各类别自动加总：${fmtMoney(total)}`;
-      document.getElementById('total-assets').value = total.toFixed(2);
-    } else {
-      totalMode = `✓ 各类别加总与填写总市值一致：${fmtMoney(total)}`;
-    }
-  } else if (inputTotal > 0) {
-    // 仅填了总市值，没有任何类别值
-    total = inputTotal;
-    totalMode = `各类别均未填写市值，按填写总额计算：${fmtMoney(total)}`;
-  } else {
-    document.getElementById('total-hint').innerHTML = '<span style="color:var(--red)">⚠ 请至少填写一项资产市值或组合总市值</span>';
+  if (total <= 0) {
+    document.getElementById('total-hint').innerHTML =
+      '<span style="color:var(--red)">⚠ 请先在标的监控中录入持仓金额，或直接填写各类别当前市值</span>';
     return;
   }
 
-  // 显示总市值来源提示
+  const totalMode = `✦ 总金额 = 持仓 ${fmtMoney(assetSum)} + 可用 ${fmtMoney(available)} = ${fmtMoney(total)}`;
   document.getElementById('total-hint').innerHTML =
     `<span style="color:var(--text-dim)">${totalMode}</span>`;
 
@@ -211,9 +196,14 @@ function _runCalc(checkType) {
   const totalSell = sells.reduce((s, o) => s + Math.abs(o.diff), 0);
   const totalBuy  = buys.reduce((s,  o) => s + o.diff, 0);
 
+  const availableWarning = anyTriggered && totalBuy > available + totalSell
+    ? `<span class="sum-chip" style="background:rgba(245,158,11,.15);color:var(--yellow)">⚠ 买入合计超出可用资金 ${fmtMoney(totalBuy - available - totalSell)}</span>`
+    : '';
   document.getElementById('calc-summary').innerHTML = anyTriggered
     ? `<span class="sum-chip sum-sell">↓ 赎回合计：${fmtMoney(totalSell)}</span>
        <span class="sum-chip sum-buy">↑ 申购合计：${fmtMoney(totalBuy)}</span>
+       <span class="sum-chip sum-info">可用：${fmtMoney(available)}</span>
+       ${availableWarning}
        <span class="sum-chip sum-info" style="margin-left:auto">触发：${triggeredTypes.join(' / ')}</span>`
     : `<span class="sum-chip sum-ok">✓ 所有触发点均未触发，投资组合无需调整</span>`;
 
@@ -343,7 +333,6 @@ function _runCalc(checkType) {
 }
 
 function resetCalc() {
-  document.getElementById('total-assets').value = '';
   document.getElementById('total-hint').innerHTML = '';
   PORTFOLIO.forEach(a => { document.getElementById('inp-' + a.id).value = ''; });
   document.getElementById('calc-result').style.display = 'none';
