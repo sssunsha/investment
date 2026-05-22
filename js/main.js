@@ -2,7 +2,7 @@
 
 import { switchTab, initHashRouter }             from './tab.js';
 import { initRebalanceDayStyle }                  from './rebalance-day.js';
-import { buildInputs, toggleAwAlt }               from './aw/inputs.js';
+import { buildInputs, toggleAwAlt, populateCalcInputsFromPositions } from './aw/inputs.js';
 import {
   calcRebalance, resetCalc,
   selectCheckType, closeCheckTypePicker, confirmCheckType,
@@ -14,6 +14,8 @@ import {
 } from './aw/journal.js';
 import { openDrawer, closeDrawer }                from './aw/drawer.js';
 import { awMaybeInitEmpty, loadAwPool, clearAndResetAw } from './aw/monitor.js';
+import { loadAwAmounts, onAwAmtChange, clearAwAmt, refreshAwAllPosPct as refreshAwPosPct } from './aw/amounts.js';
+import { loadAwAvailable, onAwAvailableChange, refreshAwTotalDisplay, openAwPnlDialog, closeAwPnlDialog } from './aw/aw-available.js';
 import { toggleAwDebug, closeAwDebugDrawer, clearAwDebug } from './aw/debug.js';
 import { loadMdtfrPool, toggleMdtfrSort, clearAndResetMdtfr } from './mdtfr/loader.js';
 import { showConfirm, closeConfirm }              from './mdtfr/confirm.js';
@@ -61,6 +63,11 @@ Object.assign(window, {
   // AW 监控
   loadAwPool, clearAndResetAw,
   toggleAwDebug, closeAwDebugDrawer, clearAwDebug,
+  // AW 持仓金额
+  onAwAmtChange, clearAwAmt,
+  onAwAvailableChange,
+  // AW 收益明细弹窗
+  openAwPnlDialog, closeAwPnlDialog,
   // 金额管理
   onAmtChange, clearAmt,
   onAvailableChange,
@@ -75,12 +82,11 @@ buildInputs();
 renderLog();
 initRebalanceDayStyle();
 
-// 异步初始化序列：loadAmounts → loadAvailable → 持仓回溯（若需要）→ 刷新 UI
 (async () => {
+  // MDTFR 持仓初始化
   await loadAmounts();
   await loadAvailable();
 
-  // 若持仓和可用金额均为 0，尝试从 journal 回溯恢复
   if (getSumOfPositions() === 0 && getAvailableAmt() === 0) {
     await recoverFromJournal();
   }
@@ -88,6 +94,13 @@ initRebalanceDayStyle();
   refreshTotalDisplay();
   refreshAllPosPct();
 
+  // AW 持仓初始化
+  await loadAwAmounts();
+  await loadAwAvailable();
+  refreshAwTotalDisplay();
+  refreshAwPosPct();
+  populateCalcInputsFromPositions();
+
   await awMaybeInitEmpty();
-  initHashRouter();  // 处理 #aw / #mdtfr hash 路由（含 mdtfrMaybeInitEmpty 调用）
+  initHashRouter();
 })();
