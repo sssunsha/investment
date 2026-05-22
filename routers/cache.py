@@ -308,8 +308,10 @@ async def aw_journal_post(request: Request):
 
 
 
-WATCH_FILE = CACHE_DIR / "mdtfr_watch.json"
-AMOUNTS_FILE = CACHE_DIR / "mdtfr_amounts.json"
+WATCH_FILE            = CACHE_DIR / "mdtfr_watch.json"
+AMOUNTS_FILE          = CACHE_DIR / "mdtfr_amounts.json"
+AW_AMOUNTS_FILE       = CACHE_DIR / "aw_amounts.json"
+AW_REBALANCE_LOG_FILE = CACHE_DIR / "aw_rebalance_log.json"
 
 
 @router.get("/watchstate", summary="读取MA20跌破连续观察状态")
@@ -407,3 +409,43 @@ async def macro_patch(key: str, request: Request):
         return {"ok": True, "key": key, "file": str(MACRO_CACHE_FILE)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新宏观数据缓存失败: {e}")
+
+
+# ── AW 持仓金额 ─────────────────────────────────────────────────
+
+@router.get("/aw-amounts", summary="读取AW持仓金额（code → 元）")
+async def aw_amounts_get():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    data = _read_json(AW_AMOUNTS_FILE, {})
+    return JSONResponse(content=data if isinstance(data, dict) else {})
+
+
+@router.put("/aw-amounts", summary="写入AW持仓金额（code → 元）")
+async def aw_amounts_put(request: Request):
+    try:
+        payload = await request.json()
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _write_json(AW_AMOUNTS_FILE, payload)
+        return {"ok": True, "file": str(AW_AMOUNTS_FILE)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入AW持仓金额失败: {e}")
+
+
+# ── AW 再平衡操作日志 ───────────────────────────────────────────
+
+@router.get("/aw-rebalance-log", summary="读取AW再平衡操作日志")
+async def aw_rebalance_log_get():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    data = _read_json(AW_REBALANCE_LOG_FILE, [])
+    return JSONResponse(content=data if isinstance(data, list) else [])
+
+
+@router.put("/aw-rebalance-log", summary="写入AW再平衡操作日志")
+async def aw_rebalance_log_put(request: Request):
+    try:
+        payload = await request.json()
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _write_json(AW_REBALANCE_LOG_FILE, payload)
+        return {"ok": True, "file": str(AW_REBALANCE_LOG_FILE)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入AW操作日志失败: {e}")

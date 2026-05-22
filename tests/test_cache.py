@@ -114,3 +114,61 @@ class TestJournalUpsert:
         assert len(records) == 1
         assert records[0]["action"] == "sell"
         assert idx == 0
+
+
+class TestAwAmountsApi:
+    """GET /api/cache/aw-amounts  &  PUT /api/cache/aw-amounts"""
+
+    def test_get_returns_empty_dict_when_file_missing(self, tmp_path, monkeypatch):
+        import routers.cache as cache_mod
+        monkeypatch.setattr(cache_mod, 'AW_AMOUNTS_FILE', tmp_path / "aw_amounts.json")
+        monkeypatch.setattr(cache_mod, 'CACHE_DIR', tmp_path)
+        from fastapi.testclient import TestClient
+        from main import app
+        client = TestClient(app)
+        resp = client.get("/api/cache/aw-amounts")
+        assert resp.status_code == 200
+        assert resp.json() == {}
+
+    def test_put_and_get_roundtrip(self, tmp_path, monkeypatch):
+        import routers.cache as cache_mod
+        monkeypatch.setattr(cache_mod, 'AW_AMOUNTS_FILE', tmp_path / "aw_amounts.json")
+        monkeypatch.setattr(cache_mod, 'CACHE_DIR', tmp_path)
+        from fastapi.testclient import TestClient
+        from main import app
+        client = TestClient(app)
+        payload = {"460300": 25000.0, "__available__": 10000.0, "__shares__": {"460300": 185.4}}
+        client.put("/api/cache/aw-amounts", json=payload)
+        resp = client.get("/api/cache/aw-amounts")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["460300"] == pytest.approx(25000.0)
+        assert data["__available__"] == pytest.approx(10000.0)
+
+
+class TestAwRebalanceLogApi:
+    """GET /api/cache/aw-rebalance-log  &  PUT /api/cache/aw-rebalance-log"""
+
+    def test_get_returns_empty_list_when_file_missing(self, tmp_path, monkeypatch):
+        import routers.cache as cache_mod
+        monkeypatch.setattr(cache_mod, 'AW_REBALANCE_LOG_FILE', tmp_path / "aw_rebalance_log.json")
+        monkeypatch.setattr(cache_mod, 'CACHE_DIR', tmp_path)
+        from fastapi.testclient import TestClient
+        from main import app
+        client = TestClient(app)
+        resp = client.get("/api/cache/aw-rebalance-log")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_put_and_get_roundtrip(self, tmp_path, monkeypatch):
+        import routers.cache as cache_mod
+        monkeypatch.setattr(cache_mod, 'AW_REBALANCE_LOG_FILE', tmp_path / "aw_rebalance_log.json")
+        monkeypatch.setattr(cache_mod, 'CACHE_DIR', tmp_path)
+        from fastapi.testclient import TestClient
+        from main import app
+        client = TestClient(app)
+        log = [{"date": "2026-05-22", "total": 100000, "ops": []}]
+        client.put("/api/cache/aw-rebalance-log", json=log)
+        resp = client.get("/api/cache/aw-rebalance-log")
+        assert resp.status_code == 200
+        assert resp.json()[0]["date"] == "2026-05-22"
