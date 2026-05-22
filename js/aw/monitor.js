@@ -3,6 +3,7 @@
 import { PORTFOLIO } from './config.js';
 import { escHtml } from '../utils.js';
 import { awLog } from './debug.js';
+import { mkAwAmtCell, mkAwSharesCell, mkAwPosPct, refreshAwAmtPnl, getAwShares } from './amounts.js';
 
 // ── 14行标的定义（主力在前，替代在后，按 PORTFOLIO 顺序）────────
 function _getAwPoolDef() {
@@ -87,6 +88,9 @@ function awInitTable(skeleton = false) {
     <td id="aw-close-${def.code}">${sk('70%')}</td>
     <td id="aw-ma20-${def.code}">${sk('55%')}</td>
     <td id="aw-ma60-${def.code}">${sk('55%')}</td>
+    <td id="aw-amt-cell-${def.code}">${mkAwAmtCell(def.code)}</td>
+    <td id="aw-shares-cell-${def.code}">${mkAwSharesCell(def.code)}</td>
+    <td>${mkAwPosPct(def.code)}</td>
   </tr>`).join('');
 
   wrap.innerHTML = `
@@ -101,12 +105,33 @@ function awInitTable(skeleton = false) {
           <th>收盘价</th>
           <th class="sortable" data-sort="above_ma20">vs MA20 <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="ma60_trend">MA60趋势 <span class="sort-icon">⇅</span></th>
+          <th style="min-width:160px">持仓金额(元)</th>
+          <th>份额</th>
+          <th>仓位%</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
 
   setTimeout(() => _awInitColumnSorting(), 0);
+}
+
+// ── MA60趋势 HTML 片段 ─────────────────────────────────────────
+function _ma60Html(item) {
+  const trend = item.ma60_trend;
+  if (!trend) return '<span style="color:var(--border)">–</span>';
+  let rateHtml = '';
+  if (item.ma60_rate != null) {
+    const sign = item.ma60_rate > 0 ? '+' : '';
+    rateHtml = `<span style="font-size:11px;opacity:.7;margin-left:3px">${sign}${item.ma60_rate.toFixed(2)}%</span>`;
+  }
+  const cfg = {
+    '趋势向好': ['var(--red)',    '↑'],
+    '持续下行': ['var(--green)',  '↓'],
+    '未达标':   ['var(--yellow)', '→'],
+  };
+  const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
+  return `<span style="color:${color}">${arrow} ${trend}</span>${rateHtml}`;
 }
 
 // ── 填充单行数据 ───────────────────────────────────────────────
@@ -152,20 +177,7 @@ function awFillRow(item) {
 
   // MA60趋势
   const ma60El = document.getElementById(`aw-ma60-${c}`);
-  ma60El.innerHTML = (() => {
-    const trend = item.ma60_trend;
-    if (!trend) return '<span style="color:var(--border)">–</span>';
-    const rate = item.ma60_rate != null
-      ? `<span style="font-size:11px;opacity:.7;margin-left:3px">${item.ma60_rate > 0 ? '+' : ''}${item.ma60_rate.toFixed(2)}%</span>`
-      : '';
-    const cfg = {
-      '趋势向好': ['var(--red)',    '↑'],
-      '持续下行': ['var(--green)',  '↓'],
-      '未达标':   ['var(--yellow)', '→'],
-    };
-    const [color, arrow] = cfg[trend] || ['var(--border)', '–'];
-    return `<span style="color:${color}">${arrow} ${trend}</span>${rate}`;
-  })();
+  ma60El.innerHTML = _ma60Html(item);
   ma60El.dataset.trend      = item.ma60_trend      ?? '';
   ma60El.dataset.ma60       = item.ma60             ?? '';
   ma60El.dataset.ma60Avg5   = item.ma60_avg5        ?? '';
@@ -173,6 +185,19 @@ function awFillRow(item) {
   ma60El.dataset.hasUptick  = item.ma60_has_uptick  ?? '';
   ma60El.dataset.aboveAvg   = item.ma60_above_avg   ?? '';
   ma60El.style.cursor       = item.ma60_trend ? 'help' : '';
+
+  // 更新份额展示
+  const sharesEl = document.getElementById(`aw-shares-cell-${c}`);
+  if (sharesEl) {
+    const shares = getAwShares(c);
+    const cost   = Number.parseFloat(sharesEl.dataset.cost || 0);
+    const nav    = cost > 0 && shares > 0 ? (cost / shares).toFixed(4) : '–';
+    const tip    = shares > 0 ? `title="份额: ${shares.toFixed(2)} / 成本: ¥${Math.round(cost).toLocaleString()} / 均价: ${nav}"` : '';
+    sharesEl.innerHTML = `<span style="font-size:13px;color:var(--text-dim);cursor:${shares>0?'help':'default'}" ${tip}>${shares > 0 ? shares.toFixed(2) : '–'}</span>`;
+  }
+
+  // 用最新净值刷新动态市值 + 盈亏颜色
+  refreshAwAmtPnl([item]);
 }
 
 // ── 列排序 ────────────────────────────────────────────────────
