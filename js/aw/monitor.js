@@ -1,6 +1,6 @@
 // js/aw/monitor.js — 全天候标的监控：表格渲染 + SSE 加载 + 缓存逻辑
 
-import { PORTFOLIO } from './config.js';
+import { PORTFOLIO, awAltSet } from './config.js';
 import { escHtml } from '../utils.js';
 import { awLog } from './debug.js';
 import { mkAwAmtCell, mkAwSharesCell, mkAwPosPct, refreshAwAmtPnl, getAwShares } from './amounts.js';
@@ -9,9 +9,12 @@ import { mkAwAmtCell, mkAwSharesCell, mkAwPosPct, refreshAwAmtPnl, getAwShares }
 function _getAwPoolDef() {
   const defs = [];
   for (const asset of PORTFOLIO) {
-    defs.push({ ...asset, label: '主力', baostock_code: asset.baostock_code });
-    defs.push({ ...asset, ...asset.alt, id: asset.id, group: asset.group,
-                label: '替代', baostock_code: asset.alt.baostock_code });
+    defs.push({ ...asset, label: '主力', altExists: !!asset.alt });
+    if (asset.alt) {
+      defs.push({ ...asset, ...asset.alt,
+                  id: asset.id, group: asset.group, target: asset.target,
+                  label: '替代', altExists: true });
+    }
   }
   return defs;
 }
@@ -61,11 +64,22 @@ function _groupBadge(group) {
 }
 
 // ── 类型 badge (主力/替代) ──────────────────────────────────────
-function _labelBadge(label) {
-  const isPrimary = label === '主力';
+function _labelBadge(def) {
+  const isPrimary = def.label === '主力';
   const bg    = isPrimary ? 'rgba(34,197,94,.12)'  : 'rgba(148,163,184,.12)';
   const color = isPrimary ? 'var(--green)'         : 'var(--text-dim)';
-  return `<span style="font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600;background:${bg};color:${color}">${label}</span>`;
+  const base  = `font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600;background:${bg};color:${color}`;
+
+  if (!def.altExists) {
+    return `<span style="${base}">${def.label}</span>`;
+  }
+
+  const altActive  = awAltSet.has(def.id);
+  const thisActive = isPrimary ? !altActive : altActive;
+  const dimCss     = thisActive ? '' : 'opacity:.4;';
+  const activeCss  = thisActive ? 'outline:1px solid currentColor;' : '';
+  const title      = isPrimary ? '切换为替代基金' : '切换回主力基金';
+  return `<span style="${base};${dimCss}${activeCss}cursor:pointer;user-select:none" onclick="toggleAwAlt('${def.id}')" title="${title}">${def.label} ⇄</span>`;
 }
 
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）──
@@ -76,9 +90,9 @@ function awInitTable(skeleton = false) {
   const sk   = (w) => skeleton ? `<div class="skeleton" style="width:${w}"></div>` : dash;
 
   const defs = _getAwPoolDef();
-  const rows = defs.map(def => `<tr id="aw-row-${def.code}">
+  const rows = defs.map(def => `<tr id="aw-row-${def.code}" data-asset-id="${def.id}">
     <td>${_groupBadge(def.group)}</td>
-    <td>${_labelBadge(def.label)}</td>
+    <td id="aw-type-${def.code}">${_labelBadge(def)}</td>
     <td style="font-weight:600">${escHtml(def.fullName)}</td>
     <td style="color:var(--text-dim);font-size:13px">${def.code}</td>
     <td id="aw-ret-${def.code}">${sk('60%')}</td>
@@ -91,6 +105,7 @@ function awInitTable(skeleton = false) {
     <td id="aw-amt-cell-${def.code}">${mkAwAmtCell(def.code)}</td>
     <td id="aw-shares-cell-${def.code}">${mkAwSharesCell(def.code)}</td>
     <td>${mkAwPosPct(def.code)}</td>
+    <td style="text-align:right;color:var(--text-dim);font-size:13px">${(def.target * 100).toFixed(0)}%</td>
   </tr>`).join('');
 
   wrap.innerHTML = `
@@ -108,6 +123,7 @@ function awInitTable(skeleton = false) {
           <th style="min-width:160px">持仓金额(元)</th>
           <th>份额</th>
           <th>仓位%</th>
+          <th>目标%</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -405,6 +421,34 @@ async function awMaybeInitEmpty() {
   } catch (e) {
     awLog('error', `初始化读取缓存失败: ${e.message}`);
   }
+}
+
+// ── 刷新类型列 badge（alt 切换后调用）─────────────────────────
+export function refreshAwTypeBadges() {
+  _getAwPoolDef().forEach(def => {
+    const el = document.getElementById(`aw-type-${def.code}`);
+    if (el) el.innerHTML = _labelBadge(def);
+  });
+}
+
+// ── 监控行高亮（计算后调用）──────────────────────────────────
+export function highlightMonitorRows(ops) {
+  document.querySelectorAll('[data-asset-id]').forEach(row => {
+    row.classList.remove('row-sell', 'row-buy');
+  });
+  ops.forEach(({ id, diff }) => {
+    document.querySelectorAll(`[data-asset-id="${id}"]`).forEach(row => {
+      if (diff < -1)     row.classList.add('row-sell');
+      else if (diff > 1) row.classList.add('row-buy');
+    });
+  });
+}
+
+// ── 清除监控行高亮（重置时调用）──────────────────────────────
+export function clearMonitorHighlights() {
+  document.querySelectorAll('[data-asset-id]').forEach(row => {
+    row.classList.remove('row-sell', 'row-buy');
+  });
 }
 
 export { awMaybeInitEmpty, awInitTable, loadAwPool, awFillRow, clearAndResetAw };
