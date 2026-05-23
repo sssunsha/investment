@@ -2,7 +2,7 @@
 
 import { switchTab, initHashRouter }             from './tab.js';
 import { initRebalanceDayStyle }                  from './rebalance-day.js';
-import { buildInputs, toggleAwAlt, populateCalcInputsFromPositions } from './aw/inputs.js';
+import { toggleAwAlt } from './aw/inputs.js';
 import {
   calcRebalance, resetCalc,
 } from './aw/calc.js';
@@ -76,7 +76,6 @@ Object.assign(window, {
 });
 
 // ── 页面初始化 ──────────────────────────────────────────────
-buildInputs();
 renderLog();
 initRebalanceDayStyle();
 
@@ -97,7 +96,6 @@ initRebalanceDayStyle();
   await loadAwAvailable();
   refreshAwTotalDisplay();
   refreshAwPosPct();
-  populateCalcInputsFromPositions();
 
   await awMaybeInitEmpty();
   initHashRouter();
