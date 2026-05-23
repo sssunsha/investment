@@ -2,6 +2,7 @@
 import { PORTFOLIO, awAltSet } from './config.js';
 import { getAwAmt, getAwShares, setAwAmt, setAwShares, setAwCost, saveAwAmounts } from './amounts.js';
 import { getAwAvailableAmt, setAwAvailableAmt, refreshAwTotalDisplay } from './aw-available.js';
+import { escHtml } from '../utils.js';
 
 export function getStalePositions() {
   return PORTFOLIO.flatMap(a => {
@@ -59,7 +60,7 @@ export function openStaleDialog() {
     const estimatedAmt = usedEstimate ? shares * closePrice : p.amt;
     return `<div id="aw-stale-row-${p.code}" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)">
       <div>
-        <div style="font-weight:600;font-size:14px">${p.name}</div>
+        <div style="font-weight:600;font-size:14px">${escHtml(p.name)}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:2px">${p.code} · 录入金额 ${fmtAmt(p.amt)}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:1px">
           估算赎回金额：${fmtAmt(estimatedAmt)}
