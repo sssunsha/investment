@@ -59,6 +59,8 @@
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="aw-debug-btn" onclick="toggleAwDebug()">🐛 调试</button>
           <button class="btn btn-ghost btn-sm" onclick="clearAndResetAw()" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetCalc()">↺ 重置</button>
+          <button class="btn btn-primary btn-sm" onclick="calcRebalance()">⚡ 计算</button>
           <button class="btn btn-primary" id="aw-load-btn" onclick="loadAwPool()">▶ 加载数据</button>
         </div>
       </div>
@@ -67,32 +69,23 @@
       </div>
     </div>
 
-    <!-- ── 再平衡计算器 ── -->
-    <div class="section-card">
+    <!-- ── 再平衡结果 ── -->
+    <div class="section-card" id="calc-result-card" style="display:none">
       <div class="section-head">
         <span class="section-icon">🧮</span>
-        <span class="section-title">再平衡计算器</span>
-        <div class="section-actions">
-          <button class="btn btn-primary" onclick="calcRebalance()">⚡ 计算</button>
-          <button class="btn btn-ghost btn-sm" onclick="resetCalc()">↺ 重置</button>
-        </div>
+        <span class="section-title">再平衡结果</span>
       </div>
+      <div class="section-body" style="padding:0">
+        <div id="calc-result">
 
-      <div class="section-body">
-        <!-- 总资产提示（自动计算） -->
-        <div id="total-hint" style="font-size:13px; color:var(--text-dim); margin-bottom:14px; line-height:1.5"></div>
-
-        <!-- 各资产类别（按类别分行，动态生成） -->
-        <div id="asset-inputs"></div>
-
-        <!-- 计算结果 -->
-        <div id="calc-result" style="display:none; margin-top:20px">
+          <!-- 总金额提示 -->
+          <div id="total-hint" style="padding:14px 20px;font-size:13px;color:var(--text-dim);line-height:1.5;border-bottom:1px solid var(--border)"></div>
 
           <!-- 检查类型横幅（自动判断，始终显示） -->
-          <div id="check-type-banner" style="margin-bottom:4px"></div>
+          <div id="check-type-banner" style="margin:10px 20px 0"></div>
 
           <!-- 触发点状态 -->
-          <div id="trigger-status" style="margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+          <div id="trigger-status" style="margin:0 20px 14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center">
             <span style="font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">触发点：</span>
           </div>
 
