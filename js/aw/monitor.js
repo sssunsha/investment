@@ -1,22 +1,18 @@
 // js/aw/monitor.js — 全天候标的监控：表格渲染 + SSE 加载 + 缓存逻辑
 
-import { PORTFOLIO, awAltSet } from './config.js';
+import { PORTFOLIO, awAltSet, getActiveAsset } from './config.js';
 import { escHtml } from '../utils.js';
 import { awLog } from './debug.js';
 import { mkAwAmtCell, mkAwSharesCell, mkAwPosPct, refreshAwAmtPnl, getAwShares } from './amounts.js';
+import { refreshStaleChip } from './stale-positions.js';
 
-// ── 14行标的定义（主力在前，替代在后，按 PORTFOLIO 顺序）────────
+// ── 7行活跃标的定义（每个资产取当前活跃基金）──────────────────
 function _getAwPoolDef() {
-  const defs = [];
-  for (const asset of PORTFOLIO) {
-    defs.push({ ...asset, label: '主力', altExists: !!asset.alt });
-    if (asset.alt) {
-      defs.push({ ...asset, ...asset.alt,
-                  id: asset.id, group: asset.group, target: asset.target,
-                  label: '替代', altExists: true });
-    }
-  }
-  return defs;
+  return PORTFOLIO.map(asset => {
+    const active = getActiveAsset(asset);
+    const label = awAltSet.has(asset.id) ? '替代' : '主力';
+    return { ...asset, ...active, id: asset.id, group: asset.group, target: asset.target, label, altExists: !!asset.alt };
+  });
 }
 
 // ── 缓存 helpers（REST API → ~/.investment/YYYY/MM/aw_pool.json）──
@@ -68,18 +64,35 @@ function _labelBadge(def) {
   const isPrimary = def.label === '主力';
   const bg    = isPrimary ? 'rgba(34,197,94,.12)'  : 'rgba(148,163,184,.12)';
   const color = isPrimary ? 'var(--green)'         : 'var(--text-dim)';
-  const base  = `font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600;background:${bg};color:${color}`;
+  return `<span style="font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600;background:${bg};color:${color}">${def.label}</span>`;
+}
 
-  if (!def.altExists) {
-    return `<span style="${base}">${def.label}</span>`;
-  }
+// ── 抽屉单行构建 ──────────────────────────────────────────────
+function _buildDrawerRow(asset) {
+  const altActive = awAltSet.has(asset.id);
+  const hasAlt    = !!asset.alt;
+  const activeStyle = 'background:rgba(34,197,94,.18);color:var(--green);border-color:rgba(34,197,94,.5);font-weight:700';
+  const dimStyle    = 'background:transparent;color:var(--text-dim);border-color:var(--border)';
 
-  const altActive  = awAltSet.has(def.id);
-  const thisActive = isPrimary ? !altActive : altActive;
-  const dimCss     = thisActive ? '' : 'opacity:.4;';
-  const activeCss  = thisActive ? 'outline:1px solid currentColor;' : '';
-  const title      = isPrimary ? '切换为替代基金' : '切换回主力基金';
-  return `<span style="${base};${dimCss}${activeCss}cursor:pointer;user-select:none" onclick="toggleAwAlt('${def.id}')" title="${title}">${def.label} ⇄</span>`;
+  const toggleHtml = hasAlt ? `
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <button class="btn btn-sm" style="${!altActive ? activeStyle : dimStyle};font-size:12px;padding:2px 10px"
+        ${altActive ? `onclick="toggleAwAlt('${asset.id}')"` : ''}>● 主力</button>
+      <button class="btn btn-sm" style="${altActive ? activeStyle : dimStyle};font-size:12px;padding:2px 10px"
+        ${!altActive ? `onclick="toggleAwAlt('${asset.id}')"` : ''}>○ 替代</button>
+    </div>
+    <div style="flex:1;min-width:150px;font-size:13px;color:var(--text-dim)">
+      ${asset.alt.fullName} <span style="opacity:.6">${asset.alt.code}</span>
+    </div>` : `<span style="font-size:12px;color:var(--text-dim);opacity:.5">无替代标的</span>`;
+
+  return `<div id="aw-drawer-row-${asset.id}" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap">
+    ${_groupBadge(asset.group)}
+    <div style="flex:1;min-width:160px;font-size:13px;color:var(--text-dim)">
+      ${asset.fullName} <span style="opacity:.6">${asset.code}</span>
+    </div>
+    ${toggleHtml}
+    <span style="font-size:12px;color:var(--text-dim);flex-shrink:0;margin-left:auto">${(asset.target * 100).toFixed(0)}%</span>
+  </div>`;
 }
 
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）──
@@ -423,14 +436,6 @@ async function awMaybeInitEmpty() {
   }
 }
 
-// ── 刷新类型列 badge（alt 切换后调用）─────────────────────────
-export function refreshAwTypeBadges() {
-  _getAwPoolDef().forEach(def => {
-    const el = document.getElementById(`aw-type-${def.code}`);
-    if (el) el.innerHTML = _labelBadge(def);
-  });
-}
-
 // ── 监控行高亮（计算后调用）──────────────────────────────────
 export function highlightMonitorRows(ops) {
   document.querySelectorAll('[data-asset-id]').forEach(row => {
@@ -449,6 +454,29 @@ export function clearMonitorHighlights() {
   document.querySelectorAll('[data-asset-id]').forEach(row => {
     row.classList.remove('row-sell', 'row-buy');
   });
+}
+
+// ── 标的调整抽屉 ───────────────────────────────────────────────
+export function openFundDrawer() {
+  const body = document.getElementById('aw-fund-drawer-body');
+  if (!body) return;
+  body.innerHTML = PORTFOLIO.map(_buildDrawerRow).join('');
+  document.getElementById('aw-fund-drawer')?.classList.add('open');
+}
+
+export function closeFundDrawer() {
+  document.getElementById('aw-fund-drawer')?.classList.remove('open');
+  awInitTable();
+  if (_awItems.length > 0) _awItems.forEach(awFillRow);
+  refreshStaleChip();
+}
+
+export function refreshFundDrawerRow(id) {
+  const rowEl = document.getElementById(`aw-drawer-row-${id}`);
+  if (!rowEl) return;
+  const asset = PORTFOLIO.find(a => a.id === id);
+  if (!asset) return;
+  rowEl.outerHTML = _buildDrawerRow(asset);
 }
 
 export { awMaybeInitEmpty, awInitTable, loadAwPool, awFillRow, clearAndResetAw };
