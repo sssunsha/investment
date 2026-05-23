@@ -215,3 +215,17 @@
   .convert-arrow-icon { color: var(--cyan); font-size: 14px; flex-shrink: 0; }
   .convert-amount { font-weight: 700; color: var(--cyan); white-space: nowrap; }
   .op-footnote { font-size: 14px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; padding: 0 2px; }
+
+  /* ── 监控表行高亮（再平衡计算结果） ── */
+  #aw-monitor-table-wrap tbody tr.row-sell td {
+    background: rgba(239, 68, 68, .07);
+  }
+  #aw-monitor-table-wrap tbody tr.row-buy td {
+    background: rgba(34, 197, 94, .07);
+  }
+  #aw-monitor-table-wrap tbody tr.row-sell:hover td {
+    background: rgba(239, 68, 68, .13);
+  }
+  #aw-monitor-table-wrap tbody tr.row-buy:hover td {
+    background: rgba(34, 197, 94, .13);
+  }
