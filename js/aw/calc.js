@@ -31,6 +31,9 @@ function _runCalc(checkType) {
   if (total <= 0) {
     document.getElementById('total-hint').innerHTML =
       '<span style="color:var(--red)">⚠ 请先在标的监控中录入持仓金额</span>';
+    document.getElementById('check-type-banner').innerHTML = '';
+    document.getElementById('compare-rows').innerHTML = '';
+    document.getElementById('op-plans').style.display = 'none';
     document.getElementById('calc-result-card').style.display = 'block';
     return;
   }

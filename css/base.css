@@ -73,26 +73,6 @@
   }
   .cat-row:last-child { margin-bottom: 0; }
 
-  /* ── Per-asset field highlight after calculation ── */
-  .field-sell {
-    background: rgba(239,68,68,.10);
-    border-radius: 6px;
-    padding: 8px;
-    margin: -8px;
-    border-left: 3px solid var(--red);
-  }
-  .field-buy {
-    background: rgba(34,197,94,.10);
-    border-radius: 6px;
-    padding: 8px;
-    margin: -8px;
-    border-left: 3px solid var(--green);
-  }
-  .field-sell .form-input { border-color: rgba(239,68,68,.4); }
-  .field-sell .form-input:focus { border-color: var(--red); }
-  .field-buy  .form-input { border-color: rgba(34,197,94,.4); }
-  .field-buy  .form-input:focus { border-color: var(--green); }
-
   .cat-label {
     display: flex;
     flex-direction: column;
