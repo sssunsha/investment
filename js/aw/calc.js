@@ -20,7 +20,7 @@ function calcRebalance() {
 function _runCalc(checkType) {
   const assets = {};
   for (const a of PORTFOLIO) {
-    assets[a.id] = getAwDynAmt(a.code) + (a.alt ? getAwDynAmt(a.alt.code) : 0);
+    assets[a.id] = getAwDynAmt(getActiveAsset(a).code);
   }
 
   // ── 确定有效总金额（持仓 + 可用金额）──
