@@ -1,7 +1,7 @@
 // js/aw/calc.js — 再平衡计算核心
 import { PORTFOLIO, ASSET_COLORS, getActiveAsset } from './config.js';
 import { fmtMoney } from '../utils.js';
-import { highlightInputs, clearHighlights } from './inputs.js';
+import { highlightMonitorRows, clearMonitorHighlights } from './monitor.js';
 import { getAwAvailableAmt, getAwTotalAmt } from './aw-available.js';
 import { getAwDynAmt } from './amounts.js';
 
@@ -20,7 +20,7 @@ function calcRebalance() {
 function _runCalc(checkType) {
   const assets = {};
   for (const a of PORTFOLIO) {
-    assets[a.id] = parseFloat(document.getElementById('inp-' + a.id).value) || 0;
+    assets[a.id] = getAwDynAmt(a.code) + (a.alt ? getAwDynAmt(a.alt.code) : 0);
   }
 
   // ── 确定有效总金额（持仓 + 可用金额）──
@@ -30,7 +30,8 @@ function _runCalc(checkType) {
 
   if (total <= 0) {
     document.getElementById('total-hint').innerHTML =
-      '<span style="color:var(--red)">⚠ 请先在标的监控中录入持仓金额，或直接填写各类别当前市值</span>';
+      '<span style="color:var(--red)">⚠ 请先在标的监控中录入持仓金额</span>';
+    document.getElementById('calc-result-card').style.display = 'block';
     return;
   }
 
@@ -145,8 +146,8 @@ function _runCalc(checkType) {
     return { ...a, currentVal, targetVal, diff, currentPct, drift };
   });
 
-  // Highlight input fields: red = sell, green = buy, default = hold
-  highlightInputs(ops);
+  // Highlight monitor rows: red = sell, green = buy
+  highlightMonitorRows(ops);
 
   // ── Render comparison rows ──
   document.getElementById('compare-rows').innerHTML = ops.map(op => {
@@ -328,15 +329,14 @@ function _runCalc(checkType) {
     lastCalcResult = null;
   }
 
-  document.getElementById('calc-result').style.display = 'block';
+  document.getElementById('calc-result-card').style.display = 'block';
 }
 
 function resetCalc() {
   document.getElementById('total-hint').innerHTML = '';
   document.getElementById('check-type-banner').innerHTML = '';
-  PORTFOLIO.forEach(a => { document.getElementById('inp-' + a.id).value = ''; });
-  document.getElementById('calc-result').style.display = 'none';
-  clearHighlights();
+  document.getElementById('calc-result-card').style.display = 'none';
+  clearMonitorHighlights();
   lastCalcResult = null;
 }
 
