@@ -1,5 +1,4 @@
 // js/aw/amounts.js — AW 全天候策略持仓金额/份额/成本管理
-import { PORTFOLIO, getActiveAsset } from './config.js';
 
 const AW_AMOUNTS_API = '/api/cache/aw-amounts';
 
@@ -133,7 +132,6 @@ export function onAwAmtChange(code, val) {
   setAwAmt(code, val);
   saveAwAmounts();
   refreshAwAllPosPct();
-  _syncCalcInput(code);
 }
 
 export function clearAwAmt(code) {
@@ -145,18 +143,6 @@ export function clearAwAmt(code) {
   refreshAwAllPosPct();
   const inp = document.getElementById(`aw-amt-input-${code}`);
   if (inp) { inp.value = ''; inp.dataset.held = 'false'; inp.style.color = ''; }
-  _syncCalcInput(code);
-}
-
-/** 监控表格金额变化 → 同步更新计算器 #inp-{id} */
-function _syncCalcInput(code) {
-  const asset = PORTFOLIO.find(a => getActiveAsset(a).code === code);
-  if (!asset) return;
-  const inp = document.getElementById('inp-' + asset.id);
-  if (inp && document.activeElement !== inp) {
-    const v = getAwDynAmt(code);
-    inp.value = v > 0 ? v : '';
-  }
 }
 
 // ── HTML 构建辅助 ──────────────────────────────────────────────

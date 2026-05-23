@@ -24,7 +24,7 @@ async function saveAwJournalRecord(silent = false) {
         group:        a.group,
         target:       a.target,
         current:      getLastCalcResult().weights[a.id] || 0,
-        value:        parseFloat(document.getElementById('inp-' + a.id).value) || 0,
+        value:        (getLastCalcResult().total || 0) * (getLastCalcResult().weights?.[a.id] || 0),
       };
     }),
     ops: getLastCalcResult().ops,
