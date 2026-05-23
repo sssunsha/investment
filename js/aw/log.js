@@ -6,7 +6,6 @@ import {
   refreshAwAllPosPct,
 } from './amounts.js';
 import { getAwAvailableAmt, setAwAvailableAmt, refreshAwTotalDisplay } from './aw-available.js';
-import { populateCalcInputsFromPositions } from './inputs.js';
 
 const AW_LOG_API = '/api/cache/aw-rebalance-log';
 
@@ -126,7 +125,6 @@ function _applyOpsToPositions(ops) {
   saveAwAmounts();
   refreshAwAllPosPct();
   refreshAwTotalDisplay();
-  populateCalcInputsFromPositions();
 }
 
 export async function deleteLog(idx) {
