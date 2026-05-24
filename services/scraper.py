@@ -24,6 +24,8 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 from bs4 import BeautifulSoup
 
+from services.fetchers.fred import fetch_fred_latest
+from services.fetchers.yahoo_finance import fetch_yahoo_latest
 from services.parsers import PARSER_MAP as PARSERS
 
 logger = logging.getLogger(__name__)
@@ -262,6 +264,94 @@ INDICATORS_CONFIG = {
             "inversion_severe": {"value": -0.2, "label": "衰退信号", "color": "red"},
         },
     },
+    # ── US Macro ──────────────────────────────────────────────────────────────
+    "us_cpi": {
+        "name": "美国CPI", "name_en": "US CPI YoY",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "CPIAUCSL",
+        "value_key": "cpi_index",
+        "url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":    {"value": 2.0, "label": "通胀偏低", "color": "blue"},
+            "normal": {"value": 3.0, "label": "温和通胀", "color": "green"},
+            "high":   {"value": 4.0, "label": "高通胀压力", "color": "red"},
+        },
+    },
+    "us_pce": {
+        "name": "美国核心PCE", "name_en": "US Core PCE",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "PCEPILFE",
+        "value_key": "pce_index",
+        "url": "https://fred.stlouisfed.org/series/PCEPILFE",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "target": {"value": 2.0, "label": "美联储目标", "color": "green"},
+            "high":   {"value": 3.0, "label": "超目标", "color": "orange"},
+        },
+    },
+    "us_pmi": {
+        "name": "ISM制造业PMI", "name_en": "ISM Manufacturing PMI",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "NAPM",
+        "value_key": "pmi",
+        "url": "https://fred.stlouisfed.org/series/NAPM",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "expansion":   {"value": 50, "label": "扩张", "color": "green"},
+            "contraction": {"value": 45, "label": "收缩", "color": "red"},
+        },
+    },
+    "us_payrolls": {
+        "name": "美国非农就业", "name_en": "US Non-Farm Payrolls",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "PAYEMS",
+        "value_key": "payrolls_k",
+        "url": "https://fred.stlouisfed.org/series/PAYEMS",
+        "update_frequency": "monthly",
+        "thresholds": {},
+    },
+    "us_unrate": {
+        "name": "美国失业率", "name_en": "US Unemployment Rate",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "UNRATE",
+        "value_key": "unrate",
+        "url": "https://fred.stlouisfed.org/series/UNRATE",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":  {"value": 4.0, "label": "充分就业", "color": "green"},
+            "high": {"value": 6.0, "label": "就业疲软", "color": "orange"},
+        },
+    },
+    # ── US Liquidity ──────────────────────────────────────────────────────────
+    "us_fedfunds": {
+        "name": "联邦基金利率", "name_en": "Fed Funds Rate",
+        "market": "us", "layer": "liquidity",
+        "category": "liquidity",
+        "source": "fred", "fred_series": "FEDFUNDS",
+        "value_key": "rate",
+        "url": "https://fred.stlouisfed.org/series/FEDFUNDS",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":  {"value": 2.0, "label": "宽松", "color": "green"},
+            "high": {"value": 5.0, "label": "限制性", "color": "red"},
+        },
+    },
+    "us_fed_balance": {
+        "name": "美联储资产负债表", "name_en": "Fed Balance Sheet",
+        "market": "us", "layer": "liquidity",
+        "category": "liquidity",
+        "source": "fred", "fred_series": "WALCL",
+        "value_key": "total_assets_m",
+        "url": "https://fred.stlouisfed.org/series/WALCL",
+        "update_frequency": "weekly",
+        "thresholds": {},
+    },
 }
 
 # Category definitions
@@ -417,28 +507,51 @@ def scrape_indicator(indicator_key: str, force_refresh: bool = False) -> Dict[st
             cached["from_cache"] = True
             return cached
     
-    # Fetch and parse
-    url = config["url"]
-    html = _fetch_html(url)
-    if not html:
-        # Return cached data if available, even if expired
-        cached = _read_cache(indicator_key)
-        if cached:
-            cached["from_cache"] = True
-            cached["cache_expired"] = True
-            return cached
-        return {"error": f"Failed to fetch data for {indicator_key}"}
-    
-    parser = PARSERS.get(indicator_key)
-    if not parser:
-        return {"error": f"No parser available for {indicator_key}"}
-    
-    try:
-        parsed = parser(html)
-    except Exception as e:
-        logger.exception(f"Failed to parse {indicator_key}")
-        return {"error": f"Parse error: {str(e)}"}
-    
+    # Fetch and parse — dispatch by data source
+    source = config.get("source", "scrape")
+    parsed = None
+
+    if source == "fred":
+        raw = fetch_fred_latest(config["fred_series"])
+        if raw is None:
+            cached = _read_cache(indicator_key)
+            if cached:
+                cached["from_cache"] = True
+                cached["cache_expired"] = True
+                return cached
+            return {"error": f"FRED fetch failed for {config['fred_series']}"}
+        parsed = {"date": raw["date"], "values": {config.get("value_key", "value"): raw["value"]}}
+
+    elif source == "yahoo":
+        raw = fetch_yahoo_latest(config["yahoo_ticker"])
+        if raw is None:
+            cached = _read_cache(indicator_key)
+            if cached:
+                cached["from_cache"] = True
+                cached["cache_expired"] = True
+                return cached
+            return {"error": f"Yahoo fetch failed for {config['yahoo_ticker']}"}
+        parsed = {"date": raw["date"], "values": {config.get("value_key", "value"): raw["value"]}}
+
+    else:  # source == "scrape" (default — existing HTML scraper path)
+        url = config.get("url", "")
+        html = _fetch_html(url)
+        if not html:
+            cached = _read_cache(indicator_key)
+            if cached:
+                cached["from_cache"] = True
+                cached["cache_expired"] = True
+                return cached
+            return {"error": f"Failed to fetch data for {indicator_key}"}
+        parser = PARSERS.get(indicator_key)
+        if not parser:
+            return {"error": f"No parser available for {indicator_key}"}
+        try:
+            parsed = parser(html)
+        except Exception as e:
+            logger.exception(f"Failed to parse {indicator_key}")
+            return {"error": f"Parse error: {str(e)}"}
+
     # Build result
     result = {
         "key": indicator_key,
@@ -447,7 +560,7 @@ def scrape_indicator(indicator_key: str, force_refresh: bool = False) -> Dict[st
         "category": config["category"],
         "market": config.get("market", "cn"),
         "layer": config.get("layer", "valuation"),
-        "url": url,
+        "url": config.get("url", ""),
         "data_date": parsed.get("date"),
         "values": parsed.get("values", {}),
         "thresholds": config.get("thresholds", {}),
@@ -546,7 +659,49 @@ def _evaluate_status(indicator: Dict[str, Any]) -> Dict[str, Any]:
                 status = {"level": "boom", "label": "航运景气", "color": "green", "signals": []}
             elif bdi < 1000:
                 status = {"level": "depression", "label": "航运萧条", "color": "red", "signals": []}
-    
+
+    elif key == "us_cpi":
+        val = values.get("cpi_index")
+        if val is not None:
+            if val > 4.0:
+                status = {"level": "high", "label": "高通胀压力", "color": "red", "signals": ["美联储紧缩预期"]}
+            elif val > 3.0:
+                status = {"level": "warning", "label": "超目标", "color": "orange", "signals": []}
+            elif val < 2.0:
+                status = {"level": "low", "label": "通胀偏低", "color": "blue", "signals": []}
+            else:
+                status = {"level": "normal", "label": "温和通胀", "color": "green", "signals": []}
+
+    elif key == "us_pmi":
+        val = values.get("pmi")
+        if val is not None:
+            if val >= 50:
+                status = {"level": "expansion", "label": "制造业扩张", "color": "green", "signals": []}
+            elif val < 45:
+                status = {"level": "contraction", "label": "制造业收缩", "color": "red", "signals": ["衰退风险"]}
+            else:
+                status = {"level": "slowdown", "label": "放缓", "color": "orange", "signals": []}
+
+    elif key == "us_unrate":
+        val = values.get("unrate")
+        if val is not None:
+            if val < 4.0:
+                status = {"level": "full_employment", "label": "充分就业", "color": "green", "signals": []}
+            elif val > 6.0:
+                status = {"level": "weak", "label": "就业疲软", "color": "orange", "signals": []}
+            else:
+                status = {"level": "normal", "label": "正常", "color": "blue", "signals": []}
+
+    elif key == "us_fedfunds":
+        val = values.get("rate")
+        if val is not None:
+            if val < 2.0:
+                status = {"level": "loose", "label": "宽松", "color": "green", "signals": []}
+            elif val >= 5.0:
+                status = {"level": "restrictive", "label": "限制性利率", "color": "red", "signals": ["紧缩压力"]}
+            else:
+                status = {"level": "neutral", "label": "中性", "color": "blue", "signals": []}
+
     return status
 
 
