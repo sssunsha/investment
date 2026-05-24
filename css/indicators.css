@@ -1230,6 +1230,105 @@
   font-size: 14px;
 }
 
+/* ── 双栏市场布局 ──────────────────────────────────────────────────────────────── */
+
+.market-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.market-column {
+  min-width: 0; /* 防止 grid 子元素溢出 */
+}
+
+.market-column-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.market-column-header .market-flag {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.market-column-header .market-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.market-column-header .market-subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.layer-section {
+  margin-bottom: 20px;
+}
+
+.layer-separator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.layer-separator .layer-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.layer-separator .layer-icon {
+  font-size: 14px;
+}
+
+/* ── 全球指标区块 ─────────────────────────────────────────────────────────────── */
+
+.global-section {
+  margin-bottom: 32px;
+}
+
+.global-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.global-section-header .global-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ── 响应式：≤ 900px 降级为单列 ───────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .market-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Chart Hover Info Panel (fixed top-right) ──────────────────────────── */
 .chart-hover-info {
   position: absolute;
