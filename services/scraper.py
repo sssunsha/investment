@@ -445,6 +445,8 @@ def scrape_indicator(indicator_key: str, force_refresh: bool = False) -> Dict[st
         "name": config["name"],
         "name_en": config["name_en"],
         "category": config["category"],
+        "market": config.get("market", "cn"),
+        "layer": config.get("layer", "valuation"),
         "url": url,
         "data_date": parsed.get("date"),
         "values": parsed.get("values", {}),
@@ -551,7 +553,7 @@ def _evaluate_status(indicator: Dict[str, Any]) -> Dict[str, Any]:
 def scrape_all_indicators(force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
     """
     Scrape all configured indicators.
-    
+
     Returns:
         Dict mapping indicator keys to their data
     """
@@ -559,6 +561,25 @@ def scrape_all_indicators(force_refresh: bool = False) -> Dict[str, Dict[str, An
     for key in INDICATORS_CONFIG.keys():
         results[key] = scrape_indicator(key, force_refresh)
     return results
+
+
+def build_by_market(results: Dict[str, Any]) -> Dict[str, Any]:
+    """将 scrape_all_indicators 结果按 market × layer 分组，供前端双栏渲染使用。"""
+    by_market: Dict[str, Any] = {
+        "cn":     {"macro": [], "liquidity": [], "valuation": []},
+        "us":     {"macro": [], "liquidity": [], "valuation": []},
+        "global": [],
+    }
+    for key, data in results.items():
+        if "error" in data:
+            continue
+        market = data.get("market") or INDICATORS_CONFIG.get(key, {}).get("market")
+        layer  = data.get("layer")  or INDICATORS_CONFIG.get(key, {}).get("layer")
+        if market == "global":
+            by_market["global"].append(data)
+        elif market in ("cn", "us") and layer in ("macro", "liquidity", "valuation"):
+            by_market[market][layer].append(data)
+    return by_market
 
 
 def get_indicator_by_category() -> Dict[str, List[Dict[str, Any]]]:
