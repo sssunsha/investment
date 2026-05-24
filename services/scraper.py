@@ -56,6 +56,8 @@ INDICATORS_CONFIG = {
     "a_share_pe": {
         "name": "A股平均市盈率",
         "name_en": "A-Share Average PE",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/PE.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -68,6 +70,8 @@ INDICATORS_CONFIG = {
     "csi300_pe_pb": {
         "name": "沪深300指数PE/PB",
         "name_en": "CSI 300 PE/PB",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/000300SHPEPB.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -79,6 +83,8 @@ INDICATORS_CONFIG = {
     "csi500_pe_pb": {
         "name": "中证500指数PE/PB",
         "name_en": "CSI 500 PE/PB",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/000905SHPEPB.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -90,6 +96,8 @@ INDICATORS_CONFIG = {
     "stock_bond_ratio": {
         "name": "股债收益率之比",
         "name_en": "Stock-Bond Yield Ratio",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/ep.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -102,6 +110,8 @@ INDICATORS_CONFIG = {
     "buffett_index": {
         "name": "巴菲特指标",
         "name_en": "Buffett Index",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/BuffettIndex.asp",
         "category": "market_valuation",
         "update_frequency": "weekly",
@@ -114,6 +124,8 @@ INDICATORS_CONFIG = {
     "hsi_pe": {
         "name": "恒生指数市盈率",
         "name_en": "HSI PE Ratio",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/HSIPE.html",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -126,6 +138,8 @@ INDICATORS_CONFIG = {
     "shibor": {
         "name": "Shibor利率",
         "name_en": "Shibor Interest Rate",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/Shibor.asp",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -139,6 +153,8 @@ INDICATORS_CONFIG = {
     "cn_10y_bond": {
         "name": "中国国债收益率",
         "name_en": "China Treasury Yields",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/10Bond.html",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -150,6 +166,8 @@ INDICATORS_CONFIG = {
     "m1_m2": {
         "name": "M1/M2增速",
         "name_en": "M1/M2 Growth Rate",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/M1.asp",
         "category": "liquidity",
         "update_frequency": "monthly",
@@ -162,6 +180,8 @@ INDICATORS_CONFIG = {
     "m2_gdp": {
         "name": "M2与GDP比值",
         "name_en": "M2/GDP Ratio",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/M2GDP.html",
         "category": "liquidity",
         "update_frequency": "monthly",
@@ -174,6 +194,8 @@ INDICATORS_CONFIG = {
     "financing_balance": {
         "name": "融资余额",
         "name_en": "Financing Balance",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/rzrj.asp",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -187,6 +209,8 @@ INDICATORS_CONFIG = {
     "cpi": {
         "name": "CPI消费者物价指数",
         "name_en": "CPI",
+        "market": "cn",
+        "layer": "macro",
         "url": "http://value500.com/CPI.asp",
         "category": "macroeconomic",
         "update_frequency": "monthly",
@@ -199,6 +223,8 @@ INDICATORS_CONFIG = {
     "ppi": {
         "name": "PPI生产者物价指数",
         "name_en": "PPI",
+        "market": "cn",
+        "layer": "macro",
         "url": "http://value500.com/PPI.asp",
         "category": "macroeconomic",
         "update_frequency": "monthly",
@@ -210,6 +236,8 @@ INDICATORS_CONFIG = {
     "bdi": {
         "name": "BDI波罗的海指数",
         "name_en": "Baltic Dry Index",
+        "market": "global",
+        "layer": "global_indicator",
         "url": "http://value500.com/BDI.asp",
         "category": "macroeconomic",
         "update_frequency": "daily",
@@ -222,6 +250,8 @@ INDICATORS_CONFIG = {
     "us_treasury": {
         "name": "美债收益率",
         "name_en": "US Treasury Yield",
+        "market": "us",
+        "layer": "liquidity",
         "url": "http://value500.com/ust10yr.asp",
         "category": "global",
         "update_frequency": "daily",
