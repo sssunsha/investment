@@ -7,10 +7,10 @@ function toggleAwAlt(id) {
   const a = PORTFOLIO.find(x => x.id === id);
   if (!a?.alt) return;
 
-  const currentActiveCode = awAltSet.has(id) ? a.alt.code : a.code;
-  const currentAmt = getAwAmt(currentActiveCode);
+  const currentActive = getActiveAsset(a);
+  const currentAmt = getAwAmt(currentActive.code);
   if (currentAmt > 0) {
-    const currentName = awAltSet.has(id) ? a.alt.name : a.name;
+    const currentName = currentActive.name;
     window.showAwToast?.(
       `⚠ ${currentName} 中尚有持仓 ¥${currentAmt.toLocaleString('zh-CN')}，切换后请尽快赎回`,
       'var(--yellow)'
