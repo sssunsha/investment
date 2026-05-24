@@ -6,7 +6,7 @@ import {
   renderFedRateChart, renderCnStockChart,
   renderMacroTrendSection,
 } from './charts.js';
-import { renderCategorySection } from './cards.js';
+import { renderCategorySection, renderMarketColumn, renderGlobalSection } from './cards.js';
 
 // ── 状态 ──────────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,22 @@ function renderIndicatorsPage(data, signals) {
     return;
   }
 
+  // 优先使用 by_market 双栏布局
+  if (data.by_market) {
+    const { cn, us, global: globalIndicators } = data.by_market;
+    container.innerHTML = `
+      ${renderSignalPanel(signals)}
+      ${renderMacroTrendSection()}
+      <div class="market-columns">
+        <div class="market-column">${renderMarketColumn('cn', cn)}</div>
+        <div class="market-column">${renderMarketColumn('us', us)}</div>
+      </div>
+      ${renderGlobalSection(globalIndicators || [])}
+    `;
+    return;
+  }
+
+  // 降级：使用旧的按 category 分组渲染
   const sortedCategories = Object.entries(data.data)
     .sort((a, b) => (a[1].order || 99) - (b[1].order || 99));
 

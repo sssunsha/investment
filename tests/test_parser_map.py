@@ -19,6 +19,8 @@ EXPECTED_KEYS = [
     "ppi",
     "bdi",
     "us_treasury",
+    "cn_pmi",
+    "us_sp500_pe",
 ]
 
 

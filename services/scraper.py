@@ -24,6 +24,8 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 from bs4 import BeautifulSoup
 
+from services.fetchers.fred import fetch_fred_latest
+from services.fetchers.yahoo_finance import fetch_yahoo_latest
 from services.parsers import PARSER_MAP as PARSERS
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,8 @@ INDICATORS_CONFIG = {
     "a_share_pe": {
         "name": "A股平均市盈率",
         "name_en": "A-Share Average PE",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/PE.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -68,6 +72,8 @@ INDICATORS_CONFIG = {
     "csi300_pe_pb": {
         "name": "沪深300指数PE/PB",
         "name_en": "CSI 300 PE/PB",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/000300SHPEPB.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -79,6 +85,8 @@ INDICATORS_CONFIG = {
     "csi500_pe_pb": {
         "name": "中证500指数PE/PB",
         "name_en": "CSI 500 PE/PB",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/000905SHPEPB.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -90,6 +98,8 @@ INDICATORS_CONFIG = {
     "stock_bond_ratio": {
         "name": "股债收益率之比",
         "name_en": "Stock-Bond Yield Ratio",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/ep.asp",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -102,6 +112,8 @@ INDICATORS_CONFIG = {
     "buffett_index": {
         "name": "巴菲特指标",
         "name_en": "Buffett Index",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/BuffettIndex.asp",
         "category": "market_valuation",
         "update_frequency": "weekly",
@@ -114,6 +126,8 @@ INDICATORS_CONFIG = {
     "hsi_pe": {
         "name": "恒生指数市盈率",
         "name_en": "HSI PE Ratio",
+        "market": "cn",
+        "layer": "valuation",
         "url": "http://value500.com/HSIPE.html",
         "category": "market_valuation",
         "update_frequency": "daily",
@@ -126,6 +140,8 @@ INDICATORS_CONFIG = {
     "shibor": {
         "name": "Shibor利率",
         "name_en": "Shibor Interest Rate",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/Shibor.asp",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -139,6 +155,8 @@ INDICATORS_CONFIG = {
     "cn_10y_bond": {
         "name": "中国国债收益率",
         "name_en": "China Treasury Yields",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/10Bond.html",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -150,6 +168,8 @@ INDICATORS_CONFIG = {
     "m1_m2": {
         "name": "M1/M2增速",
         "name_en": "M1/M2 Growth Rate",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/M1.asp",
         "category": "liquidity",
         "update_frequency": "monthly",
@@ -162,6 +182,8 @@ INDICATORS_CONFIG = {
     "m2_gdp": {
         "name": "M2与GDP比值",
         "name_en": "M2/GDP Ratio",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/M2GDP.html",
         "category": "liquidity",
         "update_frequency": "monthly",
@@ -174,6 +196,8 @@ INDICATORS_CONFIG = {
     "financing_balance": {
         "name": "融资余额",
         "name_en": "Financing Balance",
+        "market": "cn",
+        "layer": "liquidity",
         "url": "http://value500.com/rzrj.asp",
         "category": "liquidity",
         "update_frequency": "daily",
@@ -184,9 +208,23 @@ INDICATORS_CONFIG = {
         },
     },
     # Macroeconomic
+    "cn_pmi": {
+        "name": "中国PMI（制造业/非制造业）", "name_en": "China PMI",
+        "market": "cn", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "scrape",
+        "url": "http://value500.com/PMI.asp",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "expansion":   {"value": 50, "label": "经济扩张", "color": "green"},
+            "contraction": {"value": 50, "op": "<", "label": "经济收缩", "color": "orange"},
+        },
+    },
     "cpi": {
         "name": "CPI消费者物价指数",
         "name_en": "CPI",
+        "market": "cn",
+        "layer": "macro",
         "url": "http://value500.com/CPI.asp",
         "category": "macroeconomic",
         "update_frequency": "monthly",
@@ -199,6 +237,8 @@ INDICATORS_CONFIG = {
     "ppi": {
         "name": "PPI生产者物价指数",
         "name_en": "PPI",
+        "market": "cn",
+        "layer": "macro",
         "url": "http://value500.com/PPI.asp",
         "category": "macroeconomic",
         "update_frequency": "monthly",
@@ -210,6 +250,8 @@ INDICATORS_CONFIG = {
     "bdi": {
         "name": "BDI波罗的海指数",
         "name_en": "Baltic Dry Index",
+        "market": "global",
+        "layer": "global_indicator",
         "url": "http://value500.com/BDI.asp",
         "category": "macroeconomic",
         "update_frequency": "daily",
@@ -218,10 +260,52 @@ INDICATORS_CONFIG = {
             "depression": {"value": 1000, "label": "航运萧条", "color": "red"},
         },
     },
+    "gold": {
+        "name": "黄金（美元/盎司）", "name_en": "Gold USD/oz",
+        "market": "global", "layer": "global_indicator",
+        "category": "global",
+        "source": "yahoo", "yahoo_ticker": "GC=F",
+        "value_key": "price",
+        "url": "https://finance.yahoo.com/quote/GC=F",
+        "update_frequency": "daily",
+        "thresholds": {
+            "low":  {"value": 1800, "label": "低位", "color": "blue"},
+            "high": {"value": 2500, "label": "高位", "color": "orange"},
+        },
+    },
+    "crude_oil": {
+        "name": "原油 WTI（美元/桶）", "name_en": "WTI Crude Oil",
+        "market": "global", "layer": "global_indicator",
+        "category": "global",
+        "source": "yahoo", "yahoo_ticker": "CL=F",
+        "value_key": "price",
+        "url": "https://finance.yahoo.com/quote/CL=F",
+        "update_frequency": "daily",
+        "thresholds": {
+            "low":      {"value": 60,  "label": "低油价", "color": "blue"},
+            "high":     {"value": 90,  "label": "高油价", "color": "orange"},
+            "very_high":{"value": 120, "label": "油价冲击", "color": "red"},
+        },
+    },
+    "dxy": {
+        "name": "美元指数 DXY", "name_en": "US Dollar Index",
+        "market": "global", "layer": "global_indicator",
+        "category": "global",
+        "source": "yahoo", "yahoo_ticker": "DX-Y.NYB",
+        "value_key": "dxy",
+        "url": "https://finance.yahoo.com/quote/DX-Y.NYB",
+        "update_frequency": "daily",
+        "thresholds": {
+            "weak":   {"value": 95,  "label": "美元偏弱（利好新兴市场）", "color": "green"},
+            "strong": {"value": 105, "label": "美元强势（新兴市场承压）", "color": "red"},
+        },
+    },
     # Global
     "us_treasury": {
         "name": "美债收益率",
         "name_en": "US Treasury Yield",
+        "market": "us",
+        "layer": "liquidity",
         "url": "http://value500.com/ust10yr.asp",
         "category": "global",
         "update_frequency": "daily",
@@ -230,6 +314,135 @@ INDICATORS_CONFIG = {
             "tight": {"value": 4.5, "label": "紧缩压力", "color": "red"},
             "inversion_warning": {"value": 0, "label": "倒挂预警", "color": "orange"},
             "inversion_severe": {"value": -0.2, "label": "衰退信号", "color": "red"},
+        },
+    },
+    # ── US Macro ──────────────────────────────────────────────────────────────
+    "us_cpi": {
+        "name": "美国CPI", "name_en": "US CPI YoY",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "CPIAUCSL",
+        "value_key": "cpi_index",
+        "url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":    {"value": 2.0, "label": "通胀偏低", "color": "blue"},
+            "normal": {"value": 3.0, "label": "温和通胀", "color": "green"},
+            "high":   {"value": 4.0, "label": "高通胀压力", "color": "red"},
+        },
+    },
+    "us_pce": {
+        "name": "美国核心PCE", "name_en": "US Core PCE",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "PCEPILFE",
+        "value_key": "pce_index",
+        "url": "https://fred.stlouisfed.org/series/PCEPILFE",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "target": {"value": 2.0, "label": "美联储目标", "color": "green"},
+            "high":   {"value": 3.0, "label": "超目标", "color": "orange"},
+        },
+    },
+    "us_pmi": {
+        "name": "ISM制造业PMI", "name_en": "ISM Manufacturing PMI",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "NAPM",
+        "value_key": "pmi",
+        "url": "https://fred.stlouisfed.org/series/NAPM",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "expansion":   {"value": 50, "label": "扩张", "color": "green"},
+            "contraction": {"value": 45, "label": "收缩", "color": "red"},
+        },
+    },
+    "us_payrolls": {
+        "name": "美国非农就业", "name_en": "US Non-Farm Payrolls",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "PAYEMS",
+        "value_key": "payrolls_k",
+        "url": "https://fred.stlouisfed.org/series/PAYEMS",
+        "update_frequency": "monthly",
+        "thresholds": {},
+    },
+    "us_unrate": {
+        "name": "美国失业率", "name_en": "US Unemployment Rate",
+        "market": "us", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "fred", "fred_series": "UNRATE",
+        "value_key": "unrate",
+        "url": "https://fred.stlouisfed.org/series/UNRATE",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":  {"value": 4.0, "label": "充分就业", "color": "green"},
+            "high": {"value": 6.0, "label": "就业疲软", "color": "orange"},
+        },
+    },
+    # ── US Liquidity ──────────────────────────────────────────────────────────
+    "us_fedfunds": {
+        "name": "联邦基金利率", "name_en": "Fed Funds Rate",
+        "market": "us", "layer": "liquidity",
+        "category": "liquidity",
+        "source": "fred", "fred_series": "FEDFUNDS",
+        "value_key": "rate",
+        "url": "https://fred.stlouisfed.org/series/FEDFUNDS",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":  {"value": 2.0, "label": "宽松", "color": "green"},
+            "high": {"value": 5.0, "label": "限制性", "color": "red"},
+        },
+    },
+    "us_fed_balance": {
+        "name": "美联储资产负债表", "name_en": "Fed Balance Sheet",
+        "market": "us", "layer": "liquidity",
+        "category": "liquidity",
+        "source": "fred", "fred_series": "WALCL",
+        "value_key": "total_assets_m",
+        "url": "https://fred.stlouisfed.org/series/WALCL",
+        "update_frequency": "weekly",
+        "thresholds": {},
+    },
+    # ── US Valuation ──────────────────────────────────────────────────────────
+    "us_sp500_pe": {
+        "name": "标普500 PE（席勒CAPE）", "name_en": "S&P 500 Shiller CAPE",
+        "market": "us", "layer": "valuation",
+        "category": "market_valuation",
+        "source": "scrape",
+        "url": "https://www.multpl.com/shiller-pe/table/by-month",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":    {"value": 15, "label": "历史低估", "color": "green"},
+            "normal": {"value": 25, "label": "历史均值附近", "color": "blue"},
+            "high":   {"value": 30, "label": "显著高估", "color": "orange"},
+            "bubble": {"value": 40, "label": "泡沫区间", "color": "red"},
+        },
+    },
+    "us_buffett": {
+        "name": "美股巴菲特指标", "name_en": "US Buffett Indicator",
+        "market": "us", "layer": "valuation",
+        "category": "market_valuation",
+        "source": "fred",
+        "fred_series": "WILL5000PR",
+        "value_key": "will5000",
+        "url": "https://fred.stlouisfed.org/series/WILL5000PR",
+        "update_frequency": "monthly",
+        "thresholds": {},
+    },
+    "vix": {
+        "name": "VIX 恐慌指数", "name_en": "CBOE Volatility Index",
+        "market": "us", "layer": "valuation",
+        "category": "market_valuation",
+        "source": "yahoo", "yahoo_ticker": "^VIX",
+        "value_key": "vix",
+        "url": "https://finance.yahoo.com/quote/%5EVIX",
+        "update_frequency": "daily",
+        "thresholds": {
+            "calm":   {"value": 15, "label": "市场平静", "color": "green"},
+            "normal": {"value": 25, "label": "中性", "color": "blue"},
+            "fear":   {"value": 30, "label": "恐慌区间", "color": "orange"},
+            "panic":  {"value": 40, "label": "极度恐慌", "color": "red"},
         },
     },
 }
@@ -387,35 +600,60 @@ def scrape_indicator(indicator_key: str, force_refresh: bool = False) -> Dict[st
             cached["from_cache"] = True
             return cached
     
-    # Fetch and parse
-    url = config["url"]
-    html = _fetch_html(url)
-    if not html:
-        # Return cached data if available, even if expired
-        cached = _read_cache(indicator_key)
-        if cached:
-            cached["from_cache"] = True
-            cached["cache_expired"] = True
-            return cached
-        return {"error": f"Failed to fetch data for {indicator_key}"}
-    
-    parser = PARSERS.get(indicator_key)
-    if not parser:
-        return {"error": f"No parser available for {indicator_key}"}
-    
-    try:
-        parsed = parser(html)
-    except Exception as e:
-        logger.exception(f"Failed to parse {indicator_key}")
-        return {"error": f"Parse error: {str(e)}"}
-    
+    # Fetch and parse — dispatch by data source
+    source = config.get("source", "scrape")
+    parsed = None
+
+    if source == "fred":
+        raw = fetch_fred_latest(config["fred_series"])
+        if raw is None:
+            cached = _read_cache(indicator_key)
+            if cached:
+                cached["from_cache"] = True
+                cached["cache_expired"] = True
+                return cached
+            return {"error": f"FRED fetch failed for {config['fred_series']}"}
+        parsed = {"date": raw["date"], "values": {config.get("value_key", "value"): raw["value"]}}
+
+    elif source == "yahoo":
+        raw = fetch_yahoo_latest(config["yahoo_ticker"])
+        if raw is None:
+            cached = _read_cache(indicator_key)
+            if cached:
+                cached["from_cache"] = True
+                cached["cache_expired"] = True
+                return cached
+            return {"error": f"Yahoo fetch failed for {config['yahoo_ticker']}"}
+        parsed = {"date": raw["date"], "values": {config.get("value_key", "value"): raw["value"]}}
+
+    else:  # source == "scrape" (default — existing HTML scraper path)
+        url = config.get("url", "")
+        html = _fetch_html(url)
+        if not html:
+            cached = _read_cache(indicator_key)
+            if cached:
+                cached["from_cache"] = True
+                cached["cache_expired"] = True
+                return cached
+            return {"error": f"Failed to fetch data for {indicator_key}"}
+        parser = PARSERS.get(indicator_key)
+        if not parser:
+            return {"error": f"No parser available for {indicator_key}"}
+        try:
+            parsed = parser(html)
+        except Exception as e:
+            logger.exception(f"Failed to parse {indicator_key}")
+            return {"error": f"Parse error: {str(e)}"}
+
     # Build result
     result = {
         "key": indicator_key,
         "name": config["name"],
         "name_en": config["name_en"],
         "category": config["category"],
-        "url": url,
+        "market": config.get("market", "cn"),
+        "layer": config.get("layer", "valuation"),
+        "url": config.get("url", ""),
         "data_date": parsed.get("date"),
         "values": parsed.get("values", {}),
         "thresholds": config.get("thresholds", {}),
@@ -514,14 +752,106 @@ def _evaluate_status(indicator: Dict[str, Any]) -> Dict[str, Any]:
                 status = {"level": "boom", "label": "航运景气", "color": "green", "signals": []}
             elif bdi < 1000:
                 status = {"level": "depression", "label": "航运萧条", "color": "red", "signals": []}
-    
+
+    elif key == "us_cpi":
+        val = values.get("cpi_index")
+        if val is not None:
+            if val > 4.0:
+                status = {"level": "high", "label": "高通胀压力", "color": "red", "signals": ["美联储紧缩预期"]}
+            elif val > 3.0:
+                status = {"level": "warning", "label": "超目标", "color": "orange", "signals": []}
+            elif val < 2.0:
+                status = {"level": "low", "label": "通胀偏低", "color": "blue", "signals": []}
+            else:
+                status = {"level": "normal", "label": "温和通胀", "color": "green", "signals": []}
+
+    elif key == "us_pmi":
+        val = values.get("pmi")
+        if val is not None:
+            if val >= 50:
+                status = {"level": "expansion", "label": "制造业扩张", "color": "green", "signals": []}
+            elif val < 45:
+                status = {"level": "contraction", "label": "制造业收缩", "color": "red", "signals": ["衰退风险"]}
+            else:
+                status = {"level": "slowdown", "label": "放缓", "color": "orange", "signals": []}
+
+    elif key == "us_unrate":
+        val = values.get("unrate")
+        if val is not None:
+            if val < 4.0:
+                status = {"level": "full_employment", "label": "充分就业", "color": "green", "signals": []}
+            elif val > 6.0:
+                status = {"level": "weak", "label": "就业疲软", "color": "orange", "signals": []}
+            else:
+                status = {"level": "normal", "label": "正常", "color": "blue", "signals": []}
+
+    elif key == "us_fedfunds":
+        val = values.get("rate")
+        if val is not None:
+            if val < 2.0:
+                status = {"level": "loose", "label": "宽松", "color": "green", "signals": []}
+            elif val >= 5.0:
+                status = {"level": "restrictive", "label": "限制性利率", "color": "red", "signals": ["紧缩压力"]}
+            else:
+                status = {"level": "neutral", "label": "中性", "color": "blue", "signals": []}
+
+    elif key == "cn_pmi":
+        val = values.get("manufacturing")
+        if val is not None:
+            if val >= 50:
+                status = {"level": "expansion", "label": "制造业扩张", "color": "green", "signals": []}
+            elif val < 48:
+                status = {"level": "contraction", "label": "制造业收缩", "color": "red", "signals": []}
+            else:
+                status = {"level": "slowdown", "label": "放缓", "color": "orange", "signals": []}
+
+    elif key == "vix":
+        val = values.get("vix")
+        if val is not None:
+            if val < 15:
+                status = {"level": "calm", "label": "市场平静", "color": "green", "signals": []}
+            elif val < 25:
+                status = {"level": "normal", "label": "中性", "color": "blue", "signals": []}
+            elif val < 40:
+                status = {"level": "fear", "label": "恐慌区间", "color": "orange", "signals": ["市场恐慌，逆向关注"]}
+            else:
+                status = {"level": "panic", "label": "极度恐慌", "color": "red", "signals": ["买入信号"]}
+
+    elif key == "us_sp500_pe":
+        val = values.get("pe")
+        if val is not None:
+            if val < 15:
+                status = {"level": "low", "label": "历史低估", "color": "green", "signals": ["买入信号"]}
+            elif val > 40:
+                status = {"level": "bubble", "label": "泡沫区间", "color": "red", "signals": ["高估警告"]}
+            elif val > 30:
+                status = {"level": "high", "label": "显著高估", "color": "orange", "signals": []}
+            else:
+                status = {"level": "normal", "label": "历史均值附近", "color": "blue", "signals": []}
+
+    elif key == "dxy":
+        val = values.get("dxy")
+        if val is not None:
+            if val < 95:
+                status = {"level": "weak", "label": "美元偏弱", "color": "green", "signals": ["利好新兴市场"]}
+            elif val > 105:
+                status = {"level": "strong", "label": "美元强势", "color": "red", "signals": ["新兴市场承压"]}
+            else:
+                status = {"level": "neutral", "label": "中性", "color": "blue", "signals": []}
+
+    elif key in ("gold", "crude_oil"):
+        val = values.get("price")
+        status = {"level": "normal", "label": "正常", "color": "blue", "signals": []}
+        if key == "crude_oil" and val and val > 120:
+            status = {"level": "shock", "label": "油价冲击", "color": "red", "signals": ["通胀压力"]}
+
     return status
 
 
 def scrape_all_indicators(force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
     """
     Scrape all configured indicators.
-    
+
     Returns:
         Dict mapping indicator keys to their data
     """
@@ -529,6 +859,25 @@ def scrape_all_indicators(force_refresh: bool = False) -> Dict[str, Dict[str, An
     for key in INDICATORS_CONFIG.keys():
         results[key] = scrape_indicator(key, force_refresh)
     return results
+
+
+def build_by_market(results: Dict[str, Any]) -> Dict[str, Any]:
+    """将 scrape_all_indicators 结果按 market × layer 分组，供前端双栏渲染使用。"""
+    by_market: Dict[str, Any] = {
+        "cn":     {"macro": [], "liquidity": [], "valuation": []},
+        "us":     {"macro": [], "liquidity": [], "valuation": []},
+        "global": [],
+    }
+    for key, data in results.items():
+        if "error" in data:
+            continue
+        market = data.get("market") or INDICATORS_CONFIG.get(key, {}).get("market")
+        layer  = data.get("layer")  or INDICATORS_CONFIG.get(key, {}).get("layer")
+        if market == "global":
+            by_market["global"].append(data)
+        elif market in ("cn", "us") and layer in ("macro", "liquidity", "valuation"):
+            by_market[market][layer].append(data)
+    return by_market
 
 
 def get_indicator_by_category() -> Dict[str, List[Dict[str, Any]]]:
@@ -572,8 +921,9 @@ def calculate_signals() -> Dict[str, Any]:
         "shibor_1y_low": False,
         "financing_cold": False,
         "no_inversion": False,
+        "vix_fear": False,  # VIX > 30 触发逆向买入信号
     }
-    
+
     # Sell signals (need 2+ to trigger)
     sell_signals = {
         "stock_bond_ratio_low": False,
@@ -581,6 +931,7 @@ def calculate_signals() -> Dict[str, Any]:
         "financing_hot": False,
         "inversion": False,
         "cpi_high": False,
+        "us_cpi_high": False,  # 美国CPI高通胀触发风险规避卖出信号
     }
     
     # Evaluate buy signals
@@ -617,7 +968,16 @@ def calculate_signals() -> Dict[str, Any]:
     cpi_data = all_indicators.get("cpi", {}).get("values", {})
     if cpi_data.get("cpi", 0) > 3:
         sell_signals["cpi_high"] = True
-    
+
+    # 评估 VIX 恐慌信号：VIX > 30 触发逆向买入
+    vix_data = all_indicators.get("vix", {}).get("values", {})
+    vix_val = vix_data.get("vix", 0)
+    buy_signals["vix_fear"] = vix_val > 30
+
+    # 评估美国 CPI 高通胀信号：通过 status 字段判断（FRED CPIAUCSL 为价格指数绝对值 ~310，非百分比）
+    us_cpi_indicator = all_indicators.get("us_cpi", {})
+    sell_signals["us_cpi_high"] = us_cpi_indicator.get("status") == "high"
+
     # Count signals
     buy_count = sum(1 for v in buy_signals.values() if v)
     sell_count = sum(1 for v in sell_signals.values() if v)
@@ -663,32 +1023,36 @@ def calculate_signals() -> Dict[str, Any]:
 def _evaluate_decision_matrix(indicators: Dict[str, Any]) -> Dict[str, Any]:
     """
     Evaluate decision matrix based on key indicators.
-    
+
     Decision Matrix Rules (from investment_base.md):
     1. 强烈买入: 股债比>2.0 + Shibor 1Y<1.5% + 融资余额增速<-10%
     2. 积极配置: 股债比1.5-2.0 + 流动性宽松 + 无衰退信号
     3. 谨慎观望: 股债比<1.2 + 融资余额增速>30% + 美债倒挂
-    4. 强制卖出: 巴菲特指标>120% + CPI>3%且上升 + 利差倒挂
+    4. 强制卖出: 巴菲特指标>120% + CPI>3%且上升 + 利差倒挂 + 美国CPI高通胀
     """
     # Extract indicator values
     sbr = indicators.get("stock_bond_ratio", {}).get("values", {})
     stock_bond_ratio = sbr.get("primary") or sbr.get("shanghai_ratio", 0)
-    
+
     shibor = indicators.get("shibor", {}).get("values", {})
     shibor_1y = shibor.get("1_year", 99)
     shibor_overnight = shibor.get("overnight", 99)
-    
+
     financing = indicators.get("financing_balance", {}).get("values", {})
     financing_growth = financing.get("growth_rate", 0)
-    
+
     us_treasury = indicators.get("us_treasury", {}).get("values", {})
     spread_bp = us_treasury.get("spread_bp", 0)
-    
+
     buffett = indicators.get("buffett_index", {}).get("values", {})
     buffett_index = buffett.get("buffett_index", 0)
-    
+
     cpi_data = indicators.get("cpi", {}).get("values", {})
     cpi = cpi_data.get("cpi", 0)
+
+    # 读取美国 CPI 指标状态（status 字段由 _evaluate_status 生成）
+    us_cpi_indicator = indicators.get("us_cpi", {})
+    us_cpi_high = us_cpi_indicator.get("status") == "high"
     
     # Evaluate each decision matrix condition
     conditions = {
@@ -728,6 +1092,7 @@ def _evaluate_decision_matrix(indicators: Dict[str, Any]) -> Dict[str, Any]:
                 {"name": "巴菲特指标>120%", "met": buffett_index > 120, "value": f"{buffett_index:.1f}%"},
                 {"name": "CPI>3%", "met": cpi > 3, "value": f"{cpi:.2f}%"},
                 {"name": "利差倒挂", "met": spread_bp < 0, "value": f"{spread_bp}bp"},
+                {"name": "美国CPI高通胀", "met": us_cpi_high, "value": "high" if us_cpi_high else "normal"},
             ],
             "action": "减仓至30%以下，持有现金",
             "position": "<30%权益仓位",

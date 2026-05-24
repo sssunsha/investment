@@ -129,6 +129,125 @@ export const INDICATOR_METADATA = {
     ],
     meaning: '全球资产定价之锚，影响新兴市场资金流向。2Y-10Y利差倒挂是最可靠的经济衰退领先指标，倒挂后24个月内衰退概率>80%。',
   },
+
+  // ── 新增：中国宏观 ─────────────────────────────────────────────────────────────
+  cn_pmi: {
+    thresholds: [
+      { condition: '>50', label: '扩张', color: 'green' },
+      { condition: '49-50', label: '荣枯线附近', color: 'orange' },
+      { condition: '<49', label: '收缩', color: 'red' },
+    ],
+    meaning: '50 以上为扩张区间，以下为收缩。制造业 PMI 反映工业经济景气，非制造业 PMI 反映服务业景气，两者共同描绘宏观周期。',
+  },
+
+  // ── 新增：美国宏观 ─────────────────────────────────────────────────────────────
+  us_cpi: {
+    thresholds: [
+      { condition: '同比<2%', label: '通胀温和', color: 'green' },
+      { condition: '同比 2-4%', label: '偏高', color: 'orange' },
+      { condition: '同比>4%', label: '高通胀', color: 'red' },
+    ],
+    meaning: '衡量美国通胀压力，直接影响美联储货币政策走向。CPI 持续高企将促使美联储加息，对股市形成压制。',
+  },
+  us_pce: {
+    thresholds: [
+      { condition: '<2%', label: '达成目标', color: 'green' },
+      { condition: '2-3%', label: '偏高', color: 'orange' },
+      { condition: '>3%', label: '显著超标', color: 'red' },
+    ],
+    meaning: '美联储首选通胀指标，目标值为 2%。核心 PCE 剔除食品与能源，更能反映基础通胀趋势。',
+  },
+  us_pmi: {
+    thresholds: [
+      { condition: '>50', label: '扩张', color: 'green' },
+      { condition: '49-50', label: '荣枯线附近', color: 'orange' },
+      { condition: '<49', label: '收缩', color: 'red' },
+    ],
+    meaning: 'ISM 制造业 PMI，50 以上为扩张，以下为收缩。是美国制造业景气的领先指标，对美联储政策决策有重要参考价值。',
+  },
+  us_payrolls: {
+    thresholds: [
+      { condition: '>200K', label: '强劲增长', color: 'green' },
+      { condition: '100-200K', label: '温和增长', color: 'blue' },
+      { condition: '<100K', label: '增长放缓', color: 'orange' },
+      { condition: '<0', label: '就业萎缩', color: 'red' },
+    ],
+    meaning: '每月新增非农就业人数，反映劳动力市场强弱。强劲非农数据可能促使美联储维持高利率，对股市产生双刃剑效应。',
+  },
+  us_unrate: {
+    thresholds: [
+      { condition: '<4%', label: '充分就业', color: 'green' },
+      { condition: '4-5%', label: '温和', color: 'blue' },
+      { condition: '>5%', label: '劳动市场松弛', color: 'orange' },
+      { condition: '>6%', label: '衰退风险', color: 'red' },
+    ],
+    meaning: '劳动力市场松紧程度，过低意味着工资通胀压力大，过高则意味着经济衰退风险。美联储双重使命之一。',
+  },
+
+  // ── 新增：美国利率/流动性 ──────────────────────────────────────────────────────
+  us_fedfunds: {
+    thresholds: [
+      { condition: '<1%', label: '超宽松', color: 'green' },
+      { condition: '1-3%', label: '中性', color: 'blue' },
+      { condition: '3-5%', label: '限制性', color: 'orange' },
+      { condition: '>5%', label: '高度限制性', color: 'red' },
+    ],
+    meaning: '美联储政策利率，是全球资产定价的基准。加息周期通常压制估值，降息周期利好风险资产。',
+  },
+  us_fed_balance: {
+    thresholds: [
+      { condition: '扩表（QE）', label: '宽松信号', color: 'green' },
+      { condition: '缩表（QT）', label: '收紧信号', color: 'red' },
+    ],
+    meaning: '美联储资产负债表规模，用于判断 QE/QT 周期。扩表向市场注入流动性，缩表则抽离流动性，对风险资产影响深远。',
+  },
+
+  // ── 新增：美国市场估值 ─────────────────────────────────────────────────────────
+  us_sp500_pe: {
+    thresholds: [
+      { condition: 'CAPE<20', label: '低估', color: 'green' },
+      { condition: 'CAPE 20-30', label: '合理', color: 'blue' },
+      { condition: 'CAPE>30', label: '显著高估', color: 'orange' },
+      { condition: 'CAPE>35', label: '历史极端高位', color: 'red' },
+    ],
+    meaning: '席勒CAPE（周期调整PE）>30 为显著高估区间，历史均值约16。标普500 PE 反映当前盈利水平，CAPE 则平滑经济周期波动。',
+  },
+  vix: {
+    thresholds: [
+      { condition: '<15', label: '市场平静', color: 'green' },
+      { condition: '15-25', label: '正常波动', color: 'blue' },
+      { condition: '25-30', label: '市场紧张', color: 'orange' },
+      { condition: '>30', label: '历史级恐慌', color: 'red' },
+    ],
+    meaning: 'VIX 恐慌指数，>30 为历史级恐慌区间，可作逆向参考。极端恐慌往往对应市场底部，是逆向投资者的重要信号。',
+  },
+
+  // ── 新增：全球指标 ─────────────────────────────────────────────────────────────
+  gold: {
+    thresholds: [
+      { condition: '上涨趋势', label: '避险需求强', color: 'orange' },
+      { condition: '下跌趋势', label: '风险偏好回升', color: 'green' },
+    ],
+    meaning: '避险资产，反映全球风险偏好。黄金上涨通常意味着避险需求强烈，与美元呈反向关系。可作为资产组合的对冲工具。',
+  },
+  crude_oil: {
+    thresholds: [
+      { condition: '<60 USD', label: '低油价', color: 'green' },
+      { condition: '60-90 USD', label: '中性', color: 'blue' },
+      { condition: '>90 USD', label: '通胀压力', color: 'orange' },
+      { condition: '>100 USD', label: '高通胀风险', color: 'red' },
+    ],
+    meaning: '全球通胀与经济景气先行指标。油价上涨推高通胀预期，影响央行政策；油价暴跌可能预示全球需求萎缩。',
+  },
+  dxy: {
+    thresholds: [
+      { condition: '<95', label: '美元偏弱', color: 'green' },
+      { condition: '95-105', label: '中性', color: 'blue' },
+      { condition: '>105', label: '美元强势', color: 'orange' },
+      { condition: '>110', label: '极端强势', color: 'red' },
+    ],
+    meaning: '美元指数 DXY，衡量美元相对一篮子货币的强弱。美元强势通常造成新兴市场资金外流压力，并压制大宗商品价格。',
+  },
 };
 
 // ── 颜色 ──────────────────────────────────────────────────────────────────────
@@ -252,6 +371,59 @@ export function getValueColor(key, value, fieldName = 'primary') {
         if (value < -20) return 'red';
       }
       break;
+
+    // ── 新增指标颜色逻辑 ───────────────────────────────────────────────────────────
+    case 'cn_pmi':
+    case 'us_pmi':
+      if (value > 50) return 'green';
+      if (value >= 49 && value <= 50) return 'orange';
+      return 'red';
+
+    case 'us_cpi':
+      return 'blue';
+
+    case 'us_pce':
+      if (value < 2) return 'green';
+      if (value >= 2 && value <= 3) return 'orange';
+      return 'red';
+
+    case 'us_payrolls':
+      if (value > 200) return 'green';
+      if (value >= 100 && value <= 200) return 'blue';
+      if (value < 0) return 'red';
+      return 'orange';
+
+    case 'us_unrate':
+      if (value < 4) return 'green';
+      if (value >= 4 && value <= 5) return 'blue';
+      if (value > 6) return 'red';
+      return 'orange';
+
+    case 'us_fedfunds':
+      if (value < 1) return 'green';
+      if (value >= 1 && value <= 3) return 'blue';
+      if (value > 5) return 'red';
+      return 'orange';
+
+    case 'us_fed_balance':
+      return 'blue';
+
+    case 'us_sp500_pe':
+      if (value < 20) return 'green';
+      if (value >= 20 && value <= 30) return 'blue';
+      if (value > 35) return 'red';
+      return 'orange';
+
+    case 'vix':
+      if (value < 15) return 'green';
+      if (value >= 15 && value <= 25) return 'blue';
+      if (value > 30) return 'red';
+      return 'orange';
+
+    case 'gold':
+    case 'crude_oil':
+    case 'dxy':
+      return 'blue';
   }
 
   return '';
@@ -515,6 +687,134 @@ export function renderIndicatorValues(key, values) {
       `;
     }
 
+    // ── 新增：中国宏观 ───────────────────────────────────────────────────────────
+    case 'cn_pmi': {
+      const mfgColor = getValueColor(key, values.manufacturing_pmi, 'manufacturing_pmi');
+      const svcColor = getValueColor(key, values.services_pmi, 'services_pmi');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">制造业</div>
+          <div class="indicator-value-number ${mfgColor}">${formatNumber(values.manufacturing_pmi, 1)}</div>
+        </div>
+        <div class="indicator-value">
+          <div class="indicator-value-label">非制造业</div>
+          <div class="indicator-value-number ${svcColor}">${formatNumber(values.services_pmi, 1)}</div>
+        </div>
+      `;
+    }
+
+    // ── 新增：美国宏观 ───────────────────────────────────────────────────────────
+    case 'us_cpi':
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">CPI指数</div>
+          <div class="indicator-value-number">${formatNumber(values.cpi_index, 2)}</div>
+        </div>
+      `;
+
+    case 'us_pce': {
+      const pceColor = getValueColor(key, values.pce, 'pce');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">核心PCE</div>
+          <div class="indicator-value-number ${pceColor}">${formatNumber(values.pce, 2)}<span class="indicator-value-unit">%</span></div>
+        </div>
+      `;
+    }
+
+    case 'us_pmi': {
+      const usPmiColor = getValueColor(key, values.pmi, 'pmi');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">ISM PMI</div>
+          <div class="indicator-value-number ${usPmiColor}">${formatNumber(values.pmi, 1)}</div>
+        </div>
+      `;
+    }
+
+    case 'us_payrolls':
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">月增就业</div>
+          <div class="indicator-value-number">${formatNumber(values.payrolls_k, 0)}<span class="indicator-value-unit">K</span></div>
+        </div>
+      `;
+
+    case 'us_unrate': {
+      const unrateColor = getValueColor(key, values.unrate, 'unrate');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">失业率</div>
+          <div class="indicator-value-number ${unrateColor}">${formatNumber(values.unrate, 1)}<span class="indicator-value-unit">%</span></div>
+        </div>
+      `;
+    }
+
+    // ── 新增：美国利率/流动性 ────────────────────────────────────────────────────
+    case 'us_fedfunds': {
+      const fedColor = getValueColor(key, values.fedfunds, 'fedfunds');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">联邦基金利率</div>
+          <div class="indicator-value-number ${fedColor}">${formatNumber(values.fedfunds, 2)}<span class="indicator-value-unit">%</span></div>
+        </div>
+      `;
+    }
+
+    case 'us_fed_balance':
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">资产负债表</div>
+          <div class="indicator-value-number">${formatNumber(values.balance_b, 0)}<span class="indicator-value-unit">亿美元</span></div>
+        </div>
+      `;
+
+    // ── 新增：美国市场估值 ───────────────────────────────────────────────────────
+    case 'us_sp500_pe': {
+      const sp500PeColor = getValueColor(key, values.pe, 'pe');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">PE / CAPE</div>
+          <div class="indicator-value-number ${sp500PeColor}">${formatNumber(values.pe, 2)}<span class="indicator-value-unit">倍</span></div>
+        </div>
+      `;
+    }
+
+    case 'vix': {
+      const vixColor = getValueColor(key, values.vix, 'vix');
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">VIX</div>
+          <div class="indicator-value-number ${vixColor}">${formatNumber(values.vix, 2)}</div>
+        </div>
+      `;
+    }
+
+    // ── 新增：全球指标 ───────────────────────────────────────────────────────────
+    case 'gold':
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">黄金</div>
+          <div class="indicator-value-number">${formatNumber(values.gold, 2)}<span class="indicator-value-unit">USD/oz</span></div>
+        </div>
+      `;
+
+    case 'crude_oil':
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">WTI</div>
+          <div class="indicator-value-number">${formatNumber(values.crude_oil, 2)}<span class="indicator-value-unit">USD/桶</span></div>
+        </div>
+      `;
+
+    case 'dxy':
+      return `
+        <div class="indicator-value">
+          <div class="indicator-value-label">DXY</div>
+          <div class="indicator-value-number">${formatNumber(values.dxy, 2)}</div>
+        </div>
+      `;
+
     default: {
       const entries = Object.entries(values).slice(0, 3);
       return entries.map(([k, v]) => `
@@ -588,6 +888,83 @@ export function renderCategorySection(categoryKey, categoryData) {
       </div>
       <div class="indicators-grid">
         ${indicators.map(ind => renderIndicatorCard(ind)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ── 双栏布局渲染 ──────────────────────────────────────────────────────────────
+
+// 每个分层的显示配置
+const LAYER_CONFIG = {
+  macro:     { icon: '📊', title: '宏观环境' },
+  liquidity: { icon: '💧', title: '利率 / 流动性' },
+  valuation: { icon: '📈', title: '市场估值' },
+};
+
+// 每个市场的显示配置
+const MARKET_CONFIG = {
+  cn: { flag: '🇨🇳', title: '中国市场', subtitle: 'A股 · 港股' },
+  us: { flag: '🇺🇸', title: '美国市场', subtitle: '美股 · 美债' },
+};
+
+/**
+ * 渲染单个市场列（CN 或 US）
+ * @param {'cn'|'us'} market 市场标识
+ * @param {{ macro: object[], liquidity: object[], valuation: object[] }} layers 各分层指标数组
+ * @returns {string} HTML 字符串
+ */
+export function renderMarketColumn(market, layers) {
+  const { flag, title, subtitle } = MARKET_CONFIG[market] || {};
+
+  // 渲染各分层，跳过空数组
+  const layerSections = Object.entries(layers)
+    .filter(([, indicators]) => indicators && indicators.length > 0)
+    .map(([layerKey, indicators]) => {
+      const { icon, title: layerTitle } = LAYER_CONFIG[layerKey] || { icon: '', title: layerKey };
+      const cards = indicators.map(ind => renderIndicatorCard(ind)).join('');
+      return `
+        <div class="layer-section">
+          <div class="layer-separator">
+            <span class="layer-icon">${icon}</span>
+            <span class="layer-title">${layerTitle}</span>
+          </div>
+          <div class="indicators-grid">
+            ${cards}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  return `
+    <div class="market-column">
+      <div class="market-column-header">
+        <span class="market-flag">${flag}</span>
+        <div class="market-column-title-group">
+          <span class="market-title">${title}</span>
+          <span class="market-subtitle">${subtitle}</span>
+        </div>
+      </div>
+      ${layerSections}
+    </div>
+  `;
+}
+
+/**
+ * 渲染全宽全球指标区块（BDI、黄金、原油、DXY）
+ * @param {object[]} indicators 全球指标结果数组
+ * @returns {string} HTML 字符串
+ */
+export function renderGlobalSection(indicators) {
+  const cards = (indicators || []).map(ind => renderIndicatorCard(ind)).join('');
+  return `
+    <div class="global-section">
+      <div class="global-section-header">
+        <span class="global-title">全球指标</span>
+        <span class="market-subtitle">大宗商品 · 航运 · 美元</span>
+      </div>
+      <div class="indicators-grid">
+        ${cards}
       </div>
     </div>
   `;

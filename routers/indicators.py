@@ -34,6 +34,7 @@ from services.scraper import (
     async_fetch_us_rates_history,
     get_config,
     clear_cache,
+    build_by_market,
     INDICATORS_CONFIG,
     CATEGORIES,
 )
@@ -88,10 +89,13 @@ async def get_all_indicators(
         
         # Sort categories by order
         sorted_categories = dict(sorted(grouped.items(), key=lambda x: x[1]["order"]))
-        
+
+        by_market = build_by_market(result)
+
         return JSONResponse(content={
             "success": True,
             "data": sorted_categories,
+            "by_market": by_market,
             "total": len(result),
         })
     except Exception as e:
