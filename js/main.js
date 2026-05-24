@@ -12,7 +12,8 @@ import {
   saveAwJournalRecord, showAwToast,
 } from './aw/journal.js';
 import { openDrawer, closeDrawer }                from './aw/drawer.js';
-import { awMaybeInitEmpty, loadAwPool, clearAndResetAw } from './aw/monitor.js';
+import { awMaybeInitEmpty, loadAwPool, clearAndResetAw, openFundDrawer, closeFundDrawer } from './aw/monitor.js';
+import { openStaleDialog, closeStaleDialog, redeemStalePosition, refreshStaleChip } from './aw/stale-positions.js';
 import { loadAwAmounts, onAwAmtChange, clearAwAmt, refreshAwAllPosPct as refreshAwPosPct } from './aw/amounts.js';
 import { loadAwAvailable, onAwAvailableChange, refreshAwTotalDisplay, openAwPnlDialog, closeAwPnlDialog } from './aw/aw-available.js';
 import { toggleAwDebug, closeAwDebugDrawer, clearAwDebug } from './aw/debug.js';
@@ -60,6 +61,9 @@ Object.assign(window, {
   openJournal, closeJournal, loadJournal,
   // AW 监控
   loadAwPool, clearAndResetAw,
+  openFundDrawer, closeFundDrawer,
+  // AW 未赎回管理
+  openStaleDialog, closeStaleDialog, redeemStalePosition,
   toggleAwDebug, closeAwDebugDrawer, clearAwDebug,
   // AW 持仓金额
   onAwAmtChange, clearAwAmt,
@@ -96,6 +100,7 @@ initRebalanceDayStyle();
   await loadAwAvailable();
   refreshAwTotalDisplay();
   refreshAwPosPct();
+  refreshStaleChip();
 
   await awMaybeInitEmpty();
   initHashRouter();
