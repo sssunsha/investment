@@ -921,8 +921,9 @@ def calculate_signals() -> Dict[str, Any]:
         "shibor_1y_low": False,
         "financing_cold": False,
         "no_inversion": False,
+        "vix_fear": False,  # VIX > 30 触发逆向买入信号
     }
-    
+
     # Sell signals (need 2+ to trigger)
     sell_signals = {
         "stock_bond_ratio_low": False,
@@ -930,6 +931,7 @@ def calculate_signals() -> Dict[str, Any]:
         "financing_hot": False,
         "inversion": False,
         "cpi_high": False,
+        "us_cpi_high": False,  # 美国CPI高通胀触发风险规避卖出信号
     }
     
     # Evaluate buy signals
@@ -966,7 +968,16 @@ def calculate_signals() -> Dict[str, Any]:
     cpi_data = all_indicators.get("cpi", {}).get("values", {})
     if cpi_data.get("cpi", 0) > 3:
         sell_signals["cpi_high"] = True
-    
+
+    # 评估 VIX 恐慌信号：VIX > 30 触发逆向买入
+    vix_data = all_indicators.get("vix", {}).get("values", {})
+    vix_val = vix_data.get("vix", 0)
+    buy_signals["vix_fear"] = vix_val > 30
+
+    # 评估美国 CPI 高通胀信号：通过 status 字段判断（FRED CPIAUCSL 为价格指数绝对值 ~310，非百分比）
+    us_cpi_indicator = all_indicators.get("us_cpi", {})
+    sell_signals["us_cpi_high"] = us_cpi_indicator.get("status") == "high"
+
     # Count signals
     buy_count = sum(1 for v in buy_signals.values() if v)
     sell_count = sum(1 for v in sell_signals.values() if v)
@@ -1012,32 +1023,36 @@ def calculate_signals() -> Dict[str, Any]:
 def _evaluate_decision_matrix(indicators: Dict[str, Any]) -> Dict[str, Any]:
     """
     Evaluate decision matrix based on key indicators.
-    
+
     Decision Matrix Rules (from investment_base.md):
     1. 强烈买入: 股债比>2.0 + Shibor 1Y<1.5% + 融资余额增速<-10%
     2. 积极配置: 股债比1.5-2.0 + 流动性宽松 + 无衰退信号
     3. 谨慎观望: 股债比<1.2 + 融资余额增速>30% + 美债倒挂
-    4. 强制卖出: 巴菲特指标>120% + CPI>3%且上升 + 利差倒挂
+    4. 强制卖出: 巴菲特指标>120% + CPI>3%且上升 + 利差倒挂 + 美国CPI高通胀
     """
     # Extract indicator values
     sbr = indicators.get("stock_bond_ratio", {}).get("values", {})
     stock_bond_ratio = sbr.get("primary") or sbr.get("shanghai_ratio", 0)
-    
+
     shibor = indicators.get("shibor", {}).get("values", {})
     shibor_1y = shibor.get("1_year", 99)
     shibor_overnight = shibor.get("overnight", 99)
-    
+
     financing = indicators.get("financing_balance", {}).get("values", {})
     financing_growth = financing.get("growth_rate", 0)
-    
+
     us_treasury = indicators.get("us_treasury", {}).get("values", {})
     spread_bp = us_treasury.get("spread_bp", 0)
-    
+
     buffett = indicators.get("buffett_index", {}).get("values", {})
     buffett_index = buffett.get("buffett_index", 0)
-    
+
     cpi_data = indicators.get("cpi", {}).get("values", {})
     cpi = cpi_data.get("cpi", 0)
+
+    # 读取美国 CPI 指标状态（status 字段由 _evaluate_status 生成）
+    us_cpi_indicator = indicators.get("us_cpi", {})
+    us_cpi_high = us_cpi_indicator.get("status") == "high"
     
     # Evaluate each decision matrix condition
     conditions = {
@@ -1077,6 +1092,7 @@ def _evaluate_decision_matrix(indicators: Dict[str, Any]) -> Dict[str, Any]:
                 {"name": "巴菲特指标>120%", "met": buffett_index > 120, "value": f"{buffett_index:.1f}%"},
                 {"name": "CPI>3%", "met": cpi > 3, "value": f"{cpi:.2f}%"},
                 {"name": "利差倒挂", "met": spread_bp < 0, "value": f"{spread_bp}bp"},
+                {"name": "美国CPI高通胀", "met": us_cpi_high, "value": "high" if us_cpi_high else "normal"},
             ],
             "action": "减仓至30%以下，持有现金",
             "position": "<30%权益仓位",
