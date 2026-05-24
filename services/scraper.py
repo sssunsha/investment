@@ -208,6 +208,18 @@ INDICATORS_CONFIG = {
         },
     },
     # Macroeconomic
+    "cn_pmi": {
+        "name": "中国PMI（制造业/非制造业）", "name_en": "China PMI",
+        "market": "cn", "layer": "macro",
+        "category": "macroeconomic",
+        "source": "scrape",
+        "url": "http://value500.com/PMI.asp",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "expansion":   {"value": 50, "label": "经济扩张", "color": "green"},
+            "contraction": {"value": 50, "op": "<", "label": "经济收缩", "color": "orange"},
+        },
+    },
     "cpi": {
         "name": "CPI消费者物价指数",
         "name_en": "CPI",
@@ -246,6 +258,46 @@ INDICATORS_CONFIG = {
         "thresholds": {
             "boom": {"value": 2000, "label": "航运景气", "color": "green"},
             "depression": {"value": 1000, "label": "航运萧条", "color": "red"},
+        },
+    },
+    "gold": {
+        "name": "黄金（美元/盎司）", "name_en": "Gold USD/oz",
+        "market": "global", "layer": "global_indicator",
+        "category": "global",
+        "source": "yahoo", "yahoo_ticker": "GC=F",
+        "value_key": "price",
+        "url": "https://finance.yahoo.com/quote/GC=F",
+        "update_frequency": "daily",
+        "thresholds": {
+            "low":  {"value": 1800, "label": "低位", "color": "blue"},
+            "high": {"value": 2500, "label": "高位", "color": "orange"},
+        },
+    },
+    "crude_oil": {
+        "name": "原油 WTI（美元/桶）", "name_en": "WTI Crude Oil",
+        "market": "global", "layer": "global_indicator",
+        "category": "global",
+        "source": "yahoo", "yahoo_ticker": "CL=F",
+        "value_key": "price",
+        "url": "https://finance.yahoo.com/quote/CL=F",
+        "update_frequency": "daily",
+        "thresholds": {
+            "low":      {"value": 60,  "label": "低油价", "color": "blue"},
+            "high":     {"value": 90,  "label": "高油价", "color": "orange"},
+            "very_high":{"value": 120, "label": "油价冲击", "color": "red"},
+        },
+    },
+    "dxy": {
+        "name": "美元指数 DXY", "name_en": "US Dollar Index",
+        "market": "global", "layer": "global_indicator",
+        "category": "global",
+        "source": "yahoo", "yahoo_ticker": "DX-Y.NYB",
+        "value_key": "dxy",
+        "url": "https://finance.yahoo.com/quote/DX-Y.NYB",
+        "update_frequency": "daily",
+        "thresholds": {
+            "weak":   {"value": 95,  "label": "美元偏弱（利好新兴市场）", "color": "green"},
+            "strong": {"value": 105, "label": "美元强势（新兴市场承压）", "color": "red"},
         },
     },
     # Global
@@ -351,6 +403,47 @@ INDICATORS_CONFIG = {
         "url": "https://fred.stlouisfed.org/series/WALCL",
         "update_frequency": "weekly",
         "thresholds": {},
+    },
+    # ── US Valuation ──────────────────────────────────────────────────────────
+    "us_sp500_pe": {
+        "name": "标普500 PE（席勒CAPE）", "name_en": "S&P 500 Shiller CAPE",
+        "market": "us", "layer": "valuation",
+        "category": "market_valuation",
+        "source": "scrape",
+        "url": "https://www.multpl.com/shiller-pe/table/by-month",
+        "update_frequency": "monthly",
+        "thresholds": {
+            "low":    {"value": 15, "label": "历史低估", "color": "green"},
+            "normal": {"value": 25, "label": "历史均值附近", "color": "blue"},
+            "high":   {"value": 30, "label": "显著高估", "color": "orange"},
+            "bubble": {"value": 40, "label": "泡沫区间", "color": "red"},
+        },
+    },
+    "us_buffett": {
+        "name": "美股巴菲特指标", "name_en": "US Buffett Indicator",
+        "market": "us", "layer": "valuation",
+        "category": "market_valuation",
+        "source": "fred",
+        "fred_series": "WILL5000PR",
+        "value_key": "will5000",
+        "url": "https://fred.stlouisfed.org/series/WILL5000PR",
+        "update_frequency": "monthly",
+        "thresholds": {},
+    },
+    "vix": {
+        "name": "VIX 恐慌指数", "name_en": "CBOE Volatility Index",
+        "market": "us", "layer": "valuation",
+        "category": "market_valuation",
+        "source": "yahoo", "yahoo_ticker": "^VIX",
+        "value_key": "vix",
+        "url": "https://finance.yahoo.com/quote/%5EVIX",
+        "update_frequency": "daily",
+        "thresholds": {
+            "calm":   {"value": 15, "label": "市场平静", "color": "green"},
+            "normal": {"value": 25, "label": "中性", "color": "blue"},
+            "fear":   {"value": 30, "label": "恐慌区间", "color": "orange"},
+            "panic":  {"value": 40, "label": "极度恐慌", "color": "red"},
+        },
     },
 }
 
@@ -701,6 +794,56 @@ def _evaluate_status(indicator: Dict[str, Any]) -> Dict[str, Any]:
                 status = {"level": "restrictive", "label": "限制性利率", "color": "red", "signals": ["紧缩压力"]}
             else:
                 status = {"level": "neutral", "label": "中性", "color": "blue", "signals": []}
+
+    elif key == "cn_pmi":
+        val = values.get("manufacturing")
+        if val is not None:
+            if val >= 50:
+                status = {"level": "expansion", "label": "制造业扩张", "color": "green", "signals": []}
+            elif val < 48:
+                status = {"level": "contraction", "label": "制造业收缩", "color": "red", "signals": []}
+            else:
+                status = {"level": "slowdown", "label": "放缓", "color": "orange", "signals": []}
+
+    elif key == "vix":
+        val = values.get("vix")
+        if val is not None:
+            if val < 15:
+                status = {"level": "calm", "label": "市场平静", "color": "green", "signals": []}
+            elif val < 25:
+                status = {"level": "normal", "label": "中性", "color": "blue", "signals": []}
+            elif val < 40:
+                status = {"level": "fear", "label": "恐慌区间", "color": "orange", "signals": ["市场恐慌，逆向关注"]}
+            else:
+                status = {"level": "panic", "label": "极度恐慌", "color": "red", "signals": ["买入信号"]}
+
+    elif key == "us_sp500_pe":
+        val = values.get("pe")
+        if val is not None:
+            if val < 15:
+                status = {"level": "low", "label": "历史低估", "color": "green", "signals": ["买入信号"]}
+            elif val > 40:
+                status = {"level": "bubble", "label": "泡沫区间", "color": "red", "signals": ["高估警告"]}
+            elif val > 30:
+                status = {"level": "high", "label": "显著高估", "color": "orange", "signals": []}
+            else:
+                status = {"level": "normal", "label": "历史均值附近", "color": "blue", "signals": []}
+
+    elif key == "dxy":
+        val = values.get("dxy")
+        if val is not None:
+            if val < 95:
+                status = {"level": "weak", "label": "美元偏弱", "color": "green", "signals": ["利好新兴市场"]}
+            elif val > 105:
+                status = {"level": "strong", "label": "美元强势", "color": "red", "signals": ["新兴市场承压"]}
+            else:
+                status = {"level": "neutral", "label": "中性", "color": "blue", "signals": []}
+
+    elif key in ("gold", "crude_oil"):
+        val = values.get("price")
+        status = {"level": "normal", "label": "正常", "color": "blue", "signals": []}
+        if key == "crude_oil" and val and val > 120:
+            status = {"level": "shock", "label": "油价冲击", "color": "red", "signals": ["通胀压力"]}
 
     return status
 

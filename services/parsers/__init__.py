@@ -13,6 +13,8 @@ from .liquidity import (
     _parse_m2_gdp, _parse_financing_balance,
 )
 from .macro import _parse_cpi, _parse_ppi, _parse_bdi, _parse_us_treasury
+from .cn_pmi import _parse_cn_pmi
+from .us_equity import _parse_sp500_pe
 
 PARSER_MAP = {
     "a_share_pe":        _parse_pe,
@@ -30,6 +32,8 @@ PARSER_MAP = {
     "ppi":               _parse_ppi,
     "bdi":               _parse_bdi,
     "us_treasury":       _parse_us_treasury,
+    "cn_pmi":            _parse_cn_pmi,
+    "us_sp500_pe":       _parse_sp500_pe,
 }
 
 __all__ = ["PARSER_MAP"]
