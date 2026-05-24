@@ -926,8 +926,8 @@ export function renderMarketColumn(market, layers) {
       return `
         <div class="layer-section">
           <div class="layer-separator">
-            <span class="layer-separator-icon">${icon}</span>
-            <span class="layer-separator-title">${layerTitle}</span>
+            <span class="layer-icon">${icon}</span>
+            <span class="layer-title">${layerTitle}</span>
           </div>
           <div class="indicators-grid">
             ${cards}
@@ -941,8 +941,8 @@ export function renderMarketColumn(market, layers) {
       <div class="market-column-header">
         <span class="market-flag">${flag}</span>
         <div class="market-column-title-group">
-          <span class="market-column-title">${title}</span>
-          <span class="market-column-subtitle">${subtitle}</span>
+          <span class="market-title">${title}</span>
+          <span class="market-subtitle">${subtitle}</span>
         </div>
       </div>
       ${layerSections}
@@ -960,9 +960,8 @@ export function renderGlobalSection(indicators) {
   return `
     <div class="global-section">
       <div class="global-section-header">
-        <span class="global-section-icon">🌐</span>
-        <span class="global-section-title">全球指标</span>
-        <span class="global-section-subtitle">大宗商品 · 航运 · 美元</span>
+        <span class="global-title">全球指标</span>
+        <span class="market-subtitle">大宗商品 · 航运 · 美元</span>
       </div>
       <div class="indicators-grid">
         ${cards}
