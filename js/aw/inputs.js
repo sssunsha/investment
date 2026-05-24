@@ -1,5 +1,5 @@
 // js/aw/inputs.js
-import { PORTFOLIO, awAltSet, AW_ALT_KEY } from './config.js';
+import { PORTFOLIO, awAltSet, getActiveAsset, AW_ALT_KEY } from './config.js';
 import { getAwAmt } from './amounts.js';
 import { refreshFundDrawerRow } from './monitor.js';
 
@@ -11,7 +11,7 @@ function toggleAwAlt(id) {
   const currentAmt = getAwAmt(currentActiveCode);
   if (currentAmt > 0) {
     const currentName = awAltSet.has(id) ? a.alt.name : a.name;
-    globalThis.showAwToast?.(
+    window.showAwToast?.(
       `⚠ ${currentName} 中尚有持仓 ¥${currentAmt.toLocaleString('zh-CN')}，切换后请尽快赎回`,
       'var(--yellow)'
     );
