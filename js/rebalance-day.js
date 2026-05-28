@@ -109,8 +109,8 @@ async function initRebalanceDayStyle() {
 
   try {
     const todayStr = _todayLocal();
-    // 从锚点开始查，确保锚点后每个计划日都在交易日集合内；向后覆盖约 30 个调仓周期
-    const endStr = _addDays(todayStr, 420);
+    // 从锚点开始查，向后 30 天缓冲足够定位当前是否为调仓日（BaoStock 限约 210 天）
+    const endStr = _addDays(todayStr, 30);
     const res = await fetch(`/api/metadata/query_trade_dates?start_date=${_REBALANCE_ANCHOR}&end_date=${endStr}`);
     if (!res.ok) throw new Error('api error');
     const json = await res.json();

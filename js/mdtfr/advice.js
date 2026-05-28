@@ -1,7 +1,7 @@
 // js/mdtfr/advice.js — 操作建议渲染（HTML 构建）
 import { escHtml } from '../utils.js';
 import { setLastMdtfrItems } from './amounts.js';
-import { getTotalAmt } from './available.js';
+import { getTotalAmt, getAvailableAmt } from './available.js';
 import { mdtfrBuildAdvice, setLastAdviceData } from './advice-logic.js';
 import { call, on } from './bus.js';
 
@@ -45,6 +45,7 @@ export function mdtfrRenderAdvice(items) {
 
   // ── 1. 综合操作结论（合并买入+卖出信号）──────────────────
   const totalAmt    = getTotalAmt();
+  const availableAmt = getAvailableAmt();
   const fmtY        = (n) => '¥' + Math.round(n).toLocaleString();
 
   // ── 金额颜色标注 helper ──────────────────────────────────
@@ -115,12 +116,38 @@ export function mdtfrRenderAdvice(items) {
     && urgentSell.length === 0;
 
   if (!hasSell && holdingMatch) {
-    finalType   = 'hold';
-    finalTitle  = '维持现仓，无需操作';
-    finalColor  = 'var(--cyan)';
-    finalBg     = 'rgba(6,182,212,.06)';
-    finalBorder = 'rgba(6,182,212,.25)';
-    finalLines  = [`持仓标的 ${holdings.map(x=>`${hiGreen(x.name)} ${fmtY(x._amt)} (${x._posVal.toFixed(1)}%)`).join('、')} 仍满足所有买入条件，且无卖出信号`];
+    if (availableAmt > 0) {
+      // 有增量资金：按 totalAmt × 50% 补足每个持仓标的至目标仓位
+      finalType   = 'incremental';
+      finalTitle  = `追加投入增量资金 ${fmtY(availableAmt)}`;
+      finalColor  = 'var(--green)';
+      finalBg     = 'rgba(34,197,94,.06)';
+      finalBorder = 'rgba(34,197,94,.3)';
+      buyCandidates.forEach(x => {
+        const targetAmt  = totalAmt * 0.50;
+        const currentAmt = holdings.find(h => h.code_c === x.code_c)?._amt || 0;
+        const addAmt     = targetAmt - currentAmt;
+        if (addAmt > 1) {
+          finalLines.push(`追加买入 ${hiPurple(x.name)}：${hiGreen(fmtY(addAmt))}（当前 ${fmtY(currentAmt)} → 目标 ${fmtY(targetAmt)}，总仓 ${fmtY(totalAmt)} × 50%）`);
+        }
+      });
+      if (finalLines.length === 0) {
+        // 增量极小、差额不足1元，退化为 hold
+        finalType   = 'hold';
+        finalTitle  = '维持现仓，无需操作';
+        finalColor  = 'var(--cyan)';
+        finalBg     = 'rgba(6,182,212,.06)';
+        finalBorder = 'rgba(6,182,212,.25)';
+        finalLines  = [`持仓标的 ${holdings.map(x=>`${hiGreen(x.name)} ${fmtY(x._amt)} (${x._posVal.toFixed(1)}%)`).join('、')} 仍满足所有买入条件，且无卖出信号`];
+      }
+    } else {
+      finalType   = 'hold';
+      finalTitle  = '维持现仓，无需操作';
+      finalColor  = 'var(--cyan)';
+      finalBg     = 'rgba(6,182,212,.06)';
+      finalBorder = 'rgba(6,182,212,.25)';
+      finalLines  = [`持仓标的 ${holdings.map(x=>`${hiGreen(x.name)} ${fmtY(x._amt)} (${x._posVal.toFixed(1)}%)`).join('、')} 仍满足所有买入条件，且无卖出信号`];
+    }
   } else if (hasSell && hasBuy) {
     finalType   = 'swap';
     finalTitle  = `换仓操作`;
@@ -174,6 +201,9 @@ export function mdtfrRenderAdvice(items) {
     finalLines  = [holdings.length > 0
       ? '持仓标的无卖出信号，当前买入候选未满足全部条件，继续持有等待下次复盘'
       : '当前无满足买入条件的标的，保持空仓，资金转入货币基金'];
+    if (availableAmt > 0) {
+      finalLines.push(`可用资金 ${fmtY(availableAmt)} 暂无满足条件的标的，建议继续存放货币基金等待下次复盘`);
+    }
   }
 
   // ── 构建结构化操作行（卖出 / 买入 / 关注）────────────────
@@ -210,16 +240,34 @@ export function mdtfrRenderAdvice(items) {
     sellRows.push({ from: x.name, amt: sellAmt, watch: true, to: '货币基金', note: noteStr });
   });
   toBuy.forEach(x => {
-    buyRows.push({ from: '货币基金', amt: totalAmt * 0.50, to: x.name,
-      toCode: x.code_c, note: `目标仓位 50%` });
+    const fromLabel = availableAmt > 0 ? '可用资金' : '货币基金';
+    const noteStr   = availableAmt > 0
+      ? `目标仓位 50%，来源：可用资金 ${fmtY(availableAmt)}`
+      : '目标仓位 50%';
+    buyRows.push({ from: fromLabel, amt: totalAmt * 0.50, to: x.name, toCode: x.code_c, note: noteStr });
   });
 
-  // 继续持有行：仅在 finalType=hold 时填充（当前持仓与买入候选完全匹配）
+  // 继续持有行：finalType=hold 时；增量追加行：finalType=incremental 时
   const holdRows = [];
   if (finalType === 'hold') {
     buyCandidates.forEach(x => {
       const h = holdings.find(hh => hh.code_c === x.code_c);
       if (h) holdRows.push({ name: h.name, code_c: h.code_c, amt: h._amt, pct: h._posVal });
+    });
+  } else if (finalType === 'incremental') {
+    buyCandidates.forEach(x => {
+      const currentAmt = holdings.find(h => h.code_c === x.code_c)?._amt || 0;
+      const targetAmt  = totalAmt * 0.50;
+      const addAmt     = targetAmt - currentAmt;
+      if (addAmt > 1) {
+        buyRows.push({
+          from: '可用资金',
+          amt: addAmt,
+          to: x.name,
+          toCode: x.code_c,
+          note: `当前 ${fmtY(currentAmt)} → 目标 ${fmtY(targetAmt)}（含增量 ${fmtY(availableAmt)}）`,
+        });
+      }
     });
   }
 
@@ -238,7 +286,7 @@ export function mdtfrRenderAdvice(items) {
     const rowsHtml = rows.map((r, i) => {
       const amtClr = r.watch ? 'var(--yellow)' : (type === 'sell' ? 'var(--red)' : 'var(--green)');
       const amtStr = `<span style="color:${amtClr};font-weight:700">${fmtY(r.amt)}</span>`;
-      const fromStr = r.from === '货币基金'
+      const fromStr = r.from === '货币基金' || r.from === '可用资金'
         ? `<span style="color:var(--text-dim)">${r.from}</span>`
         : `<span style="color:#ff4d4d;font-weight:700;text-shadow:0 0 6px rgba(255,77,77,.6)">${r.from}</span>`;
       const toStr = r.to === '货币基金'
