@@ -37,6 +37,7 @@ import {
 import {
   confirmTradeRow, undoTradeRow,
 } from './mdtfr/trade-confirm.js';
+import { openManualSellDialog, closeManualSellDialog } from './mdtfr/manual-sell.js';
 import { register } from './mdtfr/bus.js';
 
 // ── 连接跨模块回调（通过 EventBus）────────────────────────────────
@@ -77,6 +78,8 @@ Object.assign(window, {
   openPnlDialog, closePnlDialog,
   // 交易确认/撤销（行级）
   confirmTradeRow, undoTradeRow,
+  // 手动卖出弹窗
+  openManualSellDialog, closeManualSellDialog,
 });
 
 // ── 页面初始化 ──────────────────────────────────────────────
