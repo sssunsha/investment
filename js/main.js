@@ -26,7 +26,6 @@ import { openJournal, closeJournal, loadJournal, saveJournalRecord } from './mdt
 import './mdtfr/advice.js';
 import {
   loadAmounts, refreshAllPosPct,
-  onAmtChange, clearAmt,
   getSumOfPositions,
 } from './mdtfr/amounts.js';
 import {
@@ -71,8 +70,7 @@ Object.assign(window, {
   onAwAvailableChange,
   // AW 收益明细弹窗
   openAwPnlDialog, closeAwPnlDialog,
-  // 金额管理
-  onAmtChange, clearAmt,
+  // 金额管理（只读展示，不挂载手动修改入口）
   onAvailableChange,
   // 收益明细弹窗
   openPnlDialog, closePnlDialog,

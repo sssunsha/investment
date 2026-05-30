@@ -164,26 +164,24 @@ function clearAmt(code_c) {
   if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
 }
 
-/** 生成金额输入框 + 清零按钮（输出 HTML 字符串） */
+/** 生成金额只读展示（输出 HTML 字符串） */
 function mkAmtCell(code_c) {
   const v = getAmt(code_c);
   const held = v > 0;
-  return `<div style="display:flex;gap:4px;align-items:center">
-    <input class="amt-input" type="number" min="0" step="1000"
+  return `<div style="display:flex;align-items:center">
+    <input class="amt-input" type="number" readonly
       id="mdtfr-amt-input-${code_c}"
       data-code="${code_c}" data-held="${held}"
-      value="${v > 0 ? v : ''}" placeholder="0"
-      oninput="onAmtChange('${code_c}',this.value)"
+      value="${v > 0 ? v : ''}" placeholder="–"
+      style="cursor:default;pointer-events:none"
     />
-    <button class="amt-clear-btn" onclick="clearAmt('${code_c}')" title="清零">×</button>
   </div>`;
 }
 
 /** 备用标的：禁用状态的金额单元格（不可编辑） */
 function mkDisabledAmtCell() {
-  return `<div style="display:flex;gap:4px;align-items:center;opacity:0.35;pointer-events:none">
-    <input class="amt-input" type="number" disabled placeholder="0" />
-    <button class="amt-clear-btn" disabled title="清零">×</button>
+  return `<div style="display:flex;align-items:center;opacity:0.35;pointer-events:none">
+    <input class="amt-input" type="number" disabled placeholder="–" />
   </div>`;
 }
 
