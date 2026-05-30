@@ -198,7 +198,8 @@ function mkPosPct(code_c) {
   const total = call('getTotalAmt') ?? getSumOfPositions();
   const pct = total > 0 ? Math.round(getAmt(code_c) / total * 1000) / 10 : 0;
   const held = pct > 0;
-  return `<span class="pos-pct" data-code="${code_c}" data-held="${held}">${pct > 0 ? pct.toFixed(1) + '%' : '–'}</span>`;
+  return `<span class="pos-pct" data-code="${code_c}" data-held="${held}">${pct > 0 ? pct.toFixed(1) + '%' : '–'}</span>`
+    + `<span id="mdtfr-pnl-${code_c}" style="display:block;font-size:11px;margin-top:2px"></span>`;
 }
 
 export function refreshAmtPnl(items) {
@@ -210,16 +211,26 @@ export function refreshAmtPnl(items) {
     const cost   = getCost(c);
     if (shares > 0) {
       const curVal = Math.round(shares * item.latest_close);
-      _mktVal[c] = curVal;          // 数据填充不依赖 DOM
+      _mktVal[c] = curVal;
       anyUpdated = true;
       const inp = document.getElementById(`mdtfr-amt-input-${c}`);
       if (inp && cost > 0) {
-        // 颜色：涨红跌绿不变白（A股惯例）
         inp.style.color = curVal > cost ? 'var(--red)' : curVal < cost ? 'var(--green)' : '';
+      }
+      // 收益显示
+      const pnlEl = document.getElementById(`mdtfr-pnl-${c}`);
+      if (pnlEl && cost > 0) {
+        const pnl    = curVal - cost;
+        const pnlPct = (pnl / cost * 100).toFixed(2);
+        const sign   = pnl > 0 ? '+' : '';
+        const color  = pnl > 0 ? 'var(--red)' : pnl < 0 ? 'var(--green)' : 'var(--text)';
+        pnlEl.innerHTML = `<span style="color:${color}">${sign}¥${Math.round(pnl).toLocaleString()} (${sign}${pnlPct}%)</span>`;
       }
     } else {
       const inp = document.getElementById(`mdtfr-amt-input-${c}`);
       if (inp) inp.style.color = '';
+      const pnlEl = document.getElementById(`mdtfr-pnl-${c}`);
+      if (pnlEl) pnlEl.innerHTML = '';
     }
   });
   if (anyUpdated) {
