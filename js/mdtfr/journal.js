@@ -15,6 +15,11 @@ async function saveJournalRecord(silent = false) {
   const _lastMdtfrItems = getLastMdtfrItems();
   const _lastAdviceData = getLastAdviceData();
   if (!_lastMdtfrItems || !_lastAdviceData) return;
+
+  // 只在有真实交易记录时写入
+  const annotation = _pendingAnnotation;
+  if (!annotation || !Array.isArray(annotation.trade_records) || annotation.trade_records.length === 0) return;
+
   const today = new Date().toISOString().slice(0, 10);
   const record = {
     saved_at:    new Date().toISOString(),
