@@ -214,8 +214,8 @@
     <div class="journal-modal-head">
       <span style="font-size:18px;font-weight:700;flex:1">📅 历史复盘记录</span>
       <span id="journal-count" style="font-size:13px;color:var(--text-dim);margin-right:12px"></span>
-      <input type="month" id="journal-month-picker"
-        style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:13px;font-family:inherit;margin-right:8px;cursor:pointer"
+      <input type="number" id="journal-year-picker" min="2020" max="2099"
+        style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:13px;font-family:inherit;width:80px;margin-right:8px;cursor:pointer"
         oninput="loadJournal(this.value)">
       <button onclick="closeJournal()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
     </div>
@@ -335,6 +335,6 @@
   <div id="mdtfr-debug-log" style="flex:1;overflow-y:auto;padding:14px 20px;font-family:monospace;font-size:13px;line-height:1.9"></div>
 </div>
 
-<script type="module" src="js/main.js?v=0046fe6"></script>
+<script type="module" src="js/main.js?v=dfd2ec2"></script>
 </body>
 </html>

@@ -133,10 +133,35 @@ export async function undoTradeRow(type, index) {
 function _accumulate(type, index, row) {
   _journalAccum.confirmed_at = new Date().toISOString();
   const rowId = `${type}-${index}`;
-  const rec = type === 'sell'
-    ? { type: 'sell', name: row.from, amt: row.amt, watch: !!row.watch, note: row.note || '', _rowId: rowId }
-    : { type: 'buy',  name: row.to,   amt: row.amt, code_c: row.toCode, note: row.note || '', _rowId: rowId };
-  _journalAccum.trade_records.push(rec);
+  const snap  = _rowSnapshots.get(rowId);
+  const pool  = getMdtfrPoolDef();
+
+  if (type === 'sell') {
+    const code      = pool.find(d => d.name === row.from)?.code_c || null;
+    const prevCost  = snap?.prevCost  || 0;
+    const prevAmt   = snap?.prevAmt   || 0;
+    const ratio     = prevAmt > 0 ? Math.min(row.amt / prevAmt, 1) : 0;
+    const sellCost  = prevCost * ratio;
+    const pnl       = row.amt - sellCost;
+    const soldShares = (snap?.prevShares || 0) * ratio;
+    _journalAccum.trade_records.push({
+      type: 'sell', name: row.from, code_c: code,
+      amt: row.amt, shares: parseFloat(soldShares.toFixed(4)),
+      cost: parseFloat(sellCost.toFixed(2)), pnl: parseFloat(pnl.toFixed(2)),
+      watch: !!row.watch, note: row.note || '', _rowId: rowId,
+    });
+  } else {
+    const code      = row.toCode || pool.find(d => d.name === row.to)?.code_c || null;
+    const items     = getLastMdtfrItems() || [];
+    const item      = items.find(x => x.code_c === code);
+    const price     = item?.latest_close || 0;
+    const shares    = price > 0 ? row.amt / price : 0;
+    _journalAccum.trade_records.push({
+      type: 'buy', name: row.to, code_c: code,
+      amt: row.amt, shares: parseFloat(shares.toFixed(4)),
+      price: price, note: row.note || '', _rowId: rowId,
+    });
+  }
   _flushJournal();
 }
 

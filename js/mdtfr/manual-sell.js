@@ -175,10 +175,16 @@ window._manualSellConfirm = async function(code_c, name, curAmt) {
 
   // 写入 journal
   const fmtY = n => '¥' + Math.round(n).toLocaleString();
+  const sellCost  = prevAmt > 0 ? getCost(code_c) / (1 - ratio) * ratio : 0;
+  const pnl       = amt - sellCost;
+  const soldShares = prevShares * ratio;
   setPendingConfirmAnnotation({
     confirmed_at: new Date().toISOString(),
     trade_records: [{
       type: 'sell', name, code_c, amt,
+      shares: parseFloat(soldShares.toFixed(4)),
+      cost: parseFloat(sellCost.toFixed(2)),
+      pnl: parseFloat(pnl.toFixed(2)),
       note: note || `手动卖出 ${fmtY(amt)}`,
       manual: true,
     }],
