@@ -34,10 +34,10 @@ function _renderBody(code_c, name, curAmt) {
 
   const fmtY = n => '¥' + Math.round(n).toLocaleString();
   const presets = [
-    { label: '25%', ratio: 0.25 },
-    { label: '50%', ratio: 0.50 },
-    { label: '75%', ratio: 0.75 },
-    { label: '全仓', ratio: 1.00 },
+    { label: '25%', id: 'manual-preset-25pct', ratio: 0.25 },
+    { label: '50%', id: 'manual-preset-50pct', ratio: 0.50 },
+    { label: '75%', id: 'manual-preset-75pct', ratio: 0.75 },
+    { label: '全仓', id: 'manual-preset-full', ratio: 1.00 },
   ];
 
   body.innerHTML = `
@@ -50,7 +50,7 @@ function _renderBody(code_c, name, curAmt) {
         <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">卖出比例</div>
         <div style="display:flex;gap:8px">
           ${presets.map(p => `
-            <button id="manual-preset-${p.label}"
+            <button id="${p.id}"
               onclick="window._manualSellSelectPreset(${p.ratio}, ${curAmt})"
               style="flex:1;padding:8px 4px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--text);transition:all .15s">
               ${p.label}<br>
@@ -115,12 +115,16 @@ window._manualSellOnInput = function(curAmt) {
 };
 
 function _updatePresetHighlight(ratio) {
-  const labels = ['25%', '50%', '75%', '全仓'];
-  const ratios = [0.25, 0.50, 0.75, 1.00];
-  labels.forEach((label, i) => {
-    const btn = document.getElementById(`manual-preset-${label}`);
+  const presets = [
+    { id: 'manual-preset-25pct', ratio: 0.25 },
+    { id: 'manual-preset-50pct', ratio: 0.50 },
+    { id: 'manual-preset-75pct', ratio: 0.75 },
+    { id: 'manual-preset-full',  ratio: 1.00 },
+  ];
+  presets.forEach(p => {
+    const btn = document.getElementById(p.id);
     if (!btn) return;
-    const active = ratios[i] === ratio;
+    const active = p.ratio === ratio;
     btn.style.background = active ? 'rgba(239,68,68,.25)' : 'rgba(255,255,255,.05)';
     btn.style.border     = active ? '1px solid rgba(239,68,68,.6)' : '1px solid rgba(255,255,255,.15)';
     btn.style.color      = active ? 'var(--red)' : 'var(--text)';
