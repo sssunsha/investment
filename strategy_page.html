@@ -288,6 +288,17 @@
   </div>
 </div>
 
+<!-- 手动卖出弹窗 -->
+<div class="journal-overlay" id="manual-sell-overlay" onclick="if(event.target===this)closeManualSellDialog()">
+  <div class="journal-modal" style="max-width:480px">
+    <div class="journal-modal-head">
+      <span id="manual-sell-title" style="font-size:18px;font-weight:700;flex:1">手动卖出</span>
+      <button onclick="closeManualSellDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
+    </div>
+    <div id="manual-sell-body"></div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════
      Guide Drawer
 ════════════════════════════════════════════════ -->
@@ -324,6 +335,6 @@
   <div id="mdtfr-debug-log" style="flex:1;overflow-y:auto;padding:14px 20px;font-family:monospace;font-size:13px;line-height:1.9"></div>
 </div>
 
-<script type="module" src="js/main.js?v=e4013a9"></script>
+<script type="module" src="js/main.js?v=0046fe6"></script>
 </body>
 </html>
