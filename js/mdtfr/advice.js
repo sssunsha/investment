@@ -429,17 +429,35 @@ export function mdtfrRenderAdvice(items) {
 
       let ma20Type, ma20WarnText, ma20SafeText, ma20Note;
       if (ma20IsTriggered) {
-        ma20Type     = 'triggered';
-        ma20WarnText = `趋势破位：已连续 ${watchDays} 日跌破MA20 → 立即减仓至15%，保留 ${fmtY(totalAmt * 0.15)}`;
-        ma20Note     = `首次跌破：${ws?.first_break_date}，最新收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        if (ma60Below) {
+          ma20Type     = 'normal';
+          ma20SafeText = `趋势破位：连续 ${watchDays} 日跌破MA20（已同步跌破MA60，以清仓为准，无需单独执行减仓）`;
+          ma20Note     = `首次跌破：${ws?.first_break_date}，收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        } else {
+          ma20Type     = 'triggered';
+          ma20WarnText = `趋势破位：已连续 ${watchDays} 日跌破MA20 → 立即减仓至15%，保留 ${fmtY(totalAmt * 0.15)}`;
+          ma20Note     = `首次跌破：${ws?.first_break_date}，最新收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        }
       } else if (ma20Watching) {
-        ma20Type     = 'watch';
-        ma20WarnText = `趋势破位：第${watchDays}日跌破MA20（首次：${ws?.first_break_date}）→ 再观察1日，确认连续2日后减仓至15%`;
-        ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        if (ma60Below) {
+          ma20Type     = 'normal';
+          ma20SafeText = `趋势破位：第${watchDays}日跌破MA20（已同步跌破MA60，以清仓为准）`;
+          ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        } else {
+          ma20Type     = 'watch';
+          ma20WarnText = `趋势破位：第${watchDays}日跌破MA20（首次：${ws?.first_break_date}）→ 再观察1日，确认连续2日后减仓至15%`;
+          ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        }
       } else if (ma20Below) {
-        ma20Type     = 'watch';
-        ma20WarnText = `趋势破位：第1日跌破MA20 → 再观察1日，确认连续2日后减仓至15%`;
-        ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        if (ma60Below) {
+          ma20Type     = 'normal';
+          ma20SafeText = `趋势破位：第1日跌破MA20（已同步跌破MA60，以清仓为准）`;
+          ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        } else {
+          ma20Type     = 'watch';
+          ma20WarnText = `趋势破位：第1日跌破MA20 → 再观察1日，确认连续2日后减仓至15%`;
+          ma20Note     = `收盘 ${x.latest_close?.toFixed(3)} ≤ MA20 ${x.ma20?.toFixed(3)}`;
+        }
       } else {
         ma20Type     = 'normal';
         ma20WarnText = '';
@@ -460,6 +478,11 @@ export function mdtfrRenderAdvice(items) {
           <span style="color:var(--text-dim);font-size:12px;font-weight:400">${x.code_c}</span>
           ${ma60Below ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.2);color:var(--red);font-weight:700">🚨 跌破MA60</span>` : ma20IsTriggered ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.15);color:var(--red);font-weight:700">🔔 连续${watchDays}日跌破MA20</span>` : ma20Watching ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:var(--yellow);font-weight:700">⏱ 观察第${watchDays}日</span>` : ''}
           <span style="font-size:12px;color:var(--yellow);font-weight:600;margin-left:auto">¥${x._amt.toLocaleString()} · ${x._posVal.toFixed(1)}%</span>
+          <button onclick="openManualSellDialog('${x.code_c}')"
+            style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0"
+            title="不依赖卖出信号，手动主动卖出">
+            手动卖出
+          </button>
         </div>
         ${sellCondRow(rankTriggered,
           '排名过滤：近20日涨幅排名跌出前6名 → 立即卖出该ETF，找到替代标的则换仓，否则转货币基金',
