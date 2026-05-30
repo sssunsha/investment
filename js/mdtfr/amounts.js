@@ -168,13 +168,21 @@ function clearAmt(code_c) {
 function mkAmtCell(code_c) {
   const v = getAmt(code_c);
   const held = v > 0;
-  return `<div style="display:flex;align-items:center">
+  const sellBtn = held
+    ? `<button onclick="openManualSellDialog('${code_c}')"
+        title="手动卖出"
+        style="flex-shrink:0;width:22px;height:22px;padding:0;border-radius:4px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.1);color:var(--red);font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">
+        ↓
+      </button>`
+    : '';
+  return `<div style="display:flex;gap:4px;align-items:center">
     <input class="amt-input" type="number" readonly
       id="mdtfr-amt-input-${code_c}"
       data-code="${code_c}" data-held="${held}"
       value="${v > 0 ? v : ''}" placeholder="–"
       style="cursor:default;pointer-events:none"
     />
+    ${sellBtn}
   </div>`;
 }
 
