@@ -195,7 +195,7 @@ async def mdtfr_pool():
             ma20 = round(sum(closes[-20:]) / 20, 3)
             ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
             
-            # Calculate various period returns
+            # 按交易日计算涨跌幅（使用数组索引）
             ret_20d = round((closes[-1] - closes[-21]) / closes[-21], 6) if n >= 21 else None
             ret_10d = round((closes[-1] - closes[-11]) / closes[-11], 6) if n >= 11 else None
             ret_5d = round((closes[-1] - closes[-6]) / closes[-6], 6) if n >= 6 else None
@@ -328,6 +328,7 @@ async def mdtfr_pool_stream(
                     ma20 = round(sum(closes[-20:]) / 20, 3)
                     ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
 
+                    # 按交易日计算涨跌幅（使用数组索引）
                     ret_20d = round((closes[-1] - closes[-21]) / closes[-21], 6) if n >= 21 else None
                     ret_10d = round((closes[-1] - closes[-11]) / closes[-11], 6) if n >= 11 else None
                     ret_5d  = round((closes[-1] - closes[-6])  / closes[-6],  6) if n >= 6  else None
@@ -388,7 +389,8 @@ async def mdtfr_pool_stream(
 async def aw_pool_stream():
     """逐只基金处理，每完成一只即通过 SSE 推送结果。"""
     end_date   = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+    # 扩展到 400 天以支持近一年涨跌计算（需要约 252 个交易日 + 缓冲）
+    start_date = (datetime.now() - timedelta(days=400)).strftime('%Y-%m-%d')
 
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
@@ -411,72 +413,77 @@ async def aw_pool_stream():
         try:
             for fund in AW_POOL_FUNDS:
                 try:
-                    bscode = fund.get("baostock_code")
                     code_c = fund.get("code_c")
                     
                     ev({"type": "progress", "name": fund["name"], "msg": "获取数据中..."})
                     
-                    # 如果没有场内代码，使用天天基金C类基金净值
-                    if not bscode:
-                        nav_series = fetch_fund_nav_series(code_c, start_date, end_date)
-                        if not nav_series:
-                            ev({"type": "item", **fund,
-                                "latest_close": None, "ret_30d": None,
-                                "ret_15d": None, "ret_5d": None, "ret_1d": None,
-                                "ma20": None, "above_ma20": None,
-                                "ma60": None, "ma60_rising": None,
-                                "ma60_rate": None, "ma60_trend": None,
-                                "error": "无法获取净值数据"})
-                            continue
-                        rows = [item["close"] for item in nav_series]
-                    else:
-                        # 使用BaoStock获取场内ETF数据
-                        rs = _bs.query_history_k_data_plus(
-                            bscode, "date,close",
-                            start_date=start_date, end_date=end_date,
-                            frequency="d", adjustflag="2"
-                        )
-                        if rs.error_code != '0':
-                            ev({"type": "item", **fund,
-                                "latest_close": None, "ret_30d": None,
-                                "ret_15d": None, "ret_5d": None, "ret_1d": None,
-                                "ma20": None, "above_ma20": None,
-                                "ma60": None, "ma60_rising": None,
-                                "ma60_rate": None, "ma60_trend": None,
-                                "error": f"查询失败: {rs.error_msg}"})
-                            continue
-
-                        rows = []
-                        while rs.error_code == '0' and rs.next():
-                            row = rs.get_row_data()
-                            if row[1]:
-                                rows.append(float(row[1]))
+                    # 统一使用天天基金 NAV 数据（场外基金代码），数据更完整
+                    nav_series = fetch_fund_nav_series(code_c, start_date, end_date)
+                    if not nav_series:
+                        ev({"type": "item", **fund,
+                            "latest_close": None, "ret_1y": None,
+                            "ret_6m": None, "ret_3m": None, "ret_1m": None,
+                            "ma20": None, "above_ma20": None,
+                            "ma60": None, "ma60_rising": None,
+                            "ma60_rate": None, "ma60_trend": None,
+                            "error": "无法获取净值数据"})
+                        continue
+                    rows = [item["close"] for item in nav_series]
 
                     n = len(rows)
                     if n < 21:
                         ev({"type": "item", **fund,
-                            "latest_close": None, "ret_30d": None,
-                            "ret_15d": None, "ret_5d": None, "ret_1d": None,
+                            "latest_close": None, "ret_1y": None,
+                            "ret_6m": None, "ret_3m": None, "ret_1m": None,
                             "ma20": None, "above_ma20": None,
                             "ma60": None, "ma60_rising": None,
                             "ma60_rate": None, "ma60_trend": None,
                             "error": f"数据不足（{n} 条）"})
                         continue
 
+                    # nav_series 包含 date 和 close，用于按自然日查找
                     closes = rows
                     ma20 = round(sum(closes[-20:]) / 20, 3)
-                    ret_30d = round((closes[-1] / closes[-31] - 1), 6) if n >= 31 else None
-                    ret_15d = round((closes[-1] / closes[-16] - 1), 6) if n >= 16 else None
-                    ret_5d  = round((closes[-1] / closes[-6]  - 1), 6) if n >= 6  else None
-                    ret_1d  = round((closes[-1] / closes[-2]  - 1), 6) if n >= 2  else None
+                    
+                    # 按自然日计算涨跌幅：往前推指定自然日，找到最近的交易日
+                    def find_close_by_date(target_date_str):
+                        """查找目标日期或之前最近交易日的收盘价"""
+                        for item in reversed(nav_series):
+                            if item["date"] <= target_date_str:
+                                return item["close"]
+                        return None
+                    
+                    from datetime import datetime as dt
+                    today = dt.strptime(nav_series[-1]["date"], "%Y-%m-%d")
+                    
+                    # 近一年：往前推 365 天
+                    date_1y = (today - timedelta(days=365)).strftime("%Y-%m-%d")
+                    close_1y = find_close_by_date(date_1y)
+                    ret_1y = round((closes[-1] / close_1y - 1), 6) if close_1y else None
+                    
+                    # 近6个月：往前推 180 天
+                    date_6m = (today - timedelta(days=180)).strftime("%Y-%m-%d")
+                    close_6m = find_close_by_date(date_6m)
+                    ret_6m = round((closes[-1] / close_6m - 1), 6) if close_6m else None
+                    
+                    # 近3个月：往前推 90 天
+                    date_3m = (today - timedelta(days=90)).strftime("%Y-%m-%d")
+                    close_3m = find_close_by_date(date_3m)
+                    ret_3m = round((closes[-1] / close_3m - 1), 6) if close_3m else None
+                    
+                    # 近1个月：往前推 30 天
+                    date_1m = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+                    close_1m = find_close_by_date(date_1m)
+                    ret_1m = round((closes[-1] / close_1m - 1), 6) if close_1m else None
+                    
                     ma60, ma60_rising, ma60_rate, ma60_trend, ma60_has_uptick, ma60_above_avg, ma60_avg5 = _calc_ma60(closes)
 
                     ev({"type": "item", **fund,
                         "latest_close": round(closes[-1], 3),
-                        "ret_30d":      ret_30d,
-                        "ret_15d":      ret_15d,
-                        "ret_5d":       ret_5d,
-                        "ret_1d":       ret_1d,
+                        "ret_1y":       ret_1y,
+                        "ret_6m":       ret_6m,
+                        "ret_3m":       ret_3m,
+                        "ret_1m":       ret_1m,
                         "ma20":         ma20,
                         "above_ma20":   closes[-1] > ma20,
                         "ma60":         ma60,
@@ -490,8 +497,8 @@ async def aw_pool_stream():
                     time.sleep(0.3)
                 except Exception as e:
                     ev({"type": "item", **fund,
-                        "latest_close": None, "ret_30d": None,
-                        "ret_15d": None, "ret_5d": None, "ret_1d": None,
+                        "latest_close": None, "ret_1y": None,
+                        "ret_6m": None, "ret_3m": None, "ret_1m": None,
                         "ma20": None, "above_ma20": None,
                         "ma60": None, "ma60_rising": None,
                         "ma60_rate": None, "ma60_trend": None,

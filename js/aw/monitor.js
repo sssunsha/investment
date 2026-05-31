@@ -40,9 +40,9 @@ async function _cacheDelete(date) {
 // ── 单行完整性检查 ─────────────────────────────────────────────
 function _rowComplete(item) {
   if (!item || item.error) return false;
-  if (item.ret_30d == null || item.latest_close == null) return false;
+  if (item.ret_1y === undefined || item.latest_close == null) return false;
   if (item.ma60_trend == null) return false;
-  if (item.ret_1d === undefined) return false;  // 触发旧缓存重新获取新字段
+  if (item.ret_1m === undefined) return false;  // 触发旧缓存重新获取新字段
   return true;
 }
 
@@ -108,10 +108,10 @@ function awInitTable(skeleton = false) {
     <td id="aw-type-${def.code}">${_labelBadge(def)}</td>
     <td style="font-weight:600">${escHtml(def.fullName)}</td>
     <td style="color:var(--text-dim);font-size:13px">${def.code}</td>
-    <td id="aw-ret-${def.code}">${sk('60%')}</td>
-    <td id="aw-ret15-${def.code}">${sk('55%')}</td>
-    <td id="aw-ret5-${def.code}">${sk('55%')}</td>
-    <td id="aw-ret1-${def.code}">${sk('55%')}</td>
+    <td id="aw-ret1y-${def.code}">${sk('60%')}</td>
+    <td id="aw-ret6m-${def.code}">${sk('55%')}</td>
+    <td id="aw-ret3m-${def.code}">${sk('55%')}</td>
+    <td id="aw-ret1m-${def.code}">${sk('55%')}</td>
     <td id="aw-close-${def.code}">${sk('70%')}</td>
     <td id="aw-ma20-${def.code}">${sk('55%')}</td>
     <td id="aw-ma60-${def.code}">${sk('55%')}</td>
@@ -126,10 +126,10 @@ function awInitTable(skeleton = false) {
       <table class="data-table">
         <thead><tr>
           <th>类别</th><th>类型</th><th>基金名称</th><th>代码</th>
-          <th class="sortable" data-sort="ret_30d">近30日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ret_15d">近15日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ret_5d">近5日涨跌 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="ret_1d">上一日涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_1y">近一年涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_6m">近6个月涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_3m">近3个月涨跌 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="ret_1m">近1个月涨跌 <span class="sort-icon">⇅</span></th>
           <th>收盘价</th>
           <th class="sortable" data-sort="above_ma20">vs MA20 <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="ma60_trend">MA60趋势 <span class="sort-icon">⇅</span></th>
@@ -172,7 +172,7 @@ function awFillRow(item) {
     const closeEl = document.getElementById(`aw-close-${c}`);
     if (closeEl) closeEl.innerHTML =
       `<span style="color:var(--text-dim);font-size:12px">${escHtml(item.error)}</span>`;
-    ['ret','ret15','ret5','ret1','ma20','ma60'].forEach(k => {
+    ['ret1y','ret6m','ret3m','ret1m','ma20','ma60'].forEach(k => {
       const el = document.getElementById(`aw-${k}-${c}`);
       if (el) el.innerHTML = '<span style="color:var(--border)">–</span>';
     });
@@ -186,10 +186,10 @@ function awFillRow(item) {
     return `<span style="font-weight:700;color:${color}">${str}</span>`;
   };
 
-  document.getElementById(`aw-ret-${c}`).innerHTML   = formatRet(item.ret_30d);
-  document.getElementById(`aw-ret15-${c}`).innerHTML = formatRet(item.ret_15d);
-  document.getElementById(`aw-ret5-${c}`).innerHTML  = formatRet(item.ret_5d);
-  document.getElementById(`aw-ret1-${c}`).innerHTML  = formatRet(item.ret_1d);
+  document.getElementById(`aw-ret1y-${c}`).innerHTML = formatRet(item.ret_1y);
+  document.getElementById(`aw-ret6m-${c}`).innerHTML = formatRet(item.ret_6m);
+  document.getElementById(`aw-ret3m-${c}`).innerHTML = formatRet(item.ret_3m);
+  document.getElementById(`aw-ret1m-${c}`).innerHTML = formatRet(item.ret_1m);
 
   // 收盘价
   document.getElementById(`aw-close-${c}`).textContent =
@@ -275,7 +275,7 @@ function _awSortAndRender(items, sortKey) {
   validItems.sort((a, b) => {
     let aVal, bVal;
     switch (sortKey) {
-      case 'ret_30d': case 'ret_15d': case 'ret_5d': case 'ret_1d':
+      case 'ret_1y': case 'ret_6m': case 'ret_3m': case 'ret_1m':
         aVal = a[sortKey] ?? -Infinity;
         bVal = b[sortKey] ?? -Infinity;
         break;
@@ -346,7 +346,7 @@ async function loadAwPool() {
   Object.values(cachedMap).filter(_rowComplete).forEach(awFillRow);
   const sk = (w) => `<div class="skeleton" style="width:${w}"></div>`;
   incomplete.forEach(def => {
-    ['ret','ret15','ret5','ret1','close','ma20','ma60'].forEach((k, i) => {
+    ['ret1y','ret6m','ret3m','ret1m','close','ma20','ma60'].forEach((k, i) => {
       const el = document.getElementById(`aw-${k}-${def.code}`);
       if (el) el.innerHTML = sk(['60%','55%','55%','55%','70%','55%','55%'][i]);
     });
@@ -372,7 +372,7 @@ async function loadAwPool() {
     if (d.type === 'progress') {
       awLog('info', `获取中: ${d.name}`);
     } else if (d.type === 'item') {
-      const status = d.error ? `错误: ${d.error}` : `close=${d.latest_close} ret30d=${d.ret_30d != null ? (d.ret_30d * 100).toFixed(2) + '%' : 'N/A'} ma60=${d.ma60_trend}`;
+      const status = d.error ? `错误: ${d.error}` : `close=${d.latest_close} ret1y=${d.ret_1y != null ? (d.ret_1y * 100).toFixed(2) + '%' : 'N/A'} ma60=${d.ma60_trend}`;
       awLog(d.error ? 'error' : 'ok', `${d.name}（${d.code_c}）: ${status}`);
       const idx = collected.findIndex(x => x.code_c === d.code_c);
       if (idx >= 0) collected.splice(idx, 1, d); else collected.push(d);
