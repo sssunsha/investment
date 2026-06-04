@@ -508,7 +508,8 @@ export function mdtfrRenderAdvice(items) {
       return `<div style="margin:8px 0;padding:10px 14px;border-radius:8px;background:${bg};border:1px solid ${border}">
         <div style="font-size:14px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px">
           <span style="color:${nameClr}">${nameIcon}</span>
-          <span style="color:var(--text)">${escHtml(x.name)}</span>
+          <span style="color:var(--text);cursor:help"
+            data-code-c="${x.code_c}" data-code-a="${poolMap.get(x.code_c)?.code_a||''}" data-etf="${poolMap.get(x.code_c)?.etf||''}">${escHtml(x.name)}</span>
           <span style="color:var(--text-dim);font-size:12px;font-weight:400">${x.code_c}</span>
           ${ma60Below ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.2);color:var(--red);font-weight:700">🚨 跌破MA60</span>` : ma20IsTriggered ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.15);color:var(--red);font-weight:700">🔔 连续${watchDays}日跌破MA20</span>` : ma20Watching ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:var(--yellow);font-weight:700">⏱ 观察第${watchDays}日</span>` : ''}
           <span style="font-size:12px;color:var(--yellow);font-weight:600;margin-left:auto">¥${x._amt.toLocaleString()} · ${x._posVal.toFixed(1)}%</span>
