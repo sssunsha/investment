@@ -23,12 +23,17 @@ function _calcPosition(wrap) {
   // index 0 = radio（Task 3 新增），之后所有列各 +1
   const ths = wrap.querySelectorAll('thead th');
   if (ths.length < 15) return null;
-  const wrapRect  = wrap.getBoundingClientRect();
+  const table     = wrap.querySelector('table');
+  const tableRect = table.getBoundingClientRect();
   const leftRect  = ths[4].getBoundingClientRect();
   const rightRect = ths[14].getBoundingClientRect();
+  // thead 高度，浮层从 thead 底部开始，不遮挡表头
+  const thead     = wrap.querySelector('thead');
+  const theadH    = thead ? thead.getBoundingClientRect().height : 40;
   return {
-    left:  leftRect.left  - wrapRect.left,
+    left:  leftRect.left  - tableRect.left,
     width: rightRect.right - leftRect.left,
+    top:   theadH,
   };
 }
 
@@ -98,6 +103,14 @@ function _createOverlay(wrap, name, etf, codeC) {
   el._resizeHandler = _resizeHandler;
 
   wrap.appendChild(el);
+  // 把浮层挂到 table 元素上（table 设 position:relative），避免被 overflow-x:auto 裁剪
+  const table = wrap.querySelector('table');
+  if (table) {
+    table.style.position = 'relative';
+    table.appendChild(el);
+  } else {
+    wrap.appendChild(el);
+  }
   return el;
 }
 
@@ -106,9 +119,10 @@ function _positionOverlay(wrap) {
   if (!_overlay) return;
   const pos = _calcPosition(wrap);
   if (!pos) return;
-  _overlay.style.left  = pos.left  + 'px';
+  _overlay.style.left  = pos.left + 'px';
   _overlay.style.width = pos.width + 'px';
-  _overlay.style.top   = '0px';
+  _overlay.style.top   = pos.top + 'px';
+}
 }
 
 /**
