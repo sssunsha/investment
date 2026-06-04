@@ -84,7 +84,7 @@ function _createOverlay(wrap, name, etf) {
       <button class="kline-close-btn" title="关闭">×</button>
     </div>
     <div class="kline-img-wrap">
-      <img src="" alt="${name} K线图" crossorigin="anonymous">
+      <img src="" alt="${name} K线图">
     </div>`;
 
   // 周期切换
