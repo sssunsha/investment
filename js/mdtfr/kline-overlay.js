@@ -43,7 +43,9 @@ function _updateImg(etf, period) {
 
 /** 设置图片 CSS 裁剪（onload 后调用，用实际容器宽度计算 px 值） */
 function _applyImgCrop(img) {
+  if (!img?.parentElement) return;
   const containerW = img.parentElement.offsetWidth;
+  if (containerW <= 0) return;
   // 原图 545px 宽，内容 511px，scale = containerW / 511
   const scale = containerW / 511;
   img.style.width = (545 * scale) + 'px';
