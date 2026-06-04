@@ -307,7 +307,7 @@ export function mdtfrRenderAdvice(items) {
     const title    = type === 'sell' ? '🔴 卖出' : '🟢 买入';
     const rowsHtml = rows.map((r, i) => {
       const amtClr = r.watch ? 'var(--yellow)' : (type === 'sell' ? 'var(--red)' : 'var(--green)');
-      const soldShares = (type === 'sell' && r.shares != null && r.holdAmt > 0)
+      const soldShares = (type === 'sell' && r.shares > 0 && r.holdAmt > 0)
         ? Math.round(r.shares * r.amt / r.holdAmt)
         : null;
       const approxShares = (type === 'buy' && r.latest_close > 0)

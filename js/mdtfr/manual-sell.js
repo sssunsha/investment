@@ -53,7 +53,7 @@ function _renderBody(code_c, name, curAmt) {
         <div style="display:flex;gap:8px">
           ${presets.map(p => `
             <button id="${p.id}"
-              onclick="window._manualSellSelectPreset(${p.ratio}, ${curAmt})"
+              onclick="window._manualSellSelectPreset(${p.ratio}, ${curAmt}, ${totalShares})"
               style="flex:1;padding:8px 4px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--text);transition:all .15s">
               ${p.label}<br>
               <span style="font-size:11px;font-weight:400;color:var(--text-dim)">${fmtY(Math.round(curAmt * p.ratio))}</span>
