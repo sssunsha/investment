@@ -32,6 +32,8 @@ function _renderBody(code_c, name, curAmt) {
   const body = document.getElementById('manual-sell-body');
   if (!body) return;
 
+  const totalShares = getShares(code_c);
+  const fmtShares = n => n > 0 ? `约 ${Math.round(n).toLocaleString()} 份` : '';
   const fmtY = n => '¥' + Math.round(n).toLocaleString();
   const presets = [
     { label: '25%', id: 'manual-preset-25pct', ratio: 0.25 },
@@ -55,6 +57,7 @@ function _renderBody(code_c, name, curAmt) {
               style="flex:1;padding:8px 4px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--text);transition:all .15s">
               ${p.label}<br>
               <span style="font-size:11px;font-weight:400;color:var(--text-dim)">${fmtY(Math.round(curAmt * p.ratio))}</span>
+              ${totalShares > 0 ? `<br><span style="font-size:10px;font-weight:400;color:var(--text-dim);opacity:0.7">${fmtShares(totalShares * p.ratio)}</span>` : ''}
             </button>
           `).join('')}
         </div>
@@ -64,7 +67,7 @@ function _renderBody(code_c, name, curAmt) {
         <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">自定义金额（元）</div>
         <input id="manual-sell-amt-input" type="number" min="1" step="100"
           placeholder="输入卖出金额"
-          oninput="window._manualSellOnInput(${curAmt})"
+          oninput="window._manualSellOnInput(${curAmt}, ${totalShares})"
           style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:var(--surface2);color:var(--text);font-size:14px" />
         <div id="manual-sell-preview" style="font-size:12px;color:var(--text-dim);margin-top:6px;min-height:18px"></div>
       </div>
@@ -91,26 +94,26 @@ function _renderBody(code_c, name, curAmt) {
     </div>`;
 
   // 默认选中全仓
-  window._manualSellSelectPreset(1.0, curAmt);
+  window._manualSellSelectPreset(1.0, curAmt, totalShares);
 }
 
-window._manualSellSelectPreset = function(ratio, curAmt) {
+window._manualSellSelectPreset = function(ratio, curAmt, totalShares = 0) {
   const amt = Math.round(curAmt * ratio);
   const input = document.getElementById('manual-sell-amt-input');
   if (input) { input.value = amt; }
   _updatePresetHighlight(ratio);
-  _updatePreview(amt, curAmt);
+  _updatePreview(amt, curAmt, totalShares);
   _updateConfirmBtn(amt, curAmt);
 };
 
-window._manualSellOnInput = function(curAmt) {
+window._manualSellOnInput = function(curAmt, totalShares = 0) {
   const input = document.getElementById('manual-sell-amt-input');
   const amt = parseInt(input?.value || '0', 10) || 0;
   // 匹配预设比例（误差 ±1 元）
   const presets = [0.25, 0.50, 0.75, 1.00];
   const matchedRatio = presets.find(r => Math.abs(Math.round(curAmt * r) - amt) <= 1) ?? null;
   _updatePresetHighlight(matchedRatio);
-  _updatePreview(amt, curAmt);
+  _updatePreview(amt, curAmt, totalShares);
   _updateConfirmBtn(amt, curAmt);
 };
 
@@ -131,13 +134,16 @@ function _updatePresetHighlight(ratio) {
   });
 }
 
-function _updatePreview(amt, curAmt) {
+function _updatePreview(amt, curAmt, totalShares = 0) {
   const el = document.getElementById('manual-sell-preview');
   if (!el) return;
   if (amt <= 0) { el.textContent = ''; return; }
   const remain = Math.max(0, curAmt - amt);
   const fmtY = n => '¥' + Math.round(n).toLocaleString();
-  el.innerHTML = `卖出 <span style="color:var(--red);font-weight:600">${fmtY(amt)}</span> → 货币基金　剩余持仓 <span style="color:var(--yellow);font-weight:600">${fmtY(remain)}</span>`;
+  const sharesHint = totalShares > 0
+    ? ` <span style="color:var(--text-dim);font-size:11px">（约 ${Math.round(totalShares * amt / curAmt).toLocaleString()} 份）</span>`
+    : '';
+  el.innerHTML = `卖出 <span style="color:var(--red);font-weight:600">${fmtY(amt)}</span>${sharesHint} → 货币基金　剩余持仓 <span style="color:var(--yellow);font-weight:600">${fmtY(remain)}</span>`;
 }
 
 function _updateConfirmBtn(amt, curAmt) {
