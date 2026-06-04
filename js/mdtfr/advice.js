@@ -82,7 +82,9 @@ export function mdtfrRenderAdvice(items) {
   const watchSell     = sellBelowMa20.filter(x =>
     !urgentSell.includes(x) && !ma20ExecutedCodes.has(x.code_c));
 
-  const toBuy         = buyCandidates.filter(x => !holdingCodes.has(x.code_c));
+  // 最多持有2只：若当前持仓已有2只且无卖出信号，不产生新买入
+  const availableSlots = Math.max(0, 2 - holdings.length + urgentSell.length);
+  const toBuy         = buyCandidates.filter(x => !holdingCodes.has(x.code_c)).slice(0, availableSlots);
 
   // 生成每个持仓标的的具体操作金额说明（含颜色标注）
   function sellDetail(x) {
