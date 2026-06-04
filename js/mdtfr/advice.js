@@ -562,6 +562,13 @@ export function mdtfrRenderAdvice(items) {
       ${mod('⚠',  '卖出条件（任意触发立即执行）', sellHtml)}
     </div>`;
 
+  // 为所有带 data-code-c 的标的名称绑定 tooltip
+  body.querySelectorAll('[data-code-c]').forEach(el => {
+    el.addEventListener('mouseenter', e =>
+      showCodeTooltip(e.target, e.target.dataset.codeC, e.target.dataset.codeA, e.target.dataset.etf));
+    el.addEventListener('mouseleave', hideCodeTooltip);
+  });
+
   card.style.display = '';
 
   // 将当前 advice 数据暴露供 journal.js 使用
