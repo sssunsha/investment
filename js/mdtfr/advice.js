@@ -307,13 +307,25 @@ export function mdtfrRenderAdvice(items) {
     const title    = type === 'sell' ? '🔴 卖出' : '🟢 买入';
     const rowsHtml = rows.map((r, i) => {
       const amtClr = r.watch ? 'var(--yellow)' : (type === 'sell' ? 'var(--red)' : 'var(--green)');
-      const amtStr = `<span style="color:${amtClr};font-weight:700">${fmtY(r.amt)}</span>`;
+      const soldShares = (type === 'sell' && r.shares != null && r.holdAmt > 0)
+        ? Math.round(r.shares * r.amt / r.holdAmt)
+        : null;
+      const approxShares = (type === 'buy' && r.latest_close > 0)
+        ? Math.round(r.amt / r.latest_close)
+        : null;
+      const sharesNum = soldShares ?? approxShares;
+      const sharesHint = sharesNum != null
+        ? `<div style="color:var(--text-dim);font-size:11px;margin-top:2px">约 ${sharesNum.toLocaleString()} 份</div>`
+        : '';
+      const amtStr = `<span style="color:${amtClr};font-weight:700">${fmtY(r.amt)}</span>${sharesHint}`;
       const fromStr = r.from === '货币基金' || r.from === '可用资金'
         ? `<span style="color:var(--text-dim)">${r.from}</span>`
-        : `<span style="color:#ff4d4d;font-weight:700;text-shadow:0 0 6px rgba(255,77,77,.6)">${r.from}</span>`;
+        : `<span style="color:#ff4d4d;font-weight:700;text-shadow:0 0 6px rgba(255,77,77,.6);cursor:help"
+             data-code-c="${r.code_c||''}" data-code-a="${r.code_a||''}" data-etf="${r.etf||''}">${r.from}</span>`;
       const toStr = r.to === '货币基金'
         ? `<span style="color:var(--text-dim)">${r.to}</span>`
-        : `<span style="color:var(--purple);font-weight:700">${r.to}</span>${r.toCode ? `<br><span style="color:var(--text-dim);font-size:11px">${r.toCode}</span>` : ''}`;
+        : `<span style="color:var(--purple);font-weight:700;cursor:help"
+             data-code-c="${r.toCode||''}" data-code-a="${r.code_a||''}" data-etf="${r.etf||''}">${r.to}</span>${r.toCode ? `<br><span style="color:var(--text-dim);font-size:11px">${r.toCode}</span>` : ''}`;
       const watchBadge = r.watch
         ? `<span style="background:rgba(245,158,11,.18);color:var(--yellow);font-size:11px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:4px">⚠ 待确认</span>`
         : '';
