@@ -166,8 +166,7 @@ export function mdtfrRenderAdvice(items) {
       finalLines.push(`${['①','②','③'][i]||'→'} ${hiLaser(x.name)}：${l}`)));
     watchSell.forEach(x => finalLines.push(watchDetail(x)));
     buyCandidates.forEach((x, i) => {
-      const buyAmt = totalAmt * 0.50;
-      finalLines.push(`${['②','③','④'][i]||'→'} 买入 ${hiPurple(x.name)} · ${x.code_c}：${hiGreen(fmtY(buyAmt))}（目标仓位 50%）`);
+      finalLines.push(`${['②','③','④'][i]||'→'} 买入 ${hiPurple(x.name)} · ${x.code_c}：${hiGreen('见买入栏')}（卖出后实际金额以买入表格为准）`);
     });
   } else if (hasSell && !hasBuy) {
     finalType   = 'sell';
@@ -257,12 +256,19 @@ export function mdtfrRenderAdvice(items) {
       holdAmt: x._amt, shares: getShares(x.code_c),
       code_c: x.code_c, code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
   });
+  // 换仓时可用资金 = 当前 availableAmt + 本次卖出所得，上限为 totalAmt * 50%
+  const sellProceeds = sellRows.reduce((s, r) => s + r.amt, 0);
+  const swapFunds    = availableAmt + sellProceeds;
   toBuy.forEach(x => {
+    const targetAmt = totalAmt * 0.50;
+    const buyAmt    = hasSell ? Math.min(targetAmt, swapFunds) : targetAmt;
     const fromLabel = availableAmt > 0 ? '可用资金' : '货币基金';
-    const noteStr   = availableAmt > 0
-      ? `目标仓位 50%，来源：可用资金 ${fmtY(availableAmt)}`
-      : '目标仓位 50%';
-    buyRows.push({ from: fromLabel, amt: totalAmt * 0.50, to: x.name, toCode: x.code_c, note: noteStr,
+    const noteStr   = hasSell
+      ? `目标仓位 50%（${fmtY(targetAmt)}），实际可买 ${fmtY(buyAmt)}（卖出所得 ${fmtY(sellProceeds)}${availableAmt > 0 ? ` + 可用 ${fmtY(availableAmt)}` : ''}）`
+      : availableAmt > 0
+        ? `目标仓位 50%，来源：可用资金 ${fmtY(availableAmt)}`
+        : '目标仓位 50%';
+    buyRows.push({ from: fromLabel, amt: buyAmt, to: x.name, toCode: x.code_c, note: noteStr,
       latest_close: getLatestClose(x.code_c),
       code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
   });
