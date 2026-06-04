@@ -1,9 +1,11 @@
 // js/mdtfr/advice.js — 操作建议渲染（HTML 构建）
 import { escHtml } from '../utils.js';
-import { setLastMdtfrItems } from './amounts.js';
+import { setLastMdtfrItems, getShares } from './amounts.js';
 import { getTotalAmt, getAvailableAmt } from './available.js';
 import { mdtfrBuildAdvice, setLastAdviceData } from './advice-logic.js';
 import { call, on } from './bus.js';
+import { getMdtfrPoolDef } from './config.js';
+import { showCodeTooltip, hideCodeTooltip } from './table.js';
 
 on('advice:render', items => mdtfrRenderAdvice(items));
 
@@ -25,6 +27,12 @@ export function mdtfrRenderAdvice(items) {
     holdings, sellBelowMa20, sellBelowMa60, sellOutTop6, valid,
     _watchState,
   } = advice;
+
+  // 构建 code_c → {code_a, etf} 映射，供 tooltip 和份额计算使用
+  const poolMap = new Map(getMdtfrPoolDef().map(d => [d.code_c, { code_a: d.code_a, etf: d.etf }]));
+
+  // 辅助：取标的最新收盘价（从 items 中找，无数据返回 0）
+  const getLatestClose = (code_c) => items.find(x => x.code_c === code_c)?.latest_close || 0;
 
   const fmtRet  = (r) => r != null ? (r>0?'+':'') + (r*100).toFixed(2) + '%' : '–';
   const rclr    = (r) => r == null ? 'var(--text-dim)' : r > 0 ? 'var(--red)' : 'var(--green)';
