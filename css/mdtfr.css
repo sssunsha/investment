@@ -167,3 +167,123 @@
 .data-table tbody tr.mdtfr-backup-row:hover td {
   background: rgba(59, 130, 246, 0.15);
 }
+
+/* ── K线图浮层 ── */
+.kline-overlay {
+  position: absolute;
+  z-index: 20;
+  background: rgba(15, 17, 23, 0.96);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+
+.kline-overlay-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.kline-overlay-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+
+.kline-overlay-code {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.kline-period-btn {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.kline-period-btn.active,
+.kline-period-btn:hover {
+  background: rgba(255,255,255,.1);
+  color: var(--text);
+  border-color: rgba(255,255,255,.3);
+}
+
+.kline-close-btn {
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.kline-close-btn:hover {
+  background: rgba(239,68,68,.2);
+  color: var(--red);
+  border-color: rgba(239,68,68,.4);
+}
+
+.kline-img-wrap {
+  overflow: hidden;
+  position: relative;
+  /* 内容区比例 294/511 ≈ 57.5% */
+  padding-bottom: 57.5%;
+  height: 0;
+  background: #fff;
+}
+
+.kline-img-wrap img {
+  position: absolute;
+  /* 裁去白边: left=19px, top=4px；原图 545px 宽，内容 511px 宽 → scale=545/511 */
+  height: auto;
+}
+
+/* Radio button 列 */
+.kline-radio-th {
+  width: 32px;
+  min-width: 32px;
+  padding: 0 !important;
+}
+
+.kline-radio-td {
+  text-align: center;
+  padding: 0 !important;
+  width: 32px;
+}
+
+.kline-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.25);
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all .15s;
+}
+
+.kline-radio:checked {
+  border-color: var(--green);
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(34,197,94,.5);
+}
+
+.kline-radio:hover {
+  border-color: rgba(255,255,255,.5);
+}
