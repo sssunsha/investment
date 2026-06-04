@@ -31,7 +31,11 @@ function _calcPosition(wrap) {
   const rightRect = ths[14].getBoundingClientRect();
   const thead     = wrap.querySelector('thead');
   const theadBottom = thead ? thead.getBoundingClientRect().bottom : leftRect.bottom;
-  return { left: leftRect.left, width: rightRect.right - leftRect.left, top: theadBottom };
+  return {
+    left:  leftRect.left  + window.scrollX,
+    width: rightRect.right - leftRect.left,
+    top:   theadBottom    + window.scrollY,
+  };
 }
 
 /** 设置浮层位置（fixed 坐标） */
@@ -71,8 +75,7 @@ function _createOverlay(wrap, name, etf) {
   el.className = 'kline-overlay';
   el.id = 'mdtfr-kline-overlay';
   // fixed 定位，挂到 body 完全不受任何祖先 overflow 影响
-  el.style.position = 'fixed';
-  el.style.zIndex   = '9999';
+  el.style.position = 'absolute';  // absolute + scrollX/Y → 跟随页面滚动
 
   el.innerHTML = `
     <div class="kline-overlay-header">
@@ -83,7 +86,7 @@ function _createOverlay(wrap, name, etf) {
       <button class="kline-period-btn" data-period="monthly">月K</button>
       <button class="kline-close-btn" title="关闭">×</button>
     </div>
-    <div class="kline-img-wrap">
+    <div class="kline-img-wrap" style="margin:8px;border-radius:4px;overflow:hidden">
       <img src="" alt="${name} K线图">
     </div>`;
 
