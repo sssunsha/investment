@@ -102,7 +102,6 @@ function _createOverlay(wrap, name, etf, codeC) {
   window.addEventListener('resize', _resizeHandler);
   el._resizeHandler = _resizeHandler;
 
-  wrap.appendChild(el);
   // 把浮层挂到 table 元素上（table 设 position:relative），避免被 overflow-x:auto 裁剪
   const table = wrap.querySelector('table');
   if (table) {
@@ -122,7 +121,6 @@ function _positionOverlay(wrap) {
   _overlay.style.left  = pos.left + 'px';
   _overlay.style.width = pos.width + 'px';
   _overlay.style.top   = pos.top + 'px';
-}
 }
 
 /**
