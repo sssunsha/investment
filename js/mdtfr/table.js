@@ -203,7 +203,7 @@ function sortAndRenderTable(items, sortKey) {
 }
 
 // Tooltip for C类代码
-function showCodeTooltip(target, codeC, aCode, etf) {
+export function showCodeTooltip(target, codeC, aCode, etf) {
   let tooltip = document.getElementById('mdtfr-code-tooltip');
   if (!tooltip) {
     tooltip = document.createElement('div');
@@ -224,7 +224,7 @@ function showCodeTooltip(target, codeC, aCode, etf) {
   tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
 }
 
-function hideCodeTooltip() {
+export function hideCodeTooltip() {
   const tooltip = document.getElementById('mdtfr-code-tooltip');
   if (tooltip) tooltip.style.display = 'none';
 }
