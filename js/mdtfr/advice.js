@@ -265,7 +265,7 @@ export function mdtfrRenderAdvice(items) {
   const swapFunds    = availableAmt + sellProceeds;
   toBuy.forEach(x => {
     const targetAmt = totalAmt * 0.50;
-    const buyAmt    = hasSell ? Math.min(targetAmt, swapFunds) : targetAmt;
+    const buyAmt    = hasSell ? Math.min(targetAmt, swapFunds) : Math.min(targetAmt, availableAmt > 0 ? availableAmt : targetAmt);
     const fromLabel = availableAmt > 0 ? '可用资金' : '货币基金';
     const noteStr   = hasSell
       ? `目标仓位 50%（${fmtY(targetAmt)}），实际可买 ${fmtY(buyAmt)}（卖出所得 ${fmtY(sellProceeds)}${availableAmt > 0 ? ` + 可用 ${fmtY(availableAmt)}` : ''}）`
