@@ -74,10 +74,13 @@ export function mdtfrRenderAdvice(items) {
   const ma20TriggeredCodes = new Set(
     _watchState.filter(w => w.status === 'triggered').map(w => w.code_c)
   );
+  const ma20ExecutedCodes = new Set(
+    _watchState.filter(w => w.status === 'executed').map(w => w.code_c)
+  );
   const urgentSell    = holdings.filter(x =>
     x._globalRank > 6 || posOverLimit.includes(x) || ma20TriggeredCodes.has(x.code_c) || ma60BelowCodes.has(x.code_c));
   const watchSell     = sellBelowMa20.filter(x =>
-    !urgentSell.includes(x));
+    !urgentSell.includes(x) && !ma20ExecutedCodes.has(x.code_c));
 
   const toBuy         = buyCandidates.filter(x => !holdingCodes.has(x.code_c));
 
@@ -180,17 +183,18 @@ export function mdtfrRenderAdvice(items) {
     finalLines.push('当前无满足条件的买入标的，卖出资金转入货币基金等待');
   } else if (!hasSell && hasBuy && toBuy.length > 0) {
     finalType   = 'buy';
-    finalTitle  = buyCandidates.length >= 2
-      ? `买入 ${buyCandidates.map(x=>x.name).join(' + ')}`
-      : `买入 ${buyCandidates[0].name}（单仓 50%）`;
+    finalTitle  = toBuy.length >= 2
+      ? `买入 ${toBuy.map(x=>x.name).join(' + ')}`
+      : `买入 ${toBuy[0].name}（单仓 50%）`;
     finalColor  = 'var(--green)';
     finalBg     = 'rgba(34,197,94,.06)';
     finalBorder = 'rgba(34,197,94,.3)';
-    buyCandidates.forEach((x, i) => {
-      const buyAmt = totalAmt > 0 ? totalAmt * 0.50 : 0;
+    toBuy.forEach((x, i) => {
+      const targetAmt = totalAmt > 0 ? totalAmt * 0.50 : 0;
+      const buyAmt    = availableAmt > 0 ? Math.min(targetAmt, availableAmt) : targetAmt;
       finalLines.push(`${['①','②'][i]||'→'} 买入 ${hiPurple(x.name)} · ${x.code_c}：${hiGreen(fmtY(buyAmt))}（目标仓位 50%）`);
     });
-    if (buyCandidates.length === 1)
+    if (toBuy.length === 1)
       finalLines.push('仅1只满足条件，余50%仓位转入货币基金');
   } else if (!hasSell && watchSell.length > 0) {
     finalType   = 'watch';
