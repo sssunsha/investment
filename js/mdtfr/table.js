@@ -2,6 +2,7 @@
 import { escHtml } from '../utils.js';
 import { getMdtfrPoolDef } from './config.js';
 import { mkAmtCell, mkPosPct, getShares, getDynAmt, refreshAmtPnl } from './amounts.js';
+import { openOverlay, closeOverlay, getActiveCodeC } from './kline-overlay.js';
 
 function formatVol(v) {
   if (v == null) return '–';
@@ -15,6 +16,7 @@ function mdtfrInitTable(skeleton = false) {
   const body = document.getElementById('mdtfr-body');
   const dash = '<span style="color:var(--border)">–</span>';
   const mkRow = (def) => `<tr id="mdtfr-row-${def.code_c}">
+    <td class="kline-radio-td"><input class="kline-radio" type="radio" name="kline-select" value="${def.code_c}" data-etf="${def.etf}" data-name="${escHtml(def.name)}"></td>
     <td id="mdtfr-rank-${def.code_c}">${skeleton ? '<div class="skeleton" style="width:22px;height:22px;border-radius:50%"></div>' : dash}</td>
     <td id="mdtfr-name-${def.code_c}" style="font-weight:600;cursor:help" data-code-c="${def.code_c}" data-a-code="${def.code_a}" data-etf="${def.etf}">${(()=>{
       const gCfg = {宽基:['宽','var(--blue)'],行业:['行','var(--cyan)'],防御:['防','var(--purple)']};
@@ -38,9 +40,10 @@ function mdtfrInitTable(skeleton = false) {
   </tr>`;
 
   body.innerHTML = `
-    <div class="mdtfr-table-wrap">
+    <div class="mdtfr-table-wrap" style="position:relative">
       <table class="data-table">
         <thead><tr>
+          <th class="kline-radio-th"></th>
           <th>排名</th>
           <th>名称</th>
           <th class="sortable" data-sort="ret_20d">近20日涨跌 <span class="sort-icon">⇅</span></th>
@@ -88,6 +91,23 @@ function mdtfrInitTable(skeleton = false) {
 
     // Add click handlers for sortable columns
     initColumnSorting();
+
+    // K线图 radio 事件绑定
+    const wrap = document.querySelector('.mdtfr-table-wrap');
+    document.querySelectorAll('input.kline-radio').forEach(radio => {
+      radio.addEventListener('click', () => {
+        const codeC = radio.value;
+        const etf   = radio.dataset.etf;
+        const name  = radio.dataset.name;
+        if (getActiveCodeC() === codeC) {
+          // 同一标的再次点击 → toggle 关闭
+          radio.checked = false;
+          closeOverlay();
+        } else {
+          openOverlay(wrap, codeC, etf, name);
+        }
+      });
+    });
   }, 0);
 }
 
