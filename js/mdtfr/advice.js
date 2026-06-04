@@ -221,20 +221,28 @@ export function mdtfrRenderAdvice(items) {
   urgentSell.forEach(x => {
     if (x._globalRank > 6) {
       sellRows.push({ from: x.name, amt: x._amt, watch: false,
-        to: '货币基金', note: `排名跌至 #${x._globalRank}，超出前6名` });
+        to: '货币基金', note: `排名跌至 #${x._globalRank}，超出前6名`,
+        holdAmt: x._amt, shares: getShares(x.code_c),
+        code_c: x.code_c, code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
     } else if (x._posVal > 50) {
       const keepAmt = totalAmt * 0.50;
       sellRows.push({ from: x.name, amt: x._amt - keepAmt, watch: false,
-        to: '货币基金', note: `仓位 ${x._posVal.toFixed(1)}% 超出50%，保留 ${fmtY(keepAmt)}` });
+        to: '货币基金', note: `仓位 ${x._posVal.toFixed(1)}% 超出50%，保留 ${fmtY(keepAmt)}`,
+        holdAmt: x._amt, shares: getShares(x.code_c),
+        code_c: x.code_c, code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
     } else if (ma60BelowCodes.has(x.code_c)) {
       sellRows.push({ from: x.name, amt: x._amt, watch: false,
-        to: '货币基金', note: `跌破60日均线，清仓：收盘 ${x.latest_close?.toFixed(3)} < MA60 ${x.ma60?.toFixed(3)}` });
+        to: '货币基金', note: `跌破60日均线，清仓：收盘 ${x.latest_close?.toFixed(3)} < MA60 ${x.ma60?.toFixed(3)}`,
+        holdAmt: x._amt, shares: getShares(x.code_c),
+        code_c: x.code_c, code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
     } else if (ma20TriggeredCodes.has(x.code_c)) {
       const ws = _watchState.find(w => w.code_c === x.code_c);
       const keepAmt = totalAmt * 0.15;
       sellRows.push({ from: x.name, amt: x._amt - keepAmt, watch: false,
         to: '货币基金',
-        note: `连续${ws?.days_below_ma20 || 2}日跌破MA20，减仓至15%，保留 ${fmtY(keepAmt)}` });
+        note: `连续${ws?.days_below_ma20 || 2}日跌破MA20，减仓至15%，保留 ${fmtY(keepAmt)}`,
+        holdAmt: x._amt, shares: getShares(x.code_c),
+        code_c: x.code_c, code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
     }
   });
   watchSell.forEach(x => {
@@ -245,14 +253,18 @@ export function mdtfrRenderAdvice(items) {
     const noteStr  = x._amt > floorAmt
       ? `第${days}日跌破MA20（首次：${ws?.first_break_date||'–'}），再观察1日确认后减至15%，保留 ${fmtY(floorAmt)}`
       : `第${days}日跌破MA20，确认连续2日后清仓`;
-    sellRows.push({ from: x.name, amt: sellAmt, watch: true, to: '货币基金', note: noteStr });
+    sellRows.push({ from: x.name, amt: sellAmt, watch: true, to: '货币基金', note: noteStr,
+      holdAmt: x._amt, shares: getShares(x.code_c),
+      code_c: x.code_c, code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
   });
   toBuy.forEach(x => {
     const fromLabel = availableAmt > 0 ? '可用资金' : '货币基金';
     const noteStr   = availableAmt > 0
       ? `目标仓位 50%，来源：可用资金 ${fmtY(availableAmt)}`
       : '目标仓位 50%';
-    buyRows.push({ from: fromLabel, amt: totalAmt * 0.50, to: x.name, toCode: x.code_c, note: noteStr });
+    buyRows.push({ from: fromLabel, amt: totalAmt * 0.50, to: x.name, toCode: x.code_c, note: noteStr,
+      latest_close: getLatestClose(x.code_c),
+      code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf });
   });
 
   // 继续持有行：finalType=hold 时；增量追加行：finalType=incremental 时
@@ -274,6 +286,8 @@ export function mdtfrRenderAdvice(items) {
           to: x.name,
           toCode: x.code_c,
           note: `当前 ${fmtY(currentAmt)} → 目标 ${fmtY(targetAmt)}（含增量 ${fmtY(availableAmt)}）`,
+          latest_close: getLatestClose(x.code_c),
+          code_a: poolMap.get(x.code_c)?.code_a, etf: poolMap.get(x.code_c)?.etf,
         });
       }
     });
