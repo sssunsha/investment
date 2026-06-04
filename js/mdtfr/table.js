@@ -93,14 +93,13 @@ function mdtfrInitTable(skeleton = false) {
     initColumnSorting();
 
     // K线图 radio 事件绑定
-    const wrap = document.querySelector('.mdtfr-table-wrap');
     document.querySelectorAll('input.kline-radio').forEach(radio => {
       radio.addEventListener('click', () => {
         const codeC = radio.value;
         const etf   = radio.dataset.etf;
         const name  = radio.dataset.name;
+        const wrap  = radio.closest('.mdtfr-table-wrap');
         if (getActiveCodeC() === codeC) {
-          // 同一标的再次点击 → toggle 关闭
           radio.checked = false;
           closeOverlay();
         } else {

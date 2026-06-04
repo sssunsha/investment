@@ -31,11 +31,7 @@ function _calcPosition(wrap) {
   const rightRect = ths[14].getBoundingClientRect();
   const thead     = wrap.querySelector('thead');
   const theadBottom = thead ? thead.getBoundingClientRect().bottom : leftRect.bottom;
-  return {
-    left:  leftRect.left,
-    width: rightRect.right - leftRect.left,
-    top:   theadBottom,
-  };
+  return { left: leftRect.left, width: rightRect.right - leftRect.left, top: theadBottom };
 }
 
 /** 设置浮层位置（fixed 坐标） */

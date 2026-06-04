@@ -222,7 +222,7 @@ _CSP = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
     "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; "
+    "img-src 'self' data: https://image.sinajs.cn; "
     "connect-src 'self' https://cdn.jsdelivr.net; "
     "font-src 'self'; "
     "object-src 'none'; "
