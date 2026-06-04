@@ -13,6 +13,7 @@ import {
 import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
 import { call } from './bus.js';
+import { markWatchExecuted } from './watch.js';
 
 // 每行独立快照：rowId -> {code, prevAmt, prevAvailable}
 const _rowSnapshots = new Map();
@@ -99,6 +100,9 @@ export async function confirmTradeRow(type, index) {
   await saveAvailable();
   refreshAllPosPct();
   refreshTotalDisplay();
+
+  // MA20 减仓已执行 → 标记 watch 条目，防止刷新后重复触发
+  if (type === 'sell' && code) await markWatchExecuted(code);
 
   // 写入 journal 累计
   _accumulate(type, index, row);

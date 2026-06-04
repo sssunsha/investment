@@ -3,6 +3,7 @@ import { getDynAmt, setAmt, saveAmounts, getShares, getCost, setShares, setCost,
 import { getAvailableAmt, setAvailableAmt, saveAvailable, refreshTotalDisplay } from './available.js';
 import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
+import { markWatchExecuted } from './watch.js';
 import { call, emit } from './bus.js';
 
 // 当前打开弹窗的标的 code_c
@@ -178,6 +179,7 @@ window._manualSellConfirm = async function(code_c, name, curAmt) {
   await saveAvailable();
   refreshAllPosPct();
   refreshTotalDisplay();
+  await markWatchExecuted(code_c);
 
   // 写入 journal
   const fmtY = n => '¥' + Math.round(n).toLocaleString();

@@ -110,4 +110,16 @@ async function updateWatchState(items) {
 /** 供 advice.js 只读访问观察状态列表 */
 function getWatchState() { return _watchState; }
 
-export { loadWatchState, saveWatchState, updateWatchState, getWatchState };
+/**
+ * 将指定标的的 watch 条目标记为已执行，防止下次刷新重复触发卖出建议。
+ * 在价格回到 MA20 上方之前保持此状态（由 updateWatchState 的正常清除逻辑处理）。
+ */
+async function markWatchExecuted(code_c) {
+  const entry = _watchState.find(w => w.code_c === code_c);
+  if (entry) {
+    entry.status = 'executed';
+    await saveWatchState();
+  }
+}
+
+export { loadWatchState, saveWatchState, updateWatchState, getWatchState, markWatchExecuted };
