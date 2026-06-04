@@ -93,7 +93,7 @@ async function updateWatchState(items) {
           // 新的交易日仍低于MA20 → 计为连续
           entry.days_below_ma20 += 1;
           entry.last_check_date = dataDate;
-          if (entry.days_below_ma20 >= 2) {
+          if (entry.days_below_ma20 >= 2 && entry.status !== 'executed') {
             entry.status = 'triggered';
             mdtfrLog('cache', `[${x.name}] 连续${entry.days_below_ma20}日跌破MA20 → 状态升级为「已触发」`);
           }
