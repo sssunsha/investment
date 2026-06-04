@@ -170,8 +170,7 @@
 
 /* ── K线图浮层 ── */
 .kline-overlay {
-  position: absolute;
-  z-index: 20;
+  /* position:fixed 和 z-index 由 JS 设置 */
   background: rgba(15, 17, 23, 0.96);
   backdrop-filter: blur(4px);
   border: 1px solid var(--border);
