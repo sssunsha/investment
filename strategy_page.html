@@ -160,12 +160,15 @@
         <span class="section-icon">📊</span>
         <span class="section-title">标的池动量监控</span>
         <span id="mdtfr-total-amt" style="font-size:13px;font-weight:700;color:var(--yellow);margin-left:12px">总金额：¥0</span>
+        <span id="mdtfr-net-capital" style="font-size:13px;margin-left:10px"></span>
         <span id="mdtfr-total-pnl" style="font-size:13px;font-weight:700;margin-left:10px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openPnlDialog()" title="点击查看收益明细"></span>
         <span id="mdtfr-last-updated" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
         <span class="available-input-wrap">
           <label class="available-label">可用金额(元)：</label>
           <input id="mdtfr-available-input" class="available-input" type="number" min="0" step="1000"
             placeholder="0" oninput="onAvailableChange(this.value)">
+          <button class="btn btn-ghost btn-sm" onclick="openCapitalDialog()"
+            title="资金存取" style="margin-left:4px;font-size:14px;font-weight:700;padding:4px 8px">±</button>
         </span>
         <div class="section-actions">
           <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>
@@ -287,6 +290,17 @@
     </div>
   </div>
 </div>
+
+    <!-- 资金存取弹窗 -->
+    <div id="capital-overlay" class="overlay">
+      <div class="overlay-panel" style="max-width:480px;width:90%">
+        <div class="overlay-header">
+          <span class="overlay-title">💰 资金存取</span>
+          <button class="overlay-close" onclick="closeCapitalDialog()">✕</button>
+        </div>
+        <div id="capital-body"></div>
+      </div>
+    </div>
 
 <!-- 手动卖出弹窗 -->
 <div class="journal-overlay" id="manual-sell-overlay" onclick="if(event.target===this)closeManualSellDialog()">
