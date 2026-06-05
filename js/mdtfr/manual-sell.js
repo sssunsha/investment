@@ -1,6 +1,6 @@
 // js/mdtfr/manual-sell.js
-import { getDynAmt, setAmt, saveAmounts, getShares, getCost, setShares, setCost, getLastMdtfrItems, refreshAllPosPct } from './amounts.js';
-import { getAvailableAmt, setAvailableAmt, saveAvailable, refreshTotalDisplay } from './available.js';
+import { getDynAmt, setAmt, saveAmounts, getShares, getCost, setShares, setCost, getLastMdtfrItems, refreshAllPosPct, scaleMktVal, addRealizedPnl } from './amounts.js';
+import { getAvailableAmt, setAvailableAmt, saveAvailable, refreshTotalDisplay, refreshPnlDisplay } from './available.js';
 import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
 import { markWatchExecuted } from './watch.js';
@@ -172,19 +172,24 @@ window._manualSellConfirm = async function(code_c, name, curAmt) {
 
   setAmt(code_c, Math.max(0, prevAmt - amt));
   setAvailableAmt(getAvailableAmt() + amt);
+  const prevCost = getCost(code_c);
   setShares(code_c, Math.max(0, prevShares - prevShares * ratio));
-  setCost(code_c,   Math.max(0, getCost(code_c) * (1 - ratio)));
+  setCost(code_c,   Math.max(0, prevCost * (1 - ratio)));
+  scaleMktVal(code_c, 1 - ratio);
+
+  const sellCost = prevCost * ratio;
+  const pnl      = amt - sellCost;
+  addRealizedPnl(pnl);
 
   await saveAmounts();
   await saveAvailable();
   refreshAllPosPct();
   refreshTotalDisplay();
+  refreshPnlDisplay();
   await markWatchExecuted(code_c);
 
   // 写入 journal
   const fmtY = n => '¥' + Math.round(n).toLocaleString();
-  const sellCost  = prevAmt > 0 ? getCost(code_c) / (1 - ratio) * ratio : 0;
-  const pnl       = amt - sellCost;
   const soldShares = prevShares * ratio;
   setPendingConfirmAnnotation({
     confirmed_at: new Date().toISOString(),

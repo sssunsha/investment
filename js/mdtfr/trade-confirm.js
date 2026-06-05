@@ -4,11 +4,11 @@ import { getLastAdviceData } from './advice-logic.js';
 import {
   getAmt, setAmt, saveAmounts,
   refreshAllPosPct, getLastMdtfrItems,
-  getShares, getCost, setShares, setCost,
+  getShares, getCost, setShares, setCost, addRealizedPnl,
 } from './amounts.js';
 import {
   getAvailableAmt, setAvailableAmt, saveAvailable,
-  getTotalAmt, refreshTotalDisplay,
+  getTotalAmt, refreshTotalDisplay, refreshPnlDisplay,
 } from './available.js';
 import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
@@ -63,11 +63,20 @@ export async function confirmTradeRow(type, index) {
     prevAvailable: getAvailableAmt(),
     prevShares:    code ? getShares(code) : null,
     prevCost:      code ? getCost(code)   : null,
+    sellPnl:       0,
   });
 
   // 应用变更
+  let sellPnl = 0;
   if (type === 'sell') {
-    if (code) setAmt(code, Math.max(0, getAmt(code) - row.amt));
+    if (code) {
+      const snap    = _rowSnapshots.get(rowId);
+      const prevAmt = snap.prevAmt || 0;
+      const prevCost = snap.prevCost || 0;
+      const ratio   = prevAmt > 0 ? Math.min(row.amt / prevAmt, 1) : 0;
+      sellPnl = row.amt - prevCost * ratio;
+      setAmt(code, Math.max(0, getAmt(code) - row.amt));
+    }
     setAvailableAmt(getAvailableAmt() + row.amt);
   } else {
     if (code) setAmt(code, getAmt(code) + row.amt);
@@ -87,7 +96,7 @@ export async function confirmTradeRow(type, index) {
         const prevShares = snap.prevShares || 0;
         const ratio      = prevAmt > 0 ? Math.min(row.amt / prevAmt, 1) : 0;
         setShares(code, Math.max(0, prevShares - prevShares * ratio));
-        setCost(code,   Math.max(0, getCost(code) * (1 - ratio)));
+        setCost(code,   Math.max(0, (snap.prevCost || 0) * (1 - ratio)));
       } else {
         // buy：用当日最新净值（latest_close）计算申购份额
         setShares(code, getShares(code) + row.amt / buyPrice);
@@ -96,10 +105,16 @@ export async function confirmTradeRow(type, index) {
     }
   }
 
+  if (type === 'sell') {
+    addRealizedPnl(sellPnl);
+    _rowSnapshots.get(rowId).sellPnl = sellPnl;
+  }
+
   await saveAmounts();
   await saveAvailable();
   refreshAllPosPct();
   refreshTotalDisplay();
+  refreshPnlDisplay();
 
   // MA20 减仓已执行 → 标记 watch 条目，防止刷新后重复触发
   if (type === 'sell' && code) await markWatchExecuted(code);
@@ -121,12 +136,14 @@ export async function undoTradeRow(type, index) {
   if (snap.code !== null && snap.prevShares !== null) setShares(snap.code, snap.prevShares);
   if (snap.code !== null && snap.prevCost   !== null) setCost(snap.code,   snap.prevCost);
   setAvailableAmt(snap.prevAvailable);
+  if (snap.sellPnl) addRealizedPnl(-snap.sellPnl);
   _rowSnapshots.delete(rowId);
 
   await saveAmounts();
   await saveAvailable();
   refreshAllPosPct();
   refreshTotalDisplay();
+  refreshPnlDisplay();
 
   _removeFromAccum(rowId);
   _updateRowCell(rowId, false);
