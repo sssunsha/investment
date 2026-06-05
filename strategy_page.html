@@ -292,11 +292,11 @@
 </div>
 
     <!-- 资金存取弹窗 -->
-    <div id="capital-overlay" class="overlay">
-      <div class="overlay-panel" style="max-width:480px;width:90%">
-        <div class="overlay-header">
-          <span class="overlay-title">💰 资金存取</span>
-          <button class="overlay-close" onclick="closeCapitalDialog()">✕</button>
+    <div class="journal-overlay" id="capital-overlay" onclick="if(event.target===this)closeCapitalDialog()">
+      <div class="journal-modal" style="max-width:480px;width:90%">
+        <div class="journal-modal-head">
+          <span>💰 资金存取</span>
+          <button class="journal-close" onclick="closeCapitalDialog()">✕</button>
         </div>
         <div id="capital-body"></div>
       </div>
