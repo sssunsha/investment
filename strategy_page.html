@@ -50,11 +50,14 @@
         <span class="section-title">全天候标的监控</span>
         <span id="aw-monitor-time" style="font-size:13px;color:var(--text-dim);margin-left:8px"></span>
         <span id="aw-total-amt" style="font-size:13px;font-weight:700;color:var(--yellow);margin-left:12px">总金额：¥0</span>
+        <span id="aw-net-capital" style="font-size:13px;margin-left:10px"></span>
         <span id="aw-total-pnl" style="font-size:13px;font-weight:700;margin-left:10px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openAwPnlDialog()" title="点击查看收益明细"></span>
         <span class="available-input-wrap" style="margin-left:auto">
           <label class="available-label">可用金额(元)：</label>
           <input id="aw-available-input" class="available-input" type="number" min="0" step="1000"
             placeholder="0" oninput="onAwAvailableChange(this.value)">
+          <button class="btn btn-ghost btn-sm" onclick="openAwCapitalDialog()"
+            title="资金存取" style="margin-left:4px;font-size:14px;font-weight:700;padding:4px 8px">±</button>
         </span>
         <div class="section-actions">
           <button class="btn btn-sm" id="aw-stale-chip" onclick="openStaleDialog()" style="display:none;background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3)">⚠ 0 笔待赎回</button>
@@ -290,6 +293,17 @@
     </div>
   </div>
 </div>
+
+    <!-- AW 资金存取弹窗 -->
+    <div class="journal-overlay" id="aw-capital-overlay" onclick="if(event.target===this)closeAwCapitalDialog()">
+      <div class="journal-modal" style="max-width:480px;width:90%">
+        <div class="journal-modal-head">
+          <span>💰 资金存取（全天候）</span>
+          <button class="journal-close" onclick="closeAwCapitalDialog()">✕</button>
+        </div>
+        <div id="aw-capital-body"></div>
+      </div>
+    </div>
 
     <!-- 资金存取弹窗 -->
     <div class="journal-overlay" id="capital-overlay" onclick="if(event.target===this)closeCapitalDialog()">

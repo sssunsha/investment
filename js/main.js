@@ -38,6 +38,7 @@ import {
 } from './mdtfr/trade-confirm.js';
 import { openManualSellDialog, closeManualSellDialog } from './mdtfr/manual-sell.js';
 import { openCapitalDialog, closeCapitalDialog, refreshNetCapitalDisplay } from './mdtfr/capital.js';
+import { openAwCapitalDialog, closeAwCapitalDialog, refreshAwNetCapitalDisplay } from './aw/aw-capital.js';
 import { register } from './mdtfr/bus.js';
 
 // ── 连接跨模块回调（通过 EventBus）────────────────────────────────
@@ -80,6 +81,9 @@ Object.assign(window, {
   // 手动卖出弹窗
   openManualSellDialog, closeManualSellDialog,
   openCapitalDialog, closeCapitalDialog,
+  // AW 资金存取弹窗
+  openAwCapitalDialog, closeAwCapitalDialog,
+  refreshAwNetCapitalDisplay,
 });
 
 // ── 页面初始化 ──────────────────────────────────────────────
@@ -103,6 +107,7 @@ initRebalanceDayStyle();
   await loadAwAmounts();
   await loadAwAvailable();
   refreshAwTotalDisplay();
+  refreshAwNetCapitalDisplay();
   refreshAwPosPct();
   refreshStaleChip();
 

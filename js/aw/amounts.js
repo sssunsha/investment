@@ -71,9 +71,11 @@ export async function loadAwAmounts() {
 export async function saveAwAmounts() {
   try {
     const payload = { ..._amt };
-    if ('__available__' in _rawData) payload['__available__'] = _rawData['__available__'];
-    if ('__shares__'    in _rawData) payload['__shares__']    = _rawData['__shares__'];
-    if ('__cost__'      in _rawData) payload['__cost__']      = _rawData['__cost__'];
+    if ('__available__'       in _rawData) payload['__available__']       = _rawData['__available__'];
+    if ('__shares__'          in _rawData) payload['__shares__']          = _rawData['__shares__'];
+    if ('__cost__'            in _rawData) payload['__cost__']            = _rawData['__cost__'];
+    if ('__aw_net_capital__'  in _rawData) payload['__aw_net_capital__']  = _rawData['__aw_net_capital__'];
+    if ('__aw_capital_log__'  in _rawData) payload['__aw_capital_log__']  = _rawData['__aw_capital_log__'];
     await fetch(AW_AMOUNTS_API, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

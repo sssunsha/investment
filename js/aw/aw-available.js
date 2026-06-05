@@ -34,6 +34,7 @@ export function refreshAwTotalDisplay() {
   if (inp && document.activeElement !== inp) {
     inp.value = _available > 0 ? _available : '';
   }
+  window.refreshAwNetCapitalDisplay?.();
 }
 
 export function refreshAwPnlDisplay() {
