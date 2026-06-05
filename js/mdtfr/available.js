@@ -3,7 +3,7 @@
 import {
   getSumOfPositions, setAmts, saveAmounts,
   _getRawKey, _setRawKey,
-  getCost, getDynAmt, hasMktVal,
+  getCost, getDynAmt, hasMktVal, getRealizedPnl,
 } from './amounts.js';
 import { getMdtfrPoolDef } from './config.js';
 import { escHtml } from '../utils.js';
@@ -38,31 +38,48 @@ function getTotalAmt() {
   return _available + getSumOfPositions();
 }
 
-/** 计算总持仓盈亏（仅含有成本记录且已加载动态市值的标的） */
+/** 计算总持仓盈亏（含已实现 + 未实现） */
 function _computeTotalPnl() {
   const defs = getMdtfrPoolDef();
-  let totalCost = 0;
-  let totalMktVal = 0;
+  let unrealizedCost = 0;
+  let unrealizedMktVal = 0;
   defs.forEach(d => {
     const cost = getCost(d.code_c);
     if (cost <= 0) return;
     if (!hasMktVal(d.code_c)) return;
-    totalCost += cost;
-    totalMktVal += getDynAmt(d.code_c);
+    unrealizedCost += cost;
+    unrealizedMktVal += getDynAmt(d.code_c);
   });
-  return { pnl: totalMktVal - totalCost, cost: totalCost };
+  const unrealized = unrealizedMktVal - unrealizedCost;
+  const realized   = getRealizedPnl();
+  return { unrealized, realized, total: unrealized + realized, hasUnrealized: unrealizedCost > 0 };
 }
 
 /** 刷新页面上的总收益标签 */
 export function refreshPnlDisplay() {
   const pnlEl = document.getElementById('mdtfr-total-pnl');
   if (!pnlEl) return;
-  const { pnl, cost } = _computeTotalPnl();
-  if (cost <= 0) { pnlEl.textContent = ''; return; }
-  const sign = pnl >= 0 ? '+' : '';
-  const pct = (pnl / cost * 100).toFixed(2);
-  pnlEl.textContent = `总收益：${sign}¥${Math.round(pnl).toLocaleString()}（${sign}${pct}%）`;
-  pnlEl.style.color = pnl > 0 ? 'var(--red)' : pnl < 0 ? 'var(--green)' : 'var(--text-dim)';
+  const { unrealized, realized, total, hasUnrealized } = _computeTotalPnl();
+  if (!hasUnrealized && realized === 0) { pnlEl.textContent = ''; return; }
+
+  const fmt = (n) => {
+    const sign = n >= 0 ? '+' : '';
+    return `${sign}¥${Math.round(n).toLocaleString()}`;
+  };
+  const clr = (n) => n > 0 ? 'var(--red)' : n < 0 ? 'var(--green)' : 'var(--text-dim)';
+
+  let parts = [];
+  if (realized !== 0) {
+    parts.push(`已实现 <span style="color:${clr(realized)};font-weight:700">${fmt(realized)}</span>`);
+  }
+  if (hasUnrealized) {
+    parts.push(`浮动 <span style="color:${clr(unrealized)};font-weight:700">${fmt(unrealized)}</span>`);
+  }
+  if (realized !== 0 && hasUnrealized) {
+    parts.push(`合计 <span style="color:${clr(total)};font-weight:700">${fmt(total)}</span>`);
+  }
+  pnlEl.innerHTML = parts.join('　');
+  pnlEl.style.color = '';
 }
 
 /** 刷新页面上的总金额标签和可用金额输入框 */
@@ -75,6 +92,7 @@ function refreshTotalDisplay() {
   if (inp && document.activeElement !== inp) {
     inp.value = _available > 0 ? _available : '';
   }
+  emit('capital:refresh');
 }
 
 /** 可用金额输入框 oninput 回调 */
