@@ -37,7 +37,7 @@ import {
   confirmTradeRow, undoTradeRow,
 } from './mdtfr/trade-confirm.js';
 import { openManualSellDialog, closeManualSellDialog } from './mdtfr/manual-sell.js';
-import { openCapitalDialog, closeCapitalDialog } from './mdtfr/capital.js';
+import { openCapitalDialog, closeCapitalDialog, refreshNetCapitalDisplay } from './mdtfr/capital.js';
 import { register } from './mdtfr/bus.js';
 
 // ── 连接跨模块回调（通过 EventBus）────────────────────────────────
@@ -96,6 +96,7 @@ initRebalanceDayStyle();
   }
 
   refreshTotalDisplay();
+  refreshNetCapitalDisplay();
   refreshAllPosPct();
 
   // AW 持仓初始化
