@@ -50,9 +50,12 @@ async function saveAmounts() {
   try {
     // 合并持仓金额与 __available__ 一起写入
     const payload = { ..._amt };
-    if ('__available__' in _rawData) payload['__available__'] = _rawData['__available__'];
-    if ('__shares__' in _rawData)    payload['__shares__']    = _rawData['__shares__'];
-    if ('__cost__'   in _rawData)    payload['__cost__']      = _rawData['__cost__'];
+    if ('__available__'    in _rawData) payload['__available__']    = _rawData['__available__'];
+    if ('__shares__'       in _rawData) payload['__shares__']       = _rawData['__shares__'];
+    if ('__cost__'         in _rawData) payload['__cost__']         = _rawData['__cost__'];
+    if ('__realized_pnl__' in _rawData) payload['__realized_pnl__'] = _rawData['__realized_pnl__'];
+    if ('__net_capital__'  in _rawData) payload['__net_capital__']  = _rawData['__net_capital__'];
+    if ('__capital_log__'  in _rawData) payload['__capital_log__']  = _rawData['__capital_log__'];
     await fetch('/api/cache/amounts', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -65,6 +68,14 @@ async function saveAmounts() {
 function _getRawKey(key) { return _rawData[key]; }
 /** 写入 _rawData 中任意键（供 available.js 写入 __available__）*/
 function _setRawKey(key, value) { _rawData[key] = value; }
+
+/** 已实现盈亏（元）：历史所有卖出的累计盈亏，持久化在 __realized_pnl__ */
+export function getRealizedPnl() {
+  return parseFloat(_rawData['__realized_pnl__'] || 0) || 0;
+}
+export function addRealizedPnl(delta) {
+  _rawData['__realized_pnl__'] = (getRealizedPnl() + delta);
+}
 
 function _getSharesObj() {
   const s = _rawData['__shares__'];
@@ -137,6 +148,9 @@ function refreshAllPosPct() {
       const v = getDynAmt(d.code_c);
       inp.value = v > 0 ? v : '';
     }
+    // 同步显示/隐藏表格中的卖出按钮
+    const sellBtn = document.getElementById(`mdtfr-sell-btn-${d.code_c}`);
+    if (sellBtn) sellBtn.style.display = pct > 0 ? '' : 'none';
   });
 }
 
@@ -164,17 +178,30 @@ function clearAmt(code_c) {
   if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
 }
 
+/**
+ * 按比例缩减动态市值缓存（手动卖出时同步调用，防止 getDynAmt 继续返回旧市值）。
+ * factor <= 0 时直接清除，否则乘以 factor。
+ */
+export function scaleMktVal(code_c, factor) {
+  if (!(code_c in _mktVal)) return;
+  if (factor <= 0) {
+    delete _mktVal[code_c];
+  } else {
+    _mktVal[code_c] = Math.max(0, _mktVal[code_c] * factor);
+  }
+}
+
 /** 生成金额只读展示（输出 HTML 字符串） */
 function mkAmtCell(code_c) {
   const v = getAmt(code_c);
   const held = v > 0;
   const sellBtn = held
-    ? `<button onclick="openManualSellDialog('${code_c}')"
+    ? `<button id="mdtfr-sell-btn-${code_c}" onclick="openManualSellDialog('${code_c}')"
         title="手动卖出"
         style="flex-shrink:0;width:22px;height:22px;padding:0;border-radius:4px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.1);color:var(--red);font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">
         ↓
       </button>`
-    : '';
+    : `<button id="mdtfr-sell-btn-${code_c}" style="display:none"></button>`;
   return `<div style="display:flex;gap:4px;align-items:center">
     <input class="amt-input" type="number" readonly
       id="mdtfr-amt-input-${code_c}"
