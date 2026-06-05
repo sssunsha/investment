@@ -10,7 +10,7 @@ import { on } from './bus.js';
 // ── 数据读写 ───────────────────────────────────────────────────
 
 export function getNetCapital() {
-  return parseFloat(_getRawKey('__net_capital__') || 0) || 0;
+  return parseFloat(_getRawKey('__net_capital__')) || 0;
 }
 
 function _setNetCapital(v) {
@@ -41,8 +41,9 @@ export async function deposit(amt, note) {
 
 export async function withdraw(amt, note) {
   if (!(amt > 0)) return;
-  if (amt > getAvailableAmt()) return;
-  setAvailableAmt(getAvailableAmt() - amt);
+  const avail = getAvailableAmt();
+  if (amt > avail) return;
+  setAvailableAmt(avail - amt);
   _setNetCapital(getNetCapital() - amt);
   _appendLog('withdraw', amt, note);
   await saveAvailable();
@@ -105,7 +106,7 @@ function _renderDialog() {
     ? `<tr><td colspan="4" style="text-align:center;color:var(--text-dim);padding:16px 0">暂无记录</td></tr>`
     : log.map(r => {
         const isDeposit = r.type === 'deposit';
-        const dateStr = r.ts ? new Date(r.ts).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+        const dateStr = r.ts ? new Date(r.ts).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
         return `<tr>
           <td style="padding:6px 8px;font-size:12px;color:var(--text-dim)">${dateStr}</td>
           <td style="padding:6px 8px;font-size:12px">${isDeposit
@@ -216,7 +217,8 @@ window._capitalConfirm = async function() {
   const amt   = parseFloat(input?.value || '0') || 0;
   if (!(amt > 0)) return;
 
-  if (_activeTab === 'deposit') {
+  const tab = _activeTab;
+  if (tab === 'deposit') {
     await deposit(amt, note);
   } else {
     if (amt > getAvailableAmt()) return;
@@ -227,7 +229,7 @@ window._capitalConfirm = async function() {
 
   const { showToast } = await import('./journal.js');
   const fmtY = n => '¥' + Math.round(n).toLocaleString();
-  const msg = _activeTab === 'deposit'
+  const msg = tab === 'deposit'
     ? `✅ 已存入 ${fmtY(amt)}`
     : `✅ 已抽出 ${fmtY(amt)}`;
   showToast(msg, 'var(--purple)');
