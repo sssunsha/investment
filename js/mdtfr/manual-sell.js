@@ -225,6 +225,8 @@ window._manualSellConfirm = async function(code_c, name, curAmt) {
       amt,
       estimated_price: sellPrice,
       estimated_shares: parseFloat((prevShares * ratio).toFixed(4)),
+      sell_ratio: ratio,
+      prev_shares: prevShares,
     });
   }
 

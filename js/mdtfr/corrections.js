@@ -3,9 +3,9 @@
 import {
   getPendingCorrections, setPendingCorrections,
   saveAmounts, getShares, setShares,
-  refreshAllPosPct,
+  refreshAllPosPct, addRealizedPnl,
 } from './amounts.js';
-import { refreshTotalDisplay, refreshPnlDisplay } from './available.js';
+import { getAvailableAmt, setAvailableAmt, saveAvailable, refreshTotalDisplay, refreshPnlDisplay } from './available.js';
 import { patchJournalTradeRecord } from './journal.js';
 import { escHtml } from '../utils.js';
 
@@ -52,36 +52,15 @@ export async function applyPendingCorrections(poolItems) {
   const remaining = [];
 
   for (const entry of list) {
-    const { trade_date, code_c, trade_type, amt, estimated_shares } = entry;
-
-    // 条件1：严格晚于交易日
-    if (today <= trade_date) { remaining.push(entry); continue; }
-    // 条件2：今日有有效价格
-    const todayClose = priceMap.get(code_c);
+    if (today <= entry.trade_date) { remaining.push(entry); continue; }
+    const todayClose = priceMap.get(entry.code_c);
     if (!todayClose) { remaining.push(entry); continue; }
 
-    // 执行修正
-    const realShares = amt / todayClose;
-    const deltaShares = trade_type === 'buy'
-      ? realShares - estimated_shares       // 买入：实际多/少到的份额
-      : estimated_shares - realShares;      // 卖出：多扣/少扣的份额，补回/追扣
-
-    const currentShares = getShares(code_c);
-    setShares(code_c, Math.max(0, currentShares + deltaShares));
-
-    // 回写 journal
-    const journalDate = entry.data_date || trade_date;
-    if (trade_type === 'buy') {
-      await patchJournalTradeRecord(journalDate, code_c, {
-        shares: parseFloat(realShares.toFixed(4)),
-        price: todayClose,
-      });
+    if (entry.trade_type === 'buy') {
+      await _applyBuyCorrection(entry, todayClose);
     } else {
-      await patchJournalTradeRecord(journalDate, code_c, {
-        shares: parseFloat(realShares.toFixed(4)),
-      });
+      await _applySellCorrection(entry, todayClose);
     }
-
     anyApplied = true;
   }
 
@@ -95,6 +74,50 @@ export async function applyPendingCorrections(poolItems) {
   }
 
   renderCorrectionStatus();
+}
+
+async function _applyBuyCorrection(entry, todayClose) {
+  const { code_c, amt, estimated_shares } = entry;
+  const realShares  = amt / todayClose;
+  const deltaShares = realShares - estimated_shares;
+  setShares(code_c, Math.max(0, getShares(code_c) + deltaShares));
+  await patchJournalTradeRecord(entry.data_date || entry.trade_date, code_c, {
+    shares: Number.parseFloat(realShares.toFixed(4)),
+    price:  todayClose,
+  });
+}
+
+async function _applySellCorrection(entry, todayClose) {
+  const { code_c, amt, estimated_shares, trade_date } = entry;
+  const sellRatio  = entry.sell_ratio ?? 0;
+  const prevShares = entry.prev_shares ?? estimated_shares;
+  const realShares = prevShares * sellRatio;
+  const realAmt    = Number.parseFloat((realShares * todayClose).toFixed(2));
+  const deltaAmt   = realAmt - amt;
+
+  setShares(code_c, Math.max(0, getShares(code_c) + (estimated_shares - realShares)));
+
+  if (deltaAmt !== 0) {
+    setAvailableAmt(getAvailableAmt() + deltaAmt);
+    await saveAvailable();
+    addRealizedPnl(deltaAmt);
+  }
+
+  const journalDate = entry.data_date || trade_date;
+  const res = await fetch(`/api/cache/journal/${journalDate.slice(0,4)}/${journalDate.slice(5,7)}`);
+  let costBasis = 0;
+  if (res.ok) {
+    const recs = await res.json();
+    const rec  = Array.isArray(recs) ? recs.find(r => r.data_date === journalDate) : null;
+    const tr   = rec?.trade_records?.find(t => t.code_c === code_c);
+    costBasis  = tr?.cost ?? 0;
+  }
+  await patchJournalTradeRecord(journalDate, code_c, {
+    amt:    realAmt,
+    shares: Number.parseFloat(realShares.toFixed(4)),
+    price:  todayClose,
+    pnl:    Number.parseFloat((realAmt - costBasis).toFixed(2)),
+  });
 }
 
 // ── 状态指示器 ────────────────────────────────────────────────
@@ -176,11 +199,21 @@ async function _renderCorrectionBody() {
     const codeSpan = tr.code_c ? `<br><span style="color:var(--text-dim);font-size:11px">${escHtml(tr.code_c)}</span>` : '';
     const nameHtml = `<span style="font-weight:600">${escHtml(tr.name || '–')}</span>${codeSpan}`;
 
-    // 份额列：若有待修正条目则标注估算中
     const corrEntry = tr._corr;
+    const estimBadge = `<br><span style="background:rgba(245,158,11,.15);color:var(--yellow);font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px">估算中</span>`;
+
+    // 金额列：卖出有待修正时标注估算中
+    let amtHtml;
+    if (corrEntry && isSell) {
+      amtHtml = `<span style="color:${amtClr};font-weight:700">${fmtY(tr.amt)}</span>${estimBadge}`;
+    } else {
+      amtHtml = `<span style="color:${amtClr};font-weight:700">${fmtY(tr.amt)}</span>`;
+    }
+
+    // 份额列：买入有待修正时标注估算中
     let sharesHtml;
-    if (corrEntry) {
-      sharesHtml = `<span style="color:var(--yellow)">${fmtN(tr.shares)}</span><br><span style="background:rgba(245,158,11,.15);color:var(--yellow);font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px">估算中</span>`;
+    if (corrEntry && !isSell) {
+      sharesHtml = `<span style="color:var(--yellow)">${fmtN(tr.shares)}</span>${estimBadge}`;
     } else {
       sharesHtml = `<span style="color:var(--text-dim)">${fmtN(tr.shares)}</span>`;
     }
@@ -202,7 +235,7 @@ async function _renderCorrectionBody() {
       ${jtd(`<span style="color:var(--text-dim);font-size:12px">${tr._dataDate}</span>`)}
       ${jtd(badge)}
       ${jtd(nameHtml)}
-      ${jtd(`<span style="color:${amtClr};font-weight:700">${fmtY(tr.amt)}</span>`)}
+      ${jtd(amtHtml)}
       ${jtd(sharesHtml)}
       ${jtd(priceHtml)}
       ${jtd(noteHtml)}
@@ -215,7 +248,7 @@ async function _renderCorrectionBody() {
 
   body.innerHTML = `
     <div style="padding:0 0 12px;color:var(--text-dim);font-size:13px">
-      以下为当日操作记录，份额标注 <span style="color:var(--yellow);font-weight:600">估算中</span> 的项目将在下一交易日收盘数据加载后自动修正。
+      以下为当日操作记录，标注 <span style="color:var(--yellow);font-weight:600">估算中</span> 的字段将在下一交易日收盘数据加载后自动修正（买入修正份额，卖出修正金额和收益）。
     </div>
     ${emptyMsg || `<table style="width:100%;border-collapse:collapse">
       <thead><tr>

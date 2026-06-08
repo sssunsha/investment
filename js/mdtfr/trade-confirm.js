@@ -128,12 +128,12 @@ export async function confirmTradeRow(type, index) {
   // 写入待修正记录（T+1 结算：今日价格为估算，次日修正）
   const today = new Date().toISOString().slice(0, 10);
   if (code && buyPrice > 0) {
+    const snap2 = _rowSnapshots.get(rowId);
+    const prevAmt2    = snap2?.prevAmt    || 0;
+    const prevShares2 = snap2?.prevShares || 0;
+    const sellRatio   = type === 'sell' && prevAmt2 > 0 ? Math.min(row.amt / prevAmt2, 1) : null;
     const estimatedShares = type === 'sell'
-      ? (() => {
-          const snap2 = _rowSnapshots.get(rowId);
-          const ratio2 = (snap2?.prevAmt || 0) > 0 ? Math.min(row.amt / snap2.prevAmt, 1) : 0;
-          return (snap2?.prevShares || 0) * ratio2;
-        })()
+      ? prevShares2 * (sellRatio ?? 0)
       : row.amt / buyPrice;
     await addPendingCorrection({
       trade_date: today,
@@ -144,6 +144,8 @@ export async function confirmTradeRow(type, index) {
       amt: row.amt,
       estimated_price: buyPrice,
       estimated_shares: parseFloat(estimatedShares.toFixed(4)),
+      // 卖出专用：记录份额比例和卖出前总份额，用于次日修正真实卖出金额
+      ...(type === 'sell' ? { sell_ratio: sellRatio, prev_shares: prevShares2 } : {}),
     });
   }
 
