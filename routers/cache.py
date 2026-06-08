@@ -480,3 +480,96 @@ async def aw_rebalance_log_put(request: Request):
         return {"ok": True, "file": str(AW_REBALANCE_LOG_FILE)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"写入AW操作日志失败: {e}")
+
+
+# ── 备份查询与恢复 ──────────────────────────────────────────────
+
+def _read_bak_lines(bak_type: str) -> list[dict]:
+    """读取备份文件所有行，返回解析后的 list（最旧→最新顺序）"""
+    bak_file = AMOUNTS_BAK_FILE if bak_type == "amounts" else JOURNAL_BAK_FILE
+    if not bak_file.exists():
+        return []
+    lines = bak_file.read_text(encoding='utf-8').splitlines()
+    result = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            result.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass
+    return result
+
+
+@router.get("/backup/list", summary="列出备份快照元信息（不含完整data）")
+async def backup_list(type: str = "amounts", limit: int = 20):
+    if type not in ("amounts", "journal"):
+        raise HTTPException(status_code=400, detail="type 必须为 amounts 或 journal")
+    rows = _read_bak_lines(type)
+    # 倒序：index=0 为最新
+    rows_rev = list(reversed(rows))[:limit]
+    result = []
+    for idx, row in enumerate(rows_rev):
+        item: dict = {"index": idx, "ts": row.get("ts", "")}
+        if type == "journal" and "month" in row:
+            item["month"] = row["month"]
+        result.append(item)
+    return JSONResponse(content=result)
+
+
+@router.get("/backup/entry", summary="读取单条备份完整内容")
+async def backup_entry(type: str = "amounts", index: int = 0):
+    if type not in ("amounts", "journal"):
+        raise HTTPException(status_code=400, detail="type 必须为 amounts 或 journal")
+    rows = list(reversed(_read_bak_lines(type)))
+    if index >= len(rows):
+        raise HTTPException(status_code=404, detail=f"备份索引 {index} 不存在，共 {len(rows)} 条")
+    return JSONResponse(content=rows[index])
+
+
+@router.post("/backup/restore", summary="从备份恢复主文件")
+async def backup_restore(request: Request):
+    try:
+        body = await request.json()
+        bak_type: str = body.get("type", "")
+        index: int    = int(body.get("index", 0))
+    except Exception:
+        raise HTTPException(status_code=400, detail="请求体格式错误，需要 {type, index}")
+
+    if bak_type not in ("amounts", "journal"):
+        raise HTTPException(status_code=400, detail="type 必须为 amounts 或 journal")
+
+    rows = list(reversed(_read_bak_lines(bak_type)))
+    if index >= len(rows):
+        raise HTTPException(status_code=404, detail=f"备份索引 {index} 不存在，共 {len(rows)} 条")
+
+    entry = rows[index]
+    from datetime import datetime
+
+    if bak_type == "amounts":
+        # 先把当前状态备份
+        if AMOUNTS_FILE.exists():
+            existing = _read_json(AMOUNTS_FILE, {})
+            if existing:
+                _append_backup(AMOUNTS_BAK_FILE, {"ts": datetime.now().isoformat(), "data": existing})
+        _write_json(AMOUNTS_FILE, entry["data"])
+    else:
+        # journal：从 entry["month"] 推断目标文件
+        month_str: str = entry.get("month", "")
+        try:
+            year, month = _parse_date(month_str + "-01")
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"备份条目 month 字段无效: {month_str}")
+        path = _journal_file(year, month)
+        # 先把当前状态备份
+        existing_records = _read_json(path, [])
+        if existing_records:
+            _append_backup(JOURNAL_BAK_FILE, {
+                "ts": datetime.now().isoformat(),
+                "month": month_str,
+                "data": existing_records,
+            })
+        _write_json(path, entry["data"])
+
+    return {"ok": True, "restored_ts": entry.get("ts", ""), "backup_created": True}
