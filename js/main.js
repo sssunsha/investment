@@ -39,6 +39,7 @@ import {
 import { openManualSellDialog, closeManualSellDialog } from './mdtfr/manual-sell.js';
 import { openCapitalDialog, closeCapitalDialog, refreshNetCapitalDisplay } from './mdtfr/capital.js';
 import { openAwCapitalDialog, closeAwCapitalDialog, refreshAwNetCapitalDisplay } from './aw/aw-capital.js';
+import { closeCorrectionDialog } from './mdtfr/corrections.js';
 import { register } from './mdtfr/bus.js';
 
 // ── 连接跨模块回调（通过 EventBus）────────────────────────────────
@@ -84,6 +85,8 @@ Object.assign(window, {
   // AW 资金存取弹窗
   openAwCapitalDialog, closeAwCapitalDialog,
   refreshAwNetCapitalDisplay,
+  // T+1 待结算修正弹窗
+  closeCorrectionDialog,
 });
 
 // ── 页面初始化 ──────────────────────────────────────────────
