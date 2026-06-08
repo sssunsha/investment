@@ -201,7 +201,6 @@ async def journal_post(request: Request):
         try:
             year, month = _parse_date(data_date)
         except ValueError:
-            # data_date 不合法时用保存时间推断年月
             from datetime import datetime
             now = datetime.now()
             year, month = str(now.year), f"{now.month:02d}"
@@ -210,6 +209,15 @@ async def journal_post(request: Request):
         records: list = _read_json(path, [])
         if not isinstance(records, list):
             records = []
+
+        # 写前备份：仅当该月 journal 已有内容时才备份
+        if records:
+            from datetime import datetime
+            _append_backup(JOURNAL_BAK_FILE, {
+                "ts": datetime.now().isoformat(),
+                "month": f"{year}-{month}",
+                "data": records,
+            })
 
         # upsert：若已有相同 data_date 的记录则替换，否则追加
         idx = next((i for i, r in enumerate(records) if r.get("data_date") == data_date), -1)
@@ -360,6 +368,15 @@ async def amounts_put(request: Request):
     try:
         payload = await request.json()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        # 写前备份：仅当主文件已存在时才备份
+        if AMOUNTS_FILE.exists():
+            existing = _read_json(AMOUNTS_FILE, {})
+            if existing:
+                from datetime import datetime
+                _append_backup(AMOUNTS_BAK_FILE, {
+                    "ts": datetime.now().isoformat(),
+                    "data": existing,
+                })
         _write_json(AMOUNTS_FILE, payload)
         return {"ok": True, "file": str(AMOUNTS_FILE)}
     except Exception as e:
