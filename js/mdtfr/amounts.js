@@ -56,6 +56,7 @@ async function saveAmounts() {
     if ('__realized_pnl__' in _rawData) payload['__realized_pnl__'] = _rawData['__realized_pnl__'];
     if ('__net_capital__'  in _rawData) payload['__net_capital__']  = _rawData['__net_capital__'];
     if ('__capital_log__'  in _rawData) payload['__capital_log__']  = _rawData['__capital_log__'];
+    if ('__pending_corrections__' in _rawData) payload['__pending_corrections__'] = _rawData['__pending_corrections__'];
     await fetch('/api/cache/amounts', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -266,6 +267,17 @@ export function refreshAmtPnl(items) {
     emit('pnl:refresh');
     if (_lastMdtfrItems) emit('advice:render', _lastMdtfrItems);
   }
+}
+
+/** 读取待修正记录列表 */
+export function getPendingCorrections() {
+  const v = _rawData['__pending_corrections__'];
+  return Array.isArray(v) ? v : [];
+}
+
+/** 覆盖写入待修正记录列表（传空数组即清空） */
+export function setPendingCorrections(list) {
+  _rawData['__pending_corrections__'] = Array.isArray(list) ? list : [];
 }
 
 export {
