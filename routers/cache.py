@@ -310,8 +310,22 @@ async def aw_journal_post(request: Request):
 
 WATCH_FILE            = CACHE_DIR / "mdtfr_watch.json"
 AMOUNTS_FILE          = CACHE_DIR / "mdtfr_amounts.json"
+AMOUNTS_BAK_FILE      = CACHE_DIR / "mdtfr_amounts.bak.ndjson"
+JOURNAL_BAK_FILE      = CACHE_DIR / "mdtfr_journal.bak.ndjson"
+BAK_MAX_LINES         = 1000
 AW_AMOUNTS_FILE       = CACHE_DIR / "aw_amounts.json"
 AW_REBALANCE_LOG_FILE = CACHE_DIR / "aw_rebalance_log.json"
+
+
+def _append_backup(bak_file: Path, entry: dict) -> None:
+	"""向 NDJSON 备份文件追加一行，超出 BAK_MAX_LINES 时删除最旧行"""
+	CACHE_DIR.mkdir(parents=True, exist_ok=True)
+	line = json.dumps(entry, ensure_ascii=False)
+	lines = bak_file.read_text(encoding='utf-8').splitlines() if bak_file.exists() else []
+	lines.append(line)
+	if len(lines) > BAK_MAX_LINES:
+		lines = lines[-BAK_MAX_LINES:]
+	bak_file.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 @router.get("/watchstate", summary="读取MA20跌破连续观察状态")
