@@ -84,3 +84,102 @@ class TestLookupRealPrice:
 
         price = lookup_real_price("007301", "2026-04-30", cache_dir=tmp_path)
         assert price == 3.50
+
+
+# ── run_cascade ───────────────────────────────────────────────
+
+class TestRunCascade:
+    """
+    run_cascade(trades, price_map) -> list[dict]
+
+    trades: 按 data_date 排序的 trade 列表，每条含:
+        {type, code_c, name, amt, data_date, shares (旧值), price (旧值), pnl (旧值)}
+    price_map: {(code_c, data_date): real_price}
+    返回: 每条 trade 附加 {real_price, real_shares, real_pnl, _state_before}
+    """
+    def test_buy_recalculates_shares(self):
+        from calibrate_history import run_cascade
+        trades = [
+            {"type": "buy", "code_c": "A", "name": "A基金", "amt": 5000,
+             "data_date": "2026-05-07", "shares": 1000.0, "price": 5.0, "pnl": None},
+        ]
+        price_map = {("A", "2026-05-07"): 4.0}  # real price differs
+        result = run_cascade(trades, price_map)
+        assert len(result) == 2   # 1 trade + 1 _final_state sentinel
+        assert result[0]["real_price"] == 4.0
+        assert abs(result[0]["real_shares"] - 1250.0) < 0.001   # 5000/4.0
+        assert result[0]["real_pnl"] is None  # buy has no pnl
+
+    def test_buy_same_price_no_delta(self):
+        from calibrate_history import run_cascade
+        trades = [
+            {"type": "buy", "code_c": "A", "name": "A", "amt": 5000,
+             "data_date": "2026-05-07", "shares": 1000.0, "price": 5.0, "pnl": None},
+        ]
+        price_map = {("A", "2026-05-07"): 5.0}  # same price
+        result = run_cascade(trades, price_map)
+        assert abs(result[0]["real_shares"] - 1000.0) < 0.001   # 5000/5.0
+
+    def test_sell_recalculates_shares_and_pnl(self):
+        from calibrate_history import run_cascade
+        # 先买入，再卖出
+        trades = [
+            {"type": "buy",  "code_c": "A", "name": "A", "amt": 5000,
+             "data_date": "2026-05-07", "shares": 1000.0, "price": 5.0, "pnl": None},
+            {"type": "sell", "code_c": "A", "name": "A", "amt": 200,
+             "data_date": "2026-06-03", "shares": 40.0, "price": 5.0, "pnl": 0.0},
+        ]
+        price_map = {
+            ("A", "2026-05-07"): 5.0,
+            ("A", "2026-06-03"): 6.0,   # real price for sell
+        }
+        result = run_cascade(trades, price_map)
+        sell = result[1]
+        # mkt_val = 1000 shares * 6.0 = 6000, ratio = 200/6000 = 1/30
+        # sold_shares = 1000 * (1/30) ≈ 33.333
+        assert abs(sell["real_shares"] - 1000 / 30) < 0.01
+        # cost_basis = 5000 * (1/30) ≈ 166.667
+        # pnl = 200 - 166.667 = 33.333
+        assert abs(sell["real_pnl"] - (200 - 5000 / 30)) < 0.01
+
+    def test_cascade_sell_uses_corrected_buy_shares(self):
+        """卖出的基准份额必须基于修正后的买入份额"""
+        from calibrate_history import run_cascade
+        trades = [
+            # buy: old price=5.0, real price=4.0 → real_shares=1250 (not 1000)
+            {"type": "buy",  "code_c": "A", "name": "A", "amt": 5000,
+             "data_date": "2026-05-07", "shares": 1000.0, "price": 5.0, "pnl": None},
+            # sell: should use 1250 as base
+            {"type": "sell", "code_c": "A", "name": "A", "amt": 500,
+             "data_date": "2026-06-03", "shares": 100.0, "price": 5.0, "pnl": 0.0},
+        ]
+        price_map = {
+            ("A", "2026-05-07"): 4.0,
+            ("A", "2026-06-03"): 5.0,
+        }
+        result = run_cascade(trades, price_map)
+        sell = result[1]
+        # mkt_val = 1250 * 5.0 = 6250, ratio = 500/6250 = 0.08
+        # sold_shares = 1250 * 0.08 = 100
+        assert abs(sell["real_shares"] - 100.0) < 0.01
+
+    def test_skips_trade_when_price_not_found(self):
+        from calibrate_history import run_cascade
+        trades = [
+            {"type": "buy", "code_c": "A", "name": "A", "amt": 5000,
+             "data_date": "2026-05-07", "shares": 1000.0, "price": 5.0, "pnl": None},
+        ]
+        price_map = {}   # price not found
+        result = run_cascade(trades, price_map)
+        assert result[0].get("skipped") is True
+
+    def test_skips_sell_when_state_zero(self):
+        from calibrate_history import run_cascade
+        # 没有买入就卖出
+        trades = [
+            {"type": "sell", "code_c": "A", "name": "A", "amt": 100,
+             "data_date": "2026-06-03", "shares": 20.0, "price": 5.0, "pnl": 0.0},
+        ]
+        price_map = {("A", "2026-06-03"): 6.0}
+        result = run_cascade(trades, price_map)
+        assert result[0].get("skipped") is True
