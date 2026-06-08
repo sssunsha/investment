@@ -176,6 +176,7 @@
             title="资金存取" style="margin-left:4px;font-size:14px;font-weight:700;padding:4px 8px">±</button>
         </span>
         <div class="section-actions">
+          <button class="btn btn-ghost btn-sm" onclick="openBackupDialog()" title="数据备份与恢复">💾 备份</button>
           <button class="btn btn-ghost btn-sm" id="mdtfr-debug-btn" onclick="toggleMdtfrDebug()">🐛 调试</button>
           <button class="btn btn-ghost btn-sm" onclick="showConfirm('确认清空今日缓存数据？下次加载将重新获取行情。', clearMdtfrCache, '清空')" style="border-color:var(--red);color:var(--red)">🗑 清空数据</button>
           <button class="btn btn-primary" id="mdtfr-btn" onclick="loadMdtfrPool()">▶ 加载数据</button>
@@ -327,6 +328,20 @@
     </div>
     <div class="journal-table-wrap">
       <div id="correction-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 备份管理弹窗 -->
+<div id="backup-overlay" class="journal-overlay" onclick="if(event.target===this)closeBackupDialog()">
+  <div class="journal-modal">
+    <div class="journal-modal-head">
+      <span style="font-size:18px;font-weight:700;flex:1">💾 数据备份与恢复</span>
+      <button onclick="closeBackupDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
+    </div>
+    <div class="journal-table-wrap">
+      <div id="backup-tabs" style="display:flex;gap:8px;margin-bottom:16px"></div>
+      <div id="backup-body"></div>
     </div>
   </div>
 </div>
