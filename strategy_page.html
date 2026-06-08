@@ -166,6 +166,8 @@
         <span id="mdtfr-net-capital" style="font-size:13px;margin-left:10px"></span>
         <span id="mdtfr-total-pnl" style="font-size:13px;font-weight:700;margin-left:10px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="openPnlDialog()" title="点击查看收益明细"></span>
         <span id="mdtfr-last-updated" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
+        <span id="mdtfr-correction-status" style="display:none;margin-left:0"></span>
+        <button onclick="openJournal()" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:var(--purple);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-left:8px">📅 历史复盘</button>
         <span class="available-input-wrap">
           <label class="available-label">可用金额(元)：</label>
           <input id="mdtfr-available-input" class="available-input" type="number" min="0" step="1000"
@@ -190,7 +192,6 @@
         <span class="section-icon">📋</span>
         <span class="section-title">操作建议</span>
         <span id="mdtfr-advice-time" style="font-size:13px;color:var(--text-dim);margin-left:8px;flex:1"></span>
-        <span id="mdtfr-correction-status" style="display:none;margin-left:10px"></span>
         <button onclick="openJournal()" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:var(--purple);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">📅 历史复盘</button>
       </div>
       <div id="mdtfr-advice-body" style="padding:0 20px 20px"></div>
@@ -319,12 +320,12 @@
 
 <!-- T+1 待结算修正弹窗 -->
 <div id="correction-overlay" class="journal-overlay" onclick="if(event.target===this)closeCorrectionDialog()">
-  <div class="journal-panel">
-    <div class="journal-header">
-      <span class="journal-title">⏳ 待结算修正</span>
-      <button class="journal-close" onclick="closeCorrectionDialog()">×</button>
+  <div class="journal-modal">
+    <div class="journal-modal-head">
+      <span style="font-size:18px;font-weight:700;flex:1">⏳ 待结算修正</span>
+      <button onclick="closeCorrectionDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer">✕ 关闭</button>
     </div>
-    <div class="journal-content">
+    <div class="journal-table-wrap">
       <div id="correction-body"></div>
     </div>
   </div>
