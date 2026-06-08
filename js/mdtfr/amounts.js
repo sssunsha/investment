@@ -232,12 +232,22 @@ function mkPosPct(code_c) {
 
 export function refreshAmtPnl(items) {
   let anyUpdated = false;
+  // 今日有待结算买入操作的标的，不计算浮动市值（T+1 修正前份额不准确）
+  const pendingBuyCodes = call('pendingBuyCodes') ?? new Set();
   items.forEach(item => {
     if (!item || item.error || item.latest_close == null) return;
     const c      = item.code_c;
     const shares = getShares(c);
     const cost   = getCost(c);
     if (shares > 0) {
+      // 今日买入待结算：不更新市值，清除颜色和浮动盈亏
+      if (pendingBuyCodes.has(c)) {
+        const inp = document.getElementById(`mdtfr-amt-input-${c}`);
+        if (inp) inp.style.color = '';
+        const pnlEl = document.getElementById(`mdtfr-pnl-${c}`);
+        if (pnlEl) pnlEl.innerHTML = '';
+        return;
+      }
       const curVal = Math.round(shares * item.latest_close);
       _mktVal[c] = curVal;
       anyUpdated = true;

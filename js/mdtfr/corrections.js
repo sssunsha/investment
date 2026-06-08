@@ -8,6 +8,17 @@ import {
 import { getAvailableAmt, setAvailableAmt, saveAvailable, refreshTotalDisplay, refreshPnlDisplay } from './available.js';
 import { patchJournalTradeRecord } from './journal.js';
 import { escHtml } from '../utils.js';
+import { register } from './bus.js';
+
+// 注册：供 amounts.js 查询今日有哪些 buy 操作还在待结算（不应计算浮动市值）
+register('pendingBuyCodes', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  return new Set(
+    getPendingCorrections()
+      .filter(e => e.trade_type === 'buy' && e.trade_date === today)
+      .map(e => e.code_c)
+  );
+});
 
 /**
  * 交易确认后调用：写入一条待修正记录。
