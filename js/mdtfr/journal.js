@@ -190,6 +190,39 @@ async function loadJournal(year) {
   }
 }
 
+/**
+ * 修正 journal 中指定 trade record 的字段。
+ * @param {string} trade_date - YYYY-MM-DD，对应 journal record 的 data_date
+ * @param {string} code_c - 标的基金代码
+ * @param {Object} fields - 要合并的字段，如 { shares: 12345.67, price: 1.250 }
+ */
+export async function patchJournalTradeRecord(trade_date, code_c, fields) {
+  const [year, month] = [trade_date.slice(0, 4), trade_date.slice(5, 7)];
+  try {
+    const res = await fetch(`/api/cache/journal/${year}/${month}`);
+    if (!res.ok) return;
+    const records = await res.json();
+    if (!Array.isArray(records)) return;
+
+    const recIdx = records.findIndex(r => r.data_date === trade_date);
+    if (recIdx < 0) return;
+
+    const rec = records[recIdx];
+    if (!Array.isArray(rec.trade_records)) return;
+
+    const trIdx = rec.trade_records.findIndex(tr => tr.code_c === code_c);
+    if (trIdx < 0) return;
+
+    rec.trade_records[trIdx] = { ...rec.trade_records[trIdx], ...fields, settled: true };
+
+    await fetch('/api/cache/journal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rec),
+    });
+  } catch {}
+}
+
 export { saveJournalRecord, showToast, openJournal, closeJournal, loadJournal, loadRecentJournalRecords };
 
 on('mdtfr:toast', ({ msg, color }) => showToast(msg, color));
