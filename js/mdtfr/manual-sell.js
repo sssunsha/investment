@@ -5,6 +5,7 @@ import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
 import { markWatchExecuted } from './watch.js';
 import { call, emit } from './bus.js';
+import { addPendingCorrection } from './corrections.js';
 
 // 当前打开弹窗的标的 code_c
 let _activeCode = null;
@@ -208,6 +209,23 @@ window._manualSellConfirm = async function(code_c, name, curAmt) {
   // 刷新建议面板
   const lastItems = call('getLastItems');
   if (lastItems) emit('advice:render', lastItems);
+
+  // 写入待修正记录（T+1 结算）
+  const items2 = getLastMdtfrItems() || [];
+  const item2  = items2.find(x => x.code_c === code_c);
+  const sellPrice = item2?.latest_close || 0;
+  const today2 = new Date().toISOString().slice(0, 10);
+  if (sellPrice > 0) {
+    await addPendingCorrection({
+      trade_date: today2,
+      code_c,
+      name,
+      trade_type: 'sell',
+      amt,
+      estimated_price: sellPrice,
+      estimated_shares: parseFloat((prevShares * ratio).toFixed(4)),
+    });
+  }
 
   closeManualSellDialog();
 
