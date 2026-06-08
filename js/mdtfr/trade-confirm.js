@@ -14,6 +14,7 @@ import { setPendingConfirmAnnotation } from './journal.js';
 import { getMdtfrPoolDef } from './config.js';
 import { call } from './bus.js';
 import { markWatchExecuted } from './watch.js';
+import { addPendingCorrection, removePendingCorrection } from './corrections.js';
 
 // 每行独立快照：rowId -> {code, prevAmt, prevAvailable}
 const _rowSnapshots = new Map();
@@ -122,6 +123,27 @@ export async function confirmTradeRow(type, index) {
   // 写入 journal 累计
   _accumulate(type, index, row);
 
+  // 写入待修正记录（T+1 结算：今日价格为估算，次日修正）
+  const today = new Date().toISOString().slice(0, 10);
+  if (code && buyPrice > 0) {
+    const estimatedShares = type === 'sell'
+      ? (() => {
+          const snap2 = _rowSnapshots.get(rowId);
+          const ratio2 = (snap2?.prevAmt || 0) > 0 ? Math.min(row.amt / snap2.prevAmt, 1) : 0;
+          return (snap2?.prevShares || 0) * ratio2;
+        })()
+      : row.amt / buyPrice;
+    await addPendingCorrection({
+      trade_date: today,
+      code_c: code,
+      name: type === 'sell' ? row.from : row.to,
+      trade_type: type,
+      amt: row.amt,
+      estimated_price: buyPrice,
+      estimated_shares: parseFloat(estimatedShares.toFixed(4)),
+    });
+  }
+
   // 只更新这一行的操作列，不全量重渲
   _updateRowCell(rowId, true);
 }
@@ -146,6 +168,14 @@ export async function undoTradeRow(type, index) {
   refreshPnlDisplay();
 
   _removeFromAccum(rowId);
+
+  // 撤销时移除对应的待修正记录
+  const today = new Date().toISOString().slice(0, 10);
+  if (snap.code) {
+    const tradeType = rowId.startsWith('sell') ? 'sell' : 'buy';
+    await removePendingCorrection(today, snap.code, tradeType);
+  }
+
   _updateRowCell(rowId, false);
 }
 
