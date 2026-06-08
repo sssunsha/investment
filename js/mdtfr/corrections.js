@@ -118,15 +118,15 @@ export function renderCorrectionStatus() {
 export function openCorrectionDialog() {
   const overlay = document.getElementById('correction-overlay');
   if (!overlay) return;
-  _renderCorrectionBody();
   overlay.classList.add('open');
+  _renderCorrectionBody();
 }
 
 export function closeCorrectionDialog() {
   document.getElementById('correction-overlay')?.classList.remove('open');
 }
 
-function _renderCorrectionBody() {
+async function _renderCorrectionBody() {
   const body = document.getElementById('correction-body');
   if (!body) return;
   const list = getPendingCorrections();
@@ -136,38 +136,94 @@ function _renderCorrectionBody() {
     return;
   }
 
-  const fmtY = n => '¥' + Math.round(n).toLocaleString();
-  const fmtN = n => n != null ? n.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '–';
+  body.innerHTML = '<div style="color:var(--text-dim);padding:20px 0;text-align:center">加载中...</div>';
+
+  // 收集所有涉及的 data_date（去重），从 journal 加载完整操作记录
+  const dateDates = [...new Set(list.map(e => e.data_date || e.trade_date))];
+  // pending corrections 按 code_c 建立快速查找
+  const corrMap = new Map(list.map(e => [e.code_c, e]));
+
+  // 按 data_date 拉取 journal 记录，合并所有 trade_records
+  const allTrades = [];
+  for (const dd of dateDates) {
+    const [year, month] = [dd.slice(0, 4), dd.slice(5, 7)];
+    try {
+      const res = await fetch(`/api/cache/journal/${year}/${month}`);
+      if (!res.ok) continue;
+      const records = await res.json();
+      if (!Array.isArray(records)) continue;
+      const rec = records.find(r => r.data_date === dd);
+      if (!rec || !Array.isArray(rec.trade_records)) continue;
+      for (const tr of rec.trade_records) {
+        allTrades.push({ ...tr, _dataDate: dd, _corr: corrMap.get(tr.code_c) || null });
+      }
+    } catch {}
+  }
+
+  const fmtY = n => (n == null ? '–' : '¥' + Math.round(n).toLocaleString());
+  const fmtN = n => (n == null ? '–' : n.toLocaleString(undefined, { maximumFractionDigits: 4 }));
 
   const jth = t => `<th style="padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap">${t}</th>`;
   const jtd = (t, extra='') => `<td style="padding:7px 10px;font-size:13px;vertical-align:middle;border-bottom:1px solid rgba(255,255,255,.04);${extra}">${t}</td>`;
 
-  const rowsHtml = list.map(entry => {
-    const isBuy = entry.trade_type === 'buy';
-    const badge = isBuy
-      ? `<span style="background:rgba(34,197,94,.15);color:var(--green);font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px">🟢 买入</span>`
-      : `<span style="background:rgba(239,68,68,.15);color:var(--red);font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px">🔴 卖出</span>`;
+  const rowsHtml = allTrades.map(tr => {
+    const isSell = tr.type === 'sell';
+    const badge = isSell
+      ? `<span style="background:rgba(239,68,68,.15);color:var(--red);font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px">🔴 卖出</span>`
+      : `<span style="background:rgba(34,197,94,.15);color:var(--green);font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px">🟢 买入</span>`;
+
+    const amtClr = isSell ? 'var(--red)' : 'var(--green)';
+    const codeSpan = tr.code_c ? `<br><span style="color:var(--text-dim);font-size:11px">${escHtml(tr.code_c)}</span>` : '';
+    const nameHtml = `<span style="font-weight:600">${escHtml(tr.name || '–')}</span>${codeSpan}`;
+
+    // 份额列：若有待修正条目则标注估算中
+    const corrEntry = tr._corr;
+    let sharesHtml;
+    if (corrEntry) {
+      sharesHtml = `<span style="color:var(--yellow)">${fmtN(tr.shares)}</span><br><span style="background:rgba(245,158,11,.15);color:var(--yellow);font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px">估算中</span>`;
+    } else {
+      sharesHtml = `<span style="color:var(--text-dim)">${fmtN(tr.shares)}</span>`;
+    }
+
+    // 净值列
+    let priceHtml;
+    if (tr.price != null) {
+      priceHtml = `<span style="color:var(--text-dim)">${tr.price}</span>`;
+    } else if (corrEntry) {
+      priceHtml = `<span style="color:var(--yellow)">${corrEntry.estimated_price}</span><br><span style="font-size:10px;color:var(--text-dim)">估算</span>`;
+    } else {
+      priceHtml = '–';
+    }
+
+    const manualBadge = tr.manual ? `<span style="color:var(--text-dim);font-size:11px">手动</span> ` : '';
+    const noteHtml = `<span style="color:var(--text-dim);font-size:12px">${manualBadge}${escHtml(tr.note || '')}</span>`;
+
     return `<tr>
-      ${jtd(`<span style="color:var(--text-dim);font-size:12px">${entry.trade_date}</span>`)}
+      ${jtd(`<span style="color:var(--text-dim);font-size:12px">${tr._dataDate}</span>`)}
       ${jtd(badge)}
-      ${jtd(`<span style="font-weight:600">${escHtml(entry.name)}</span><br><span style="color:var(--text-dim);font-size:11px">${escHtml(entry.code_c)}</span>`)}
-      ${jtd(`<span style="color:${isBuy ? 'var(--green)' : 'var(--red)'};font-weight:700">${fmtY(entry.amt)}</span>`)}
-      ${jtd(`<span style="color:var(--text-dim)">${entry.estimated_price}</span>`)}
-      ${jtd(`<span style="color:var(--text-dim)">${fmtN(entry.estimated_shares)}</span>`)}
+      ${jtd(nameHtml)}
+      ${jtd(`<span style="color:${amtClr};font-weight:700">${fmtY(tr.amt)}</span>`)}
+      ${jtd(sharesHtml)}
+      ${jtd(priceHtml)}
+      ${jtd(noteHtml)}
     </tr>`;
   }).join('');
 
+  const emptyMsg = allTrades.length === 0
+    ? '<div style="color:var(--text-dim);padding:20px 0;text-align:center">未找到对应的操作记录</div>'
+    : '';
+
   body.innerHTML = `
     <div style="padding:0 0 12px;color:var(--text-dim);font-size:13px">
-      以下交易基于 T-1 估算净值记录，将在下一交易日收盘数据加载后自动修正份额。
+      以下为当日操作记录，份额标注 <span style="color:var(--yellow);font-weight:600">估算中</span> 的项目将在下一交易日收盘数据加载后自动修正。
     </div>
-    <table style="width:100%;border-collapse:collapse">
+    ${emptyMsg || `<table style="width:100%;border-collapse:collapse">
       <thead><tr>
-        ${jth('交易日')}${jth('类型')}${jth('标的')}${jth('金额')}${jth('估算净值')}${jth('估算份额')}
+        ${jth('数据日期')}${jth('类型')}${jth('标的')}${jth('金额')}${jth('份额')}${jth('净值')}${jth('备注')}
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
-    </table>
+    </table>`}
     <div style="margin-top:14px;padding:10px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;font-size:12px;color:var(--yellow)">
-      ⚠ 非交易日不会触发修正。修正完成后此列表将自动清空。
+      ⚠ 非交易日不会触发修正。修正完成后估算标注将消失，此提示自动清除。
     </div>`;
 }
