@@ -218,6 +218,7 @@ window._manualSellConfirm = async function(code_c, name, curAmt) {
   if (sellPrice > 0) {
     await addPendingCorrection({
       trade_date: today2,
+      data_date: item2?.latest_date || today2,
       code_c,
       name,
       trade_type: 'sell',

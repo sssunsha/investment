@@ -85,10 +85,12 @@ export async function confirmTradeRow(type, index) {
   }
 
   // 计算份额变更（以当日确认时的最新净值为申购单价）
+  let buyPrice = 0;
+  let _mdtfrItem = null;
   if (code) {
     const items    = getLastMdtfrItems() || [];
-    const item     = items.find(x => x.code_c === code);
-    const buyPrice = item?.latest_close || 0;
+    _mdtfrItem     = items.find(x => x.code_c === code) || null;
+    buyPrice = _mdtfrItem?.latest_close || 0;
 
     if (buyPrice > 0) {
       if (type === 'sell') {
@@ -135,6 +137,7 @@ export async function confirmTradeRow(type, index) {
       : row.amt / buyPrice;
     await addPendingCorrection({
       trade_date: today,
+      data_date: _mdtfrItem?.latest_date || today,
       code_c: code,
       name: type === 'sell' ? row.from : row.to,
       trade_type: type,

@@ -70,13 +70,14 @@ export async function applyPendingCorrections(poolItems) {
     setShares(code_c, Math.max(0, currentShares + deltaShares));
 
     // 回写 journal
+    const journalDate = entry.data_date || trade_date;
     if (trade_type === 'buy') {
-      await patchJournalTradeRecord(trade_date, code_c, {
+      await patchJournalTradeRecord(journalDate, code_c, {
         shares: parseFloat(realShares.toFixed(4)),
         price: todayClose,
       });
     } else {
-      await patchJournalTradeRecord(trade_date, code_c, {
+      await patchJournalTradeRecord(journalDate, code_c, {
         shares: parseFloat(realShares.toFixed(4)),
       });
     }

@@ -20,6 +20,7 @@ async function mdtfrMaybeInitEmpty() {
   await loadAmounts();     // 先从文件加载金额，再渲染表格
   mdtfrInitTable(false);   // 渲染空表格结构（mkAmtCell 会读取已加载的 _amt）
   refreshAllPosPct();      // 渲染总持仓市值
+  renderCorrectionStatus();
   const today = new Date().toISOString().slice(0, 10);
   try {
     const cached = await cacheGet(today);

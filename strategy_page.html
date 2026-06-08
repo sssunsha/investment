@@ -318,7 +318,7 @@
     </div>
 
 <!-- T+1 待结算修正弹窗 -->
-<div id="correction-overlay" class="journal-overlay">
+<div id="correction-overlay" class="journal-overlay" onclick="if(event.target===this)closeCorrectionDialog()">
   <div class="journal-panel">
     <div class="journal-header">
       <span class="journal-title">⏳ 待结算修正</span>
