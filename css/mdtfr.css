@@ -100,7 +100,7 @@
 .available-input {
   background: transparent; border: none; color: var(--yellow);
   font-size: 14px; font-weight: 700; font-family: inherit;
-  width: 120px; outline: none;
+  width: 120px; outline: none; -moz-appearance: textfield;
 }
 .available-input::placeholder { color: rgba(245,158,11,.4); }
 .available-input::-webkit-inner-spin-button,

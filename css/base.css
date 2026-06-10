@@ -149,7 +149,10 @@
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
     border-radius: 5px; padding: 3px 6px; font-size: 13px; font-family: inherit;
     width: 88px; outline: none; transition: border-color .15s; text-align: right;
+    -moz-appearance: textfield;
   }
+  .amt-input::-webkit-inner-spin-button,
+  .amt-input::-webkit-outer-spin-button { display: none; }
   .amt-input:hover, .amt-input:focus { border-color: var(--cyan); }
   .amt-input[data-held="true"] { border-color: var(--yellow); color: var(--yellow); font-weight: 700; }
   /* 持仓比例展示（只读） */
