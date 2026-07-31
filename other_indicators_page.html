@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>其他指标 - Investment</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/basic-info.css">
+</head>
+<body>
+
+<div class="header">
+  <a href="/" class="header-back" title="返回首页">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M19 12H5M12 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div class="header-icon">📋</div>
+  <div class="header-text">
+    <h1>其他指标</h1>
+    <p>成长与防守板块比值切换策略 · 创业板指 / 中证红利</p>
+  </div>
+  <div class="header-status">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">检测中...</span>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Time Range Selector -->
+  <div class="controls-section">
+    <div class="control-group">
+      <label for="time-range">查询时间跨度：</label>
+      <select id="time-range" class="time-select">
+        <option value="1">一年</option>
+        <option value="3" selected>三年</option>
+        <option value="5">五年</option>
+        <option value="10">十年</option>
+        <option value="all">全部</option>
+      </select>
+      <button id="refresh-btn" class="refresh-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+        刷新数据
+      </button>
+    </div>
+    <div class="loading-indicator" id="loading-indicator">
+      <div class="spinner"></div>
+      <span>加载中...</span>
+    </div>
+  </div>
+
+  <!-- Charts Grid -->
+  <div class="charts-grid">
+
+    <!-- Sector Ratio Chart (full width) -->
+    <div class="chart-card chart-card-wide">
+      <div class="chart-header">
+        <h3 class="chart-title">
+          <span class="chart-icon">⚖️</span>
+          成长/防守板块比值
+        </h3>
+        <span class="chart-badge">Sector Ratio</span>
+      </div>
+      <div class="chart-container chart-container-wide">
+        <canvas id="sector-ratio-chart"></canvas>
+      </div>
+      <div class="chart-footer" id="sector-ratio-footer">
+        <span class="data-count">数据点: --</span>
+        <span class="data-range">时间范围: --</span>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<div class="footer">
+  <span>Investment System · 板块比值策略</span>
+  <a href="/">首页</a>
+  <a href="/indicators">宏观指标</a>
+  <a href="/strategy">策略分析</a>
+  <a href="/docs">API 文档</a>
+</div>
+
+<script type="module" src="/js/other-indicators/main.js"></script>
+</body>
+</html>

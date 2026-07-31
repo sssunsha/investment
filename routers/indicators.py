@@ -296,6 +296,138 @@ async def get_cn_indices_history(
         raise HTTPException(status_code=500, detail=f"获取A股指数历史数据失败: {str(e)}")
 
 
+# ── 成长/防守板块比值 ─────────────────────────────────────────────────────────────
+
+_SECTOR_RATIO_CACHE = Path.home() / ".investment" / "indicators" / "sector_ratio_history.json"
+
+_SECTOR_RATIO_INDICES = [
+    {"code": "sz.399006", "key": "gem", "name": "创业板指"},
+    {"code": "sh.000688", "key": "star", "name": "科创50"},
+    {"code": "sh.000922", "key": "dividend", "name": "中证红利"},
+]
+
+
+def _read_sector_ratio_cache():
+    if not _SECTOR_RATIO_CACHE.exists():
+        return None
+    try:
+        return json.loads(_SECTOR_RATIO_CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _write_sector_ratio_cache(data):
+    try:
+        _SECTOR_RATIO_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        _SECTOR_RATIO_CACHE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        logger.warning("写入板块比值缓存失败: %s", e)
+
+
+def _is_sector_ratio_cache_valid(data):
+    try:
+        cached_at = datetime.fromisoformat(data.get("cached_at", ""))
+        return datetime.now() - cached_at < timedelta(hours=24)
+    except (ValueError, TypeError):
+        return False
+
+
+@router.get("/sector-ratio-history", summary="获取成长/防守板块比值历史数据")
+async def get_sector_ratio_history(
+    force_refresh: bool = Query(False, description="强制刷新（忽略缓存）")
+):
+    """
+    获取创业板指(399006)与中证红利(000922)的月度收盘价历史及比值。
+
+    比值 = 创业板指 / 中证红利，用于成长/防守板块切换策略判断。
+    - 比值 > 0.7：成长板块相对高估，考虑切换防守
+    - 比值 < 0.3：成长板块相对低估，考虑买入成长
+
+    数据来源：BaoStock；缓存有效期：24小时。
+    """
+    if not force_refresh:
+        cached = _read_sector_ratio_cache()
+        if cached and _is_sector_ratio_cache_valid(cached):
+            cached["from_cache"] = True
+            return JSONResponse(content={"success": True, "data": cached})
+
+    start_date = "2005-01-01"
+    end_date = datetime.now().strftime("%Y-%m-%d")
+
+    def _query():
+        result = {}
+        for idx in _SECTOR_RATIO_INDICES:
+            rs = bs.query_history_k_data_plus(
+                idx["code"], "date,close",
+                start_date=start_date, end_date=end_date,
+                frequency="m", adjustflag="3",
+            )
+            labels, values = [], []
+            while rs.error_code == "0" and rs.next():
+                row = rs.get_row_data()
+                date_str, close_str = row[0], row[1]
+                if date_str and close_str and close_str != "":
+                    try:
+                        labels.append(date_str)
+                        values.append(round(float(close_str), 2))
+                    except (ValueError, TypeError):
+                        pass
+            result[idx["key"]] = {"labels": labels, "values": values, "name": idx["name"]}
+        return result
+
+    try:
+        indices = await run_bs(_query)
+        if indices is None:
+            raise HTTPException(status_code=503, detail="BaoStock 登录失败，请稍后重试")
+
+        # Calculate ratios on aligned dates
+        gem_data = indices.get("gem", {})
+        star_data = indices.get("star", {})
+        div_data = indices.get("dividend", {})
+        gem_map = dict(zip(gem_data.get("labels", []), gem_data.get("values", [])))
+        star_map = dict(zip(star_data.get("labels", []), star_data.get("values", [])))
+        div_map = dict(zip(div_data.get("labels", []), div_data.get("values", [])))
+
+        # GEM / Dividend ratio
+        gem_div_dates = sorted(set(gem_map.keys()) & set(div_map.keys()))
+        ratio_labels = []
+        ratio_values = []
+        for d in gem_div_dates:
+            if div_map[d] > 0:
+                ratio_labels.append(d)
+                ratio_values.append(round(gem_map[d] / div_map[d], 4))
+
+        # STAR / Dividend ratio
+        star_div_dates = sorted(set(star_map.keys()) & set(div_map.keys()))
+        star_ratio_labels = []
+        star_ratio_values = []
+        for d in star_div_dates:
+            if div_map[d] > 0:
+                star_ratio_labels.append(d)
+                star_ratio_values.append(round(star_map[d] / div_map[d], 4))
+
+        result = {
+            **indices,
+            "ratio": {"labels": ratio_labels, "values": ratio_values, "name": "创业板指/中证红利"},
+            "star_ratio": {"labels": star_ratio_labels, "values": star_ratio_values, "name": "科创50/中证红利"},
+            "cached_at": datetime.now().isoformat(),
+            "from_cache": False,
+        }
+        _write_sector_ratio_cache(result)
+        return JSONResponse(content={"success": True, "data": result})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("获取板块比值历史失败")
+        stale = _read_sector_ratio_cache()
+        if stale:
+            stale["from_cache"] = True
+            stale["cache_expired"] = True
+            return JSONResponse(content={"success": True, "data": stale})
+        raise HTTPException(status_code=500, detail=f"获取板块比值历史数据失败: {str(e)}")
+
+
 @router.get("/{indicator_key}", summary="获取单个指标")
 async def get_indicator(
     indicator_key: str,

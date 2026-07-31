@@ -215,6 +215,12 @@ async def indicators_page():
     return _serve_html("indicators_page.html")
 
 
+@app.get("/other-indicators", include_in_schema=False)
+async def other_indicators_page():
+    """其他指标：补充投资指标展示"""
+    return _serve_html("other_indicators_page.html")
+
+
 # ──────────────────────────────────────────────
 # CSP
 # ──────────────────────────────────────────────
