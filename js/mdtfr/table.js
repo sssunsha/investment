@@ -92,8 +92,8 @@ function mdtfrInitTable(skeleton = false) {
     // Add click handlers for sortable columns
     initColumnSorting();
 
-    // K线图 radio 事件绑定
-    document.querySelectorAll('input.kline-radio').forEach(radio => {
+    // K线图 radio 事件绑定（仅限 mdtfr 容器内）
+    document.querySelectorAll('#mdtfr-body input.kline-radio').forEach(radio => {
       radio.addEventListener('click', () => {
         const codeC = radio.value;
         const etf   = radio.dataset.etf;

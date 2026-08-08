@@ -164,7 +164,7 @@ export function closeOverlay() {
   _activeEtf   = null;
   _activeName  = null;
   _wrap        = null;
-  document.querySelectorAll('input.kline-radio').forEach(r => { r.checked = false; });
+  document.querySelectorAll('#mdtfr-body input.kline-radio').forEach(r => { r.checked = false; });
 }
 
 /** 当前选中的 code_c（供 table.js toggle 判断） */
