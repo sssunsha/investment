@@ -1,6 +1,17 @@
 // js/other-indicators/charts.js — 图表渲染：板块比值 + 单指数
 
 const COLORS = {
+  // 暖色系 — 创业板/红利策略
+  warm:          'rgba(239, 68, 68, 1)',        // 红色主线
+  warmLight:     'rgba(239, 68, 68, 0.6)',      // 红色浅色阈值
+  warmDash:      'rgba(249, 115, 22, 0.8)',     // 橙色阈值虚线
+
+  // 冷色系 — 科创50/红利策略
+  cool:          'rgba(59, 130, 246, 1)',        // 蓝色主线
+  coolLight:     'rgba(59, 130, 246, 0.6)',      // 蓝色浅色阈值
+  coolDash:      'rgba(6, 182, 212, 0.8)',       // 青色阈值虚线
+
+  // 通用
   green:       'rgba(34, 197, 94, 1)',
   greenLight:  'rgba(34, 197, 94, 0.2)',
   orange:      'rgba(249, 115, 22, 1)',
@@ -9,10 +20,6 @@ const COLORS = {
   purpleLight: 'rgba(168, 85, 247, 0.15)',
   cyan:        'rgba(6, 182, 212, 1)',
   cyanLight:   'rgba(6, 182, 212, 0.2)',
-  red:         'rgba(239, 68, 68, 0.15)',
-  greenZone:   'rgba(34, 197, 94, 0.10)',
-  redLine:     'rgba(239, 68, 68, 0.6)',
-  greenLine:   'rgba(34, 197, 94, 0.6)',
 };
 
 const CHART_DEFAULTS = {
@@ -179,19 +186,7 @@ export function renderSectorRatioChart(data, startDate, endDate) {
     {
       label: '创业板指/中证红利',
       data: ratioFiltered.labels.map((l, i) => ({ x: l, y: ratioFiltered.values[i] })),
-      borderColor: COLORS.purple,
-      backgroundColor: 'transparent',
-      borderWidth: 2.5,
-      tension: 0.3,
-      pointRadius: 0,
-      pointHoverRadius: 5,
-      fill: false,
-      yAxisID: 'yRatio',
-    },
-    {
-      label: '科创50/中证红利',
-      data: starFiltered.labels.map((l, i) => ({ x: l, y: starFiltered.values[i] })),
-      borderColor: COLORS.cyan,
+      borderColor: COLORS.warm,
       backgroundColor: 'transparent',
       borderWidth: 2.5,
       tension: 0.3,
@@ -201,6 +196,22 @@ export function renderSectorRatioChart(data, startDate, endDate) {
       yAxisID: 'yRatio',
     },
   ];
+
+  // Add STAR/Dividend ratio only if data exists
+  if (starFiltered.labels.length > 0) {
+    datasets.push({
+      label: '科创50/中证红利',
+      data: starFiltered.labels.map((l, i) => ({ x: l, y: starFiltered.values[i] })),
+      borderColor: COLORS.cool,
+      backgroundColor: 'transparent',
+      borderWidth: 2.5,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      fill: false,
+      yAxisID: 'yRatio',
+    });
+  }
 
   _charts[canvasId] = new Chart(ctx, {
     type: 'line',
@@ -214,22 +225,32 @@ export function renderSectorRatioChart(data, startDate, endDate) {
           callbacks: {
             afterBody(tooltipItems) {
               if (!tooltipItems.length) return '';
-              const xVal = tooltipItems[0].parsed.x;
-              // Find date string from raw label
-              const dateStr = tooltipItems[0].label || '';
+              // Use dataIndex from the first (ratio) dataset to look up values
+              const dataIndex = tooltipItems[0].dataIndex;
               const lines = [];
-              // Find index values at this date
-              const gemIdx = gemFiltered.labels.indexOf(dateStr) >= 0
-                ? gemFiltered.labels.indexOf(dateStr)
-                : ratioFiltered.labels.indexOf(dateStr);
-              if (gemIdx >= 0 && gemFiltered.values[gemIdx] != null)
-                lines.push(`  创业板指: ${gemFiltered.values[gemIdx].toFixed(2)}`);
-              const starIdx = starIndexFiltered.labels.indexOf(dateStr);
-              if (starIdx >= 0 && starIndexFiltered.values[starIdx] != null)
-                lines.push(`  科创50: ${starIndexFiltered.values[starIdx].toFixed(2)}`);
-              const divIdx = divFiltered.labels.indexOf(dateStr);
-              if (divIdx >= 0 && divFiltered.values[divIdx] != null)
-                lines.push(`  中证红利: ${divFiltered.values[divIdx].toFixed(2)}`);
+
+              // Get the date from the ratio data point for cross-referencing
+              const ratioDate = ratioFiltered.labels[dataIndex];
+
+              // Look up GEM value at same index or by date
+              if (dataIndex < gemFiltered.values.length && gemFiltered.values[dataIndex] != null) {
+                lines.push(`  创业板指: ${gemFiltered.values[dataIndex].toFixed(2)}`);
+              }
+
+              // Look up STAR value by matching date (Yahoo dates may differ slightly)
+              if (starIndexFiltered.labels.length > 0 && ratioDate) {
+                // Find closest star date
+                const starIdx = starIndexFiltered.labels.findIndex(l => l.slice(0, 7) === ratioDate.slice(0, 7));
+                if (starIdx >= 0 && starIndexFiltered.values[starIdx] != null) {
+                  lines.push(`  科创50: ${starIndexFiltered.values[starIdx].toFixed(2)}`);
+                }
+              }
+
+              // Look up Dividend value at same index
+              if (dataIndex < divFiltered.values.length && divFiltered.values[dataIndex] != null) {
+                lines.push(`  中证红利: ${divFiltered.values[dataIndex].toFixed(2)}`);
+              }
+
               return lines.length ? ['', '─ 指数点位 ─', ...lines] : '';
             },
             label(ctx) {
@@ -243,8 +264,8 @@ export function renderSectorRatioChart(data, startDate, endDate) {
               }
               if (label.includes('科创')) {
                 let suffix = '';
-                if (val < 0.4) suffix = ' ⚡ 买入成长';
-                else if (val > 0.75) suffix = ' ⚠️ 切换防守';
+                if (val < 0.38) suffix = ' ⚡ 买入成长';
+                else if (val > 0.74) suffix = ' ⚠️ 切换防守';
                 return `${label}: ${val.toFixed(4)}${suffix}`;
               }
               return `${label}: ${val.toFixed(4)}`;
@@ -254,23 +275,23 @@ export function renderSectorRatioChart(data, startDate, endDate) {
         thresholdZones: [
           {
             lineValue: 0.7,
-            lineColor: COLORS.purple,
+            lineColor: COLORS.warmDash,
             label: '0.7 创业板/红利 切换防守',
           },
           {
             lineValue: 0.3,
-            lineColor: COLORS.purple,
+            lineColor: COLORS.warmDash,
             label: '0.3 创业板/红利 买入成长',
           },
           {
-            lineValue: 0.75,
-            lineColor: COLORS.cyan,
-            label: '0.75 科创/红利 切换防守',
+            lineValue: 0.74,
+            lineColor: COLORS.coolDash,
+            label: '0.74 科创/红利 切换防守',
           },
           {
-            lineValue: 0.4,
-            lineColor: COLORS.cyan,
-            label: '0.40 科创/红利 买入成长',
+            lineValue: 0.38,
+            lineColor: COLORS.coolDash,
+            label: '0.38 科创/红利 买入成长',
           },
         ],
       },

@@ -302,9 +302,11 @@ _SECTOR_RATIO_CACHE = Path.home() / ".investment" / "indicators" / "sector_ratio
 
 _SECTOR_RATIO_INDICES = [
     {"code": "sz.399006", "key": "gem", "name": "创业板指"},
-    {"code": "sh.000688", "key": "star", "name": "科创50"},
     {"code": "sh.000922", "key": "dividend", "name": "中证红利"},
 ]
+
+# 科创50 uses Yahoo Finance (BaoStock doesn't support it)
+_STAR50_YAHOO_TICKER = "000688.SS"
 
 
 def _read_sector_ratio_cache():
@@ -375,10 +377,40 @@ async def get_sector_ratio_history(
             result[idx["key"]] = {"labels": labels, "values": values, "name": idx["name"]}
         return result
 
+    def _fetch_star50_yahoo():
+        """Fetch 科创50 index monthly data from Yahoo Finance."""
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(_STAR50_YAHOO_TICKER)
+            hist = ticker.history(period="max", interval="1mo")
+            if hist.empty:
+                logger.warning("Yahoo Finance 返回空数据: %s", _STAR50_YAHOO_TICKER)
+                return {"labels": [], "values": [], "name": "科创50"}
+            labels = []
+            values = []
+            for idx_dt, row in hist.iterrows():
+                date_str = idx_dt.strftime("%Y-%m-%d")
+                close_val = row.get("Close")
+                if close_val is not None and close_val > 0:
+                    labels.append(date_str)
+                    values.append(round(float(close_val), 2))
+            logger.info("Yahoo Finance 科创50: %d 条月度数据", len(labels))
+            return {"labels": labels, "values": values, "name": "科创50"}
+        except Exception as e:
+            logger.warning("Yahoo Finance 获取科创50失败: %s", e)
+            return {"labels": [], "values": [], "name": "科创50"}
+
     try:
         indices = await run_bs(_query)
         if indices is None:
             raise HTTPException(status_code=503, detail="BaoStock 登录失败，请稍后重试")
+
+        # Fetch 科创50 from Yahoo Finance (BaoStock doesn't support it)
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        loop = asyncio.get_event_loop()
+        star50_data = await loop.run_in_executor(None, _fetch_star50_yahoo)
+        indices["star"] = star50_data
 
         # Calculate ratios on aligned dates
         gem_data = indices.get("gem", {})
