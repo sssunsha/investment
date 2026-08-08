@@ -5,6 +5,7 @@ import { escHtml } from '../utils.js';
 import { awLog } from './debug.js';
 import { mkAwAmtCell, mkAwSharesCell, mkAwPosPct, refreshAwAmtPnl, getAwShares } from './amounts.js';
 import { refreshStaleChip } from './stale-positions.js';
+import { openAwOverlay, closeAwOverlay, getAwActiveCode } from './kline-overlay.js';
 
 // ── 7行活跃标的定义（每个资产取当前活跃基金）──────────────────
 function _getAwPoolDef() {
@@ -95,6 +96,13 @@ function _buildDrawerRow(asset) {
   </div>`;
 }
 
+// ── 从 baostock_code 提取 ETF 代码（如 'sh.510300' → '510300'）──
+function _extractEtf(baostock_code) {
+  if (!baostock_code) return '';
+  const parts = baostock_code.split('.');
+  return parts.length === 2 ? parts[1] : '';
+}
+
 // ── 表格初始化（skeleton=true 显示加载动画，false 显示空占位）──
 function awInitTable(skeleton = false) {
   const wrap = document.getElementById('aw-monitor-table-wrap');
@@ -103,7 +111,13 @@ function awInitTable(skeleton = false) {
   const sk   = (w) => skeleton ? `<div class="skeleton" style="width:${w}"></div>` : dash;
 
   const defs = _getAwPoolDef();
-  const rows = defs.map(def => `<tr id="aw-row-${def.code}" data-asset-id="${def.id}">
+  const rows = defs.map(def => {
+    const etf = _extractEtf(def.baostock_code);
+    const radioTd = etf
+      ? `<td class="kline-radio-td"><input class="kline-radio" type="radio" name="aw-kline-select" value="${def.code}" data-etf="${etf}" data-name="${escHtml(def.fullName)}"></td>`
+      : `<td class="kline-radio-td"></td>`;
+    return `<tr id="aw-row-${def.code}" data-asset-id="${def.id}">
+    ${radioTd}
     <td>${_groupBadge(def.group)}</td>
     <td id="aw-type-${def.code}">${_labelBadge(def)}</td>
     <td style="font-weight:600">${escHtml(def.fullName)}</td>
@@ -119,12 +133,14 @@ function awInitTable(skeleton = false) {
     <td id="aw-shares-cell-${def.code}">${mkAwSharesCell(def.code)}</td>
     <td>${mkAwPosPct(def.code)}</td>
     <td style="text-align:right;color:var(--text-dim);font-size:13px">${(def.target * 100).toFixed(0)}%</td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 
   wrap.innerHTML = `
     <div class="mdtfr-table-wrap">
       <table class="data-table">
         <thead><tr>
+          <th class="kline-radio-th"></th>
           <th>类别</th><th>类型</th><th>基金名称</th><th>代码</th>
           <th class="sortable" data-sort="ret_1y">近一年涨跌 <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="ret_6m">近6个月涨跌 <span class="sort-icon">⇅</span></th>
@@ -142,7 +158,28 @@ function awInitTable(skeleton = false) {
       </table>
     </div>`;
 
-  setTimeout(() => _awInitColumnSorting(), 0);
+  setTimeout(() => {
+    _awInitColumnSorting();
+    _awInitKlineRadio();
+  }, 0);
+}
+
+// ── K线图 radio 事件绑定 ──────────────────────────────────────────
+function _awInitKlineRadio() {
+  document.querySelectorAll('#aw-monitor-table-wrap input.kline-radio').forEach(radio => {
+    radio.addEventListener('click', () => {
+      const code = radio.value;
+      const etf  = radio.dataset.etf;
+      const name = radio.dataset.name;
+      const wrap = radio.closest('.mdtfr-table-wrap');
+      if (getAwActiveCode() === code) {
+        radio.checked = false;
+        closeAwOverlay();
+      } else {
+        openAwOverlay(wrap, code, etf, name);
+      }
+    });
+  });
 }
 
 // ── MA60趋势 HTML 片段 ─────────────────────────────────────────
