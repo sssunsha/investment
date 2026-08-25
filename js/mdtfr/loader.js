@@ -12,6 +12,7 @@ import { loadAmounts, refreshAllPosPct } from './amounts.js';
 import { loadWatchState, updateWatchState, saveWatchState } from './watch.js';
 import { mdtfrRenderAdvice } from './advice.js';
 import { applyPendingCorrections, renderCorrectionStatus } from './corrections.js';
+import { loadAndApplyValuation } from './valuation.js';
 
 // ── 仅在未初始化时渲染空表格，并尝试从本地 JSON 缓存填充当日数据 ──
 async function mdtfrMaybeInitEmpty() {
@@ -37,6 +38,8 @@ async function mdtfrMaybeInitEmpty() {
       await applyPendingCorrections(poolItems);
       document.getElementById('mdtfr-last-updated').textContent = `缓存数据 · ${today}`;
       mdtfrLog('cache', `页面初始化：命中今日缓存（${cached.length} 条）`);
+      // 加载估值数据并渲染颜色
+      loadAndApplyValuation();
     }
   } catch(e) {
     mdtfrLog('error', `读取缓存失败: ${e.message}`);
@@ -118,6 +121,7 @@ async function loadMdtfrPool() {
     mdtfrFillRanks(poolItems);
     mdtfrRenderAdvice(poolItems);
     await applyPendingCorrections(poolItems);
+    loadAndApplyValuation();
     document.getElementById('mdtfr-last-updated').textContent = `缓存数据 · ${today}`;
     btn.disabled = false;
     btn.innerHTML = '↺ 刷新';
@@ -209,6 +213,8 @@ async function loadMdtfrPool() {
         mdtfrFillRanks(poolItems);
         mdtfrRenderAdvice(poolItems);
         await applyPendingCorrections(poolItems);
+        // 加载估值数据并渲染颜色
+        loadAndApplyValuation();
         mdtfrLog('done', `补全完成 · ${d.last_updated}`);
         document.getElementById('mdtfr-last-updated').textContent = `已更新 · ${d.last_updated ? d.last_updated.slice(0,19) : today}`;
         btn.disabled = false; btn.innerHTML = '↺ 刷新';

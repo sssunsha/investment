@@ -4,17 +4,23 @@
 
 1. GET /api/strategy/all-weather       全天候配置动态平衡
 2. GET /api/strategy/sector-rotation   ETF行业动量CTA轮动
+3. GET /api/strategy/valuation/batch   指数估值百分位（中证指数官网）
 """
 import asyncio
 import json
 import time
+import logging
 import baostock as bs
+import requests
 from fastapi import APIRouter, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from datetime import datetime, timedelta
+from pathlib import Path
 from session import run_bs
 from services.fund_nav import fetch_fund_nav_series
 from services.strategy_calc import _calc_ma60, _fetch_close_series
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/strategy", tags=["策略分析"])
 
@@ -608,3 +614,206 @@ async def sector_rotation(
                     "ma_short": ma_short, "ma_long": ma_long},
         "last_updated": datetime.now().isoformat(),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 指数估值百分位 API（数据来源：中证指数官网）
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 估值缓存目录
+_VALUATION_CACHE_DIR = Path.home() / ".investment" / "valuation"
+_VALUATION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# CSI 指数代码映射（code_c → CSI index code）
+_CSI_INDEX_MAP = {
+    "006131": "000300",   # 沪深300
+    "006382": "000905",   # 中证500
+    "004744": "000958",   # 创业板 → 中证创业成长
+    "011861": "000852",   # 中证1000
+    "011609": "000688",   # 科创50
+    "007301": "H30184",   # 半导体
+    "007077": "000933",   # 医药卫生
+    "012363": "399975",   # 证券公司
+    "008021": "931071",   # 人工智能
+    "012857": "000932",   # 主要消费
+    "007467": "930955",   # 红利低波动
+    "004433": "930708",   # 有色金属
+    "012725": "930707",   # 畜牧养殖
+    "005693": "399967",   # 军工
+    "008280": "399998",   # 煤炭
+    "501012": "930641",   # 中药
+    "013128": "931573",   # 恒生科技
+    "016971": "930726",   # 恒生生物
+    "021085": "931151",   # 光伏产业
+    "014881": "H30590",   # 机器人
+    "012832": "930997",   # 新能源
+    # 黄金无PE概念，不参与估值
+}
+
+
+def _fetch_csi_pe_history(index_code: str, years: int = 5) -> list:
+    """从中证指数官网获取指数历史PE数据（peg字段）"""
+    end_date = datetime.now().strftime('%Y%m%d')
+    start_date = (datetime.now() - timedelta(days=years * 365)).strftime('%Y%m%d')
+    url = (
+        f"https://www.csindex.com.cn/csindex-home/perf/index-perf"
+        f"?indexCode={index_code}&startDate={start_date}&endDate={end_date}"
+    )
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.csindex.com.cn/',
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("code") == "200" and data.get("data"):
+            return [
+                {"date": item["tradeDate"], "pe": item["peg"]}
+                for item in data["data"]
+                if item.get("peg") is not None
+            ]
+    except Exception as e:
+        logger.warning(f"获取 CSI PE 数据失败 [{index_code}]: {e}")
+    return []
+
+
+def _calc_percentile(pe_list: list, current_pe: float) -> float:
+    """计算当前PE在历史数据中的百分位（0~100）"""
+    if not pe_list or current_pe is None:
+        return None
+    count_below = sum(1 for pe in pe_list if pe < current_pe)
+    return round(count_below / len(pe_list) * 100, 1)
+
+
+def _pe_zone(percentile: float) -> str:
+    """根据百分位判断估值区间"""
+    if percentile is None:
+        return None
+    if percentile < 20:
+        return "低估"
+    elif percentile < 40:
+        return "较低"
+    elif percentile < 60:
+        return "正常"
+    elif percentile < 80:
+        return "较高"
+    else:
+        return "高估"
+
+
+def _get_valuation_cache(today: str) -> dict | None:
+    """读取今日估值缓存"""
+    cache_file = _VALUATION_CACHE_DIR / f"valuation_{today}.json"
+    if cache_file.exists():
+        try:
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return None
+
+
+def _save_valuation_cache(today: str, data: dict):
+    """保存今日估值缓存"""
+    cache_file = _VALUATION_CACHE_DIR / f"valuation_{today}.json"
+    try:
+        cache_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"保存估值缓存失败: {e}")
+
+
+@router.get(
+    "/valuation/batch",
+    summary="批量获取指数估值百分位",
+    description="""
+从中证指数官网获取各标的对应指数的PE历史数据，计算当前PE所在的历史百分位。
+
+**估值区间划分：**
+- 0%-20%: 低估（蓝色）
+- 20%-40%: 较低（绿色）
+- 40%-60%: 正常（白色）
+- 60%-80%: 较高（橘色）
+- 80%-100%: 高估（红色）
+
+**数据来源：** 中证指数官网 csindex.com.cn
+**缓存策略：** 当日数据缓存，避免重复请求
+    """,
+)
+async def valuation_batch(
+    years: int = Query(10, description="历史回溯年数，用于计算百分位", ge=1, le=10),
+    force: bool = Query(False, description="强制刷新缓存"),
+):
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    # 检查缓存
+    if not force:
+        cached = _get_valuation_cache(today)
+        if cached and cached.get("years") == years:
+            return cached
+
+    loop = asyncio.get_running_loop()
+
+    def _compute():
+        results = {}
+        # 近5年的交易日数约为 5*250=1250 条
+        five_year_days = 5 * 250
+        for code_c, index_code in _CSI_INDEX_MAP.items():
+            try:
+                pe_history = _fetch_csi_pe_history(index_code, years)
+                if not pe_history:
+                    results[code_c] = {
+                        "index_code": index_code,
+                        "current_pe": None,
+                        "percentile_10y": None,
+                        "percentile_5y": None,
+                        "zone": None,
+                        "error": "数据不可用",
+                    }
+                    continue
+                pe_values = [item["pe"] for item in pe_history]
+                current_pe = pe_values[-1]
+                # 10年百分位（用全部数据）
+                percentile_10y = _calc_percentile(pe_values, current_pe)
+                # 5年百分位（只用后5年数据）
+                pe_values_5y = pe_values[-five_year_days:] if len(pe_values) > five_year_days else pe_values
+                percentile_5y = _calc_percentile(pe_values_5y, current_pe)
+                # 估值区间基于10年百分位
+                zone = _pe_zone(percentile_10y)
+                results[code_c] = {
+                    "index_code": index_code,
+                    "current_pe": current_pe,
+                    "percentile_10y": percentile_10y,
+                    "percentile_5y": percentile_5y,
+                    "zone": zone,
+                    "data_points": len(pe_values),
+                    "error": None,
+                }
+                time.sleep(0.3)  # 请求间隔，避免频率限制
+            except Exception as e:
+                results[code_c] = {
+                    "index_code": index_code,
+                    "current_pe": None,
+                    "percentile_10y": None,
+                    "percentile_5y": None,
+                    "zone": None,
+                    "error": str(e),
+                }
+        return results
+
+    results = await loop.run_in_executor(None, _compute)
+
+    response = {
+        "items": results,
+        "years": years,
+        "date": today,
+        "last_updated": datetime.now().isoformat(),
+    }
+
+    # 只有至少有一个成功结果时才保存缓存，避免全部失败时写入无效缓存
+    has_valid = any(v.get("error") is None for v in results.values())
+    if has_valid:
+        _save_valuation_cache(today, response)
+
+    return response
+

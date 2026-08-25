@@ -231,10 +231,27 @@ export function showCodeTooltip(target, codeC, aCode, etf) {
     document.body.appendChild(tooltip);
   }
 
+  // 查找估值数据（存储在 name 元素的 data 属性中）
+  const nameEl = document.getElementById(`mdtfr-name-${codeC}`) || target.closest('[id^="mdtfr-name-"]');
+  const valZone = nameEl?.dataset?.valZone || '';
+  const valPe = nameEl?.dataset?.valPe || '';
+  const valPercentile10y = nameEl?.dataset?.valPercentile10y || '';
+  const valPercentile5y = nameEl?.dataset?.valPercentile5y || '';
+
+  let valHtml = '';
+  if (valZone && valPercentile10y) {
+    const zoneColors = {'低估':'#3b82f6','较低':'#22c55e','正常':'#ffffff','较高':'#f97316','高估':'#ef4444'};
+    const zoneColor = zoneColors[valZone] || '#999';
+    // 根据5年百分位数值计算其对应的估值区间颜色
+    const p5y = parseFloat(valPercentile5y);
+    const zone5yColor = isNaN(p5y) ? '#999' : p5y < 20 ? '#3b82f6' : p5y < 40 ? '#22c55e' : p5y < 60 ? '#ffffff' : p5y < 80 ? '#f97316' : '#ef4444';
+    valHtml = `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)"><span style="color:#999">PE估值:</span> <span style="margin-left:8px;font-weight:600">${valPe}</span> <span style="margin-left:6px;color:${zoneColor};font-weight:700">${valZone}</span><br><span style="color:#999">近10年百分位:</span> <span style="margin-left:8px;font-weight:600;color:${zoneColor}">${valPercentile10y}%</span><br><span style="color:#999">近5年百分位:</span> <span style="margin-left:8px;font-weight:600;color:${zone5yColor}">${valPercentile5y}%</span></div>`;
+  }
+
   tooltip.innerHTML = `
     <div style="margin-bottom:6px"><span style="color:#999">C类代码:</span> <span style="margin-left:8px;font-weight:500">${codeC || '–'}</span></div>
     <div style="margin-bottom:6px"><span style="color:#999">A类代码:</span> <span style="margin-left:8px;font-weight:500">${aCode || '–'}</span></div>
-    <div><span style="color:#999">场内ETF:</span> <span style="margin-left:8px;font-weight:500">${etf || '–'}</span></div>
+    <div><span style="color:#999">场内ETF:</span> <span style="margin-left:8px;font-weight:500">${etf || '–'}</span></div>${valHtml}
   `;
   
   const rect = target.getBoundingClientRect();
