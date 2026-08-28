@@ -27,10 +27,10 @@ function _renderFlowSignal(c, item) {
   const signal = item.share_signal;
   if (signal == null) { el.innerHTML = '<span style="color:var(--border)">–</span>'; return; }
   const [sc, bg] = _FLOW_SIG_CFG[signal] || ['var(--text-dim)', 'var(--surface2)'];
-  const chgStr = item.share_chg_1w != null
-    ? `<span style="font-size:10px;opacity:.8;margin-left:3px">${item.share_chg_1w > 0 ? '+' : ''}${(item.share_chg_1w * 100).toFixed(1)}%</span>`
-    : '';
-  el.innerHTML = `<span class="flow-chip" style="background:${bg};color:${sc}">${signal}${chgStr}</span>`;
+  const pct = item.share_chg_1w != null
+    ? `${item.share_chg_1w > 0 ? '+' : ''}${(item.share_chg_1w * 100).toFixed(1)}%`
+    : signal;
+  el.innerHTML = `<span class="flow-chip" style="background:${bg};color:${sc}">${pct}</span>`;
   el.dataset.signal     = signal;
   el.dataset.total      = item.share_total ?? '';
   el.dataset.chg1w      = item.share_chg_1w ?? '';
