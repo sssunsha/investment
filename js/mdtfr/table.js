@@ -664,7 +664,7 @@ function mdtfrRowComplete(item) {
   if (!item || item.error) return false;
   if (item.ret_20d == null || item.latest_close == null) return false;
   if (item.ma60_trend == null) return false;  // MA60 趋势未计算（数据不足）
-  if (item.vol_1d == null) return false;
+  // vol_1d 可能因 BaoStock 不可用而为 null，不阻塞缓存完整性判断
   // 资金流字段缺失时标记为不完整，触发 SSE 补全
   if (!('share_signal' in item) || !item.share_history) return false;
   // share_source 缺失说明是旧缓存，需要刷新以获取 SSE 周份额数据
