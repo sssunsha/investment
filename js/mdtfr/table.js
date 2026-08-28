@@ -667,6 +667,8 @@ function mdtfrRowComplete(item) {
   if (item.vol_1d == null) return false;
   // 资金流字段缺失时标记为不完整，触发 SSE 补全
   if (!('share_signal' in item) || !item.share_history) return false;
+  // share_source 缺失说明是旧缓存，需要刷新以获取 SSE 周份额数据
+  if (!item.share_source) return false;
   return true;
 }
 
