@@ -20,6 +20,7 @@ from session import run_bs
 from services.fund_nav import fetch_fund_nav_series
 from services.strategy_calc import _calc_ma60, _fetch_close_series
 from services.etf_shares import fetch_etf_shares
+from services.etf_shares_sse import fetch_weekly_shares
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +323,69 @@ async def mdtfr_pool_stream(
                        "share_chg_3w": None, "share_streak": None, "share_signal": None,
                        "share_date": None, "share_history": None}
 
+        # 预取沪市 ETF 周份额数据（一次性拉取，按需补缺）
+        _sse_weekly_cache = {}
+        if bs_ok:
+            sh_codes = [e.get("code", "")[-6:] for e in etfs_to_process if e.get("code", "").startswith("sh.")]
+            if sh_codes:
+                ev({"type": "progress", "name": "系统", "msg": "获取上交所 ETF 周份额数据..."})
+                try:
+                    _sse_weekly_cache = fetch_weekly_shares(sh_codes, weeks=52)
+                    ev({"type": "progress", "name": "系统", "msg": f"SSE 周份额：{len(_sse_weekly_cache)} 只 ETF 数据就绪"})
+                except Exception as _we:
+                    ev({"type": "progress", "name": "系统", "msg": f"SSE 周份额获取失败: {_we}"})
+
+        def _build_share_stats_from_weekly(weekly_hist):
+            """从周份额历史构建 share_stats 字典。"""
+            n = len(weekly_hist)
+            latest = weekly_hist[-1]
+            total = latest["shares"]
+            date_str = latest["date"]
+            chg_1w = round((weekly_hist[-1]["shares"] - weekly_hist[-2]["shares"]) / weekly_hist[-2]["shares"], 6) if n >= 2 and weekly_hist[-2]["shares"] > 0 else None
+            chg_2w = round((weekly_hist[-2]["shares"] - weekly_hist[-3]["shares"]) / weekly_hist[-3]["shares"], 6) if n >= 3 and weekly_hist[-3]["shares"] > 0 else None
+            chg_3w = round((weekly_hist[-3]["shares"] - weekly_hist[-4]["shares"]) / weekly_hist[-4]["shares"], 6) if n >= 4 and weekly_hist[-4]["shares"] > 0 else None
+            streak = 0
+            for i in range(n - 1, 0, -1):
+                cur, prev = weekly_hist[i]["shares"], weekly_hist[i - 1]["shares"]
+                if prev <= 0:
+                    break
+                delta = (cur - prev) / prev
+                if delta > 0.005:
+                    if streak >= 0:
+                        streak += 1
+                    else:
+                        break
+                elif delta < -0.005:
+                    if streak <= 0:
+                        streak -= 1
+                    else:
+                        break
+                else:
+                    break
+            # 周粒度信号阈值（比季度更灵敏）
+            signal = None
+            if chg_1w is not None:
+                if chg_1w >= 0.05 or (chg_1w >= 0.02 and streak >= 3):
+                    signal = "大幅流入"
+                elif chg_1w >= 0.02 or streak >= 2:
+                    signal = "流入"
+                elif chg_1w >= 0.005:
+                    signal = "温和流入"
+                elif chg_1w >= -0.005:
+                    signal = "持平"
+                elif chg_1w <= -0.05 or (chg_1w <= -0.02 and streak <= -3):
+                    signal = "大幅流出"
+                elif chg_1w <= -0.02 or streak <= -2:
+                    signal = "流出"
+                else:
+                    signal = "持平"
+            return {
+                "share_total": round(total, 4),
+                "share_chg_1w": chg_1w, "share_chg_2w": chg_2w, "share_chg_3w": chg_3w,
+                "share_streak": streak, "share_signal": signal,
+                "share_date": date_str, "share_history": weekly_hist,
+            }
+
         try:
             for etf in etfs_to_process:
                 ev({"type": "progress", "name": etf["name"], "msg": "获取净值数据..."})
@@ -351,14 +415,22 @@ async def mdtfr_pool_stream(
                         if vol_map:
                             vol_stats = _calc_vol_stats(rows, vol_map)
 
-                    # 资金流：ETF 份额周变化（使用场内 ETF 代码）
+                    # 资金流：ETF 份额变化
+                    # 沪市 → SSE 周份额（share_source=sse_weekly）
+                    # 深市 → 东方财富季度份额（share_source=eastmoney_quarterly）
                     share_stats = _share_null
                     etf_code_6 = etf.get("code", "")[-6:] if etf.get("code") else None
-                    if etf_code_6:
+                    is_sh = etf.get("code", "").startswith("sh.")
+                    if etf_code_6 and is_sh and etf_code_6 in _sse_weekly_cache:
+                        weekly_hist = _sse_weekly_cache[etf_code_6]
+                        if weekly_hist and len(weekly_hist) >= 2:
+                            share_stats = _build_share_stats_from_weekly(weekly_hist)
+                            share_stats["share_source"] = "sse_weekly"
+                    if share_stats is _share_null and etf_code_6:
                         try:
                             share_data = fetch_etf_shares(etf_code_6)
                             if share_data:
-                                share_stats = share_data
+                                share_stats = {**share_data, "share_source": "eastmoney_quarterly"}
                         except Exception as se:
                             logger.debug("ETF 份额获取失败 %s: %s", etf_code_6, se)
 

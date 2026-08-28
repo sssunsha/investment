@@ -11,14 +11,14 @@ function formatVol(v) {
   return v.toLocaleString() + '手';
 }
 
-// ── 资金流信号配置（ETF 份额周变化）──────────────────────
+// ── 资金流信号配置（五级冷暖色：蓝=大幅缩量 → 红=大幅增量）──
 const _FLOW_SIG_CFG = {
-  '大幅流入': ['var(--green)',  'rgba(34,197,94,.2)'],
-  '流入':     ['var(--green)',  'rgba(34,197,94,.12)'],
-  '温和流入': ['var(--yellow)', 'rgba(245,158,11,.15)'],
-  '持平':     ['var(--text-dim)','rgba(128,128,128,.1)'],
-  '流出':     ['var(--red)',    'rgba(239,68,68,.12)'],
-  '大幅流出': ['var(--red)',    'rgba(239,68,68,.2)'],
+  '大幅流入': ['#ef4444', 'rgba(239,68,68,.2)'],      // 红：大幅增量
+  '流入':     ['#f97316', 'rgba(249,115,22,.15)'],     // 橘：小幅增量
+  '温和流入': ['#d1d5db', 'rgba(209,213,219,.12)'],    // 白：基本不变
+  '持平':     ['#d1d5db', 'rgba(209,213,219,.1)'],     // 白：基本不变
+  '流出':     ['#22c55e', 'rgba(34,197,94,.12)'],      // 绿：小幅缩量
+  '大幅流出': ['#3b82f6', 'rgba(59,130,246,.2)'],      // 蓝：大幅缩量
 };
 
 function _renderFlowSignal(c, item) {
@@ -38,6 +38,7 @@ function _renderFlowSignal(c, item) {
   el.dataset.shareDate  = item.share_date ?? '';
   el.dataset.etfName    = item.name ?? '';
   el.dataset.etf        = item.etf ?? '';
+  el.dataset.shareSource = item.share_source ?? '';
   // 存储完整历史数据供 Canvas 迷你图使用
   if (item.share_history && item.share_history.length > 0) {
     el.dataset.history = JSON.stringify(item.share_history);
@@ -516,47 +517,75 @@ initMa60Tooltip();
 
 // ── 资金流 Canvas 迷你图 tooltip ─────────────────────────────
 
-function _drawFlowChart(canvas, history) {
+// 五级冷暖色：根据周环比变化率决定柱子颜色
+function _flowBarColor(cur, prev) {
+  if (!prev || prev <= 0) return '#8892a4';
+  const chg = (cur - prev) / prev;
+  if (chg >= 0.02)  return '#ef4444';  // 红：大幅增量
+  if (chg >= 0.005) return '#f97316';  // 橘：小幅增量
+  if (chg > -0.005) return '#d1d5db';  // 白：基本不变
+  if (chg > -0.02)  return '#22c55e';  // 绿：小幅缩量
+  return '#3b82f6';                     // 蓝：大幅缩量
+}
+
+function _drawFlowChart(canvas, history, source) {
+  const isWeekly = source === 'sse_weekly';
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
-  const W = 300, H = 190;
+  const W = isWeekly ? 420 : 320, H = 190;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.scale(dpr, dpr);
-  const pad = { top: 6, right: 10, bottom: 44, left: 46 };
+  const pad = { top: 6, right: 10, bottom: 28, left: 46 };
   const cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
   const shares = history.map(h => h.shares);
-  const maxS = Math.max(...shares) * 1.1;
+  const maxS = Math.max(...shares) * 1.08;
+  const minS = Math.min(...shares) * 0.92;
+  const range = maxS - minS || 1;
   const n = history.length;
-  const barW = Math.max(12, Math.min(28, (cw - (n-1)*4) / n));
+  const barW = Math.max(2, Math.min(28, (cw - 2) / n - 1));
   const gap = (cw - barW * n) / (n + 1);
+
+  // Y 轴刻度
   ctx.fillStyle = '#8892a4'; ctx.font = '10px SF Mono,monospace'; ctx.textAlign = 'right';
   for (let i = 0; i <= 4; i++) {
-    const val = maxS * (1 - i/4), y = pad.top + (i/4) * ch;
-    ctx.fillText(val >= 100 ? Math.round(val) : val.toFixed(1), pad.left-6, y+3);
+    const val = maxS - (i / 4) * range, y = pad.top + (i / 4) * ch;
+    ctx.fillText(val >= 100 ? Math.round(val) : val.toFixed(1), pad.left - 6, y + 3);
     ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath();
-    ctx.moveTo(pad.left, y); ctx.lineTo(W-pad.right, y); ctx.stroke();
+    ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
   }
+
+  // 柱子
   for (let i = 0; i < n; i++) {
-    const h = history[i], x = pad.left + gap + i*(barW+gap);
-    const barH = (h.shares/maxS)*ch, y = pad.top+ch-barH;
-    let color = '#8892a4';
-    if (i > 0) { const p = history[i-1].shares; if (h.shares > p*1.001) color = '#22c55e'; else if (h.shares < p*0.999) color = '#ef4444'; }
-    ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x,y,barW,barH,2); ctx.fill();
-    if (h.subscribe != null && h.redeem != null) {
-      const mx = x+barW/2, by = pad.top+ch+4;
-      const sH = Math.min(8, Math.max(3, h.subscribe/maxS*ch*0.5));
-      ctx.fillStyle = 'rgba(34,197,94,0.7)'; ctx.beginPath(); ctx.moveTo(mx-3,by+sH); ctx.lineTo(mx+3,by+sH); ctx.lineTo(mx,by); ctx.fill();
-      const rH = Math.min(8, Math.max(3, h.redeem/maxS*ch*0.5));
-      ctx.fillStyle = 'rgba(239,68,68,0.7)'; const ry = by+sH+2; ctx.beginPath(); ctx.moveTo(mx-3,ry); ctx.lineTo(mx+3,ry); ctx.lineTo(mx,ry+rH); ctx.fill();
+    const h = history[i], x = pad.left + gap + i * (barW + gap);
+    const barH = Math.max(1, ((h.shares - minS) / range) * ch);
+    const y = pad.top + ch - barH;
+    const color = i > 0 ? _flowBarColor(h.shares, history[i - 1].shares) : '#8892a4';
+    ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x, y, barW, barH, 1); ctx.fill();
+
+    // 季度数据显示申购赎回三角
+    if (!isWeekly && h.subscribe != null && h.redeem != null) {
+      const mx = x + barW / 2, by = pad.top + ch + 3;
+      const sH = Math.min(6, Math.max(2, h.subscribe / maxS * ch * 0.4));
+      ctx.fillStyle = 'rgba(249,115,22,0.7)'; ctx.beginPath(); ctx.moveTo(mx - 2, by + sH); ctx.lineTo(mx + 2, by + sH); ctx.lineTo(mx, by); ctx.fill();
+      const rH = Math.min(6, Math.max(2, h.redeem / maxS * ch * 0.4));
+      ctx.fillStyle = 'rgba(59,130,246,0.7)'; const ry = by + sH + 1; ctx.beginPath(); ctx.moveTo(mx - 2, ry); ctx.lineTo(mx + 2, ry); ctx.lineTo(mx, ry + rH); ctx.fill();
     }
-    ctx.fillStyle = '#8892a4'; ctx.font = '9px SF Mono,monospace'; ctx.textAlign = 'center';
-    ctx.fillText(h.date.slice(2,7), x+barW/2, H-4);
   }
-  ctx.font = '9px SF Mono,monospace'; ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(34,197,94,0.7)'; ctx.fillText('▲ 申购', pad.left+2, H-16);
-  ctx.fillStyle = 'rgba(239,68,68,0.7)'; ctx.fillText('▼ 赎回', pad.left+50, H-16);
-  ctx.fillStyle = '#8892a4'; ctx.fillText('亿份', pad.left-4, pad.top);
+
+  // X 轴标签（周数据：每 4 周标一个月份；季度数据：每个都标）
+  ctx.fillStyle = '#8892a4'; ctx.font = '8px SF Mono,monospace'; ctx.textAlign = 'center';
+  for (let i = 0; i < n; i++) {
+    const h = history[i], x = pad.left + gap + i * (barW + gap) + barW / 2;
+    if (isWeekly) {
+      if (i % 4 === 0 || i === n - 1) ctx.fillText(h.date.slice(5, 10), x, H - 4);
+    } else {
+      ctx.fillText(h.date.slice(2, 7), x, H - 4);
+    }
+  }
+
+  ctx.fillStyle = '#8892a4'; ctx.font = '9px SF Mono,monospace'; ctx.textAlign = 'left';
+  ctx.fillText('亿份', pad.left - 4, pad.top);
 }
 
 function _buildFlowTooltipHtml(el) {
@@ -567,16 +596,25 @@ function _buildFlowTooltipHtml(el) {
   const chg = parseFloat(el.dataset.chg1w);
   const streak = parseInt(el.dataset.streak, 10);
   const date = el.dataset.shareDate || '';
+  const source = el.dataset.shareSource || '';
   const hasHist = !!el.dataset.history;
+  const isWeekly = source === 'sse_weekly';
   const [sigColor] = _FLOW_SIG_CFG[signal] || ['var(--text-dim)'];
   const fT = total ? (parseFloat(total) >= 100 ? parseFloat(total).toFixed(1)+' 亿份' : parseFloat(total).toFixed(2)+' 亿份') : '–';
-  const cS = !isNaN(chg) ? `<span style="color:${chg>0?'var(--green)':chg<0?'var(--red)':'var(--text-dim)'};font-weight:700">${chg>0?'+':''}${(chg*100).toFixed(1)}%</span>` : '';
-  const sS = isNaN(streak)||streak===0 ? '' : streak>0 ? `<span style="color:var(--green);font-size:12px">↑ 连续${streak}季增长</span>` : `<span style="color:var(--red);font-size:12px">↓ 连续${Math.abs(streak)}季减少</span>`;
-  return `<div style="font-weight:700;margin-bottom:6px;font-size:13px;color:${sigColor}">${name} · 份额趋势（近2年）</div>`
+  const cS = !isNaN(chg) ? `<span style="color:${chg>0?'#f97316':chg<0?'#3b82f6':'#d1d5db'};font-weight:700">${chg>0?'+':''}${(chg*100).toFixed(1)}%</span>` : '';
+  const unit = isWeekly ? '周' : '季';
+  const sS = isNaN(streak)||streak===0 ? '' : streak>0 ? `<span style="color:#f97316;font-size:12px">↑ 连续${streak}${unit}增长</span>` : `<span style="color:#3b82f6;font-size:12px">↓ 连续${Math.abs(streak)}${unit}减少</span>`;
+  const title = isWeekly ? `${name} · 份额趋势（近1年·周）` : `${name} · 份额趋势（近3年·季度）`;
+  const sourceTag = isWeekly
+    ? '<span style="color:var(--text-dim);font-size:11px">📡 上交所 · 周</span>'
+    : '<span style="color:var(--text-dim);font-size:11px">📋 东方财富 · 季报</span>';
+  const dateTag = date ? `<span style="color:var(--text-dim);margin-left:6px;font-size:11px">${date}</span>` : '';
+  return `<div style="font-weight:700;margin-bottom:6px;font-size:13px;color:${sigColor}">${title}</div>`
     + (hasHist ? '<canvas id="flow-chart-canvas" style="display:block;margin:4px 0 6px"></canvas>' : '')
-    + `<div style="border-top:1px solid var(--border);padding-top:6px;font-size:12px">`
+    + `<div style="border-top:1px solid var(--border);padding-top:6px;font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">`
     + `<span style="font-weight:600">${fT}</span> ${cS} ${sS}`
-    + (date ? `<span style="color:var(--text-dim);margin-left:8px">${date}(季报)</span>` : '') + `</div>`;
+    + `</div>`
+    + `<div style="margin-top:4px;display:flex;align-items:center;gap:8px">${sourceTag}${dateTag}</div>`;
 }
 
 (function initFlowTooltip() {
@@ -602,7 +640,7 @@ function _buildFlowTooltipHtml(el) {
     if (canvas && el.dataset.history) {
       try {
         const hist = JSON.parse(el.dataset.history);
-        if (hist.length >= 2) _drawFlowChart(canvas, hist);
+        if (hist.length >= 2) _drawFlowChart(canvas, hist, el.dataset.shareSource || '');
       } catch(_) { /* ignore */ }
     }
   });

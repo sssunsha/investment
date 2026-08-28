@@ -65,7 +65,7 @@ _RESULT_KEYS = (
 
 def fetch_etf_shares(etf_code: str, force: bool = False) -> Optional[dict]:
     """
-    获取单只 ETF 的份额数据（含近 8 季度历史 + 申购赎回）。
+    获取单只 ETF 的份额数据（含近 12 季度历史 + 申购赎回）。
 
     返回:
         {
@@ -158,7 +158,7 @@ def _parse_num(s: str) -> Optional[float]:
 
 
 def _calc_share_changes(records: list[dict]) -> Optional[dict]:
-    """根据份额历史记录计算变化率、信号，返回最近 8 期历史。"""
+    """根据份额历史记录计算变化率、信号，返回最近 12 期历史（约 3 年）。"""
     if len(records) < 2:
         return None
 
@@ -201,8 +201,8 @@ def _calc_share_changes(records: list[dict]) -> Optional[dict]:
 
     signal = _classify_signal(chg_1w, streak)
 
-    # 取最近 8 期作为迷你图数据
-    history = records[-8:]
+    # 取最近 12 期作为迷你图数据（约 3 年季度数据）
+    history = records[-12:]
 
     return {
         "share_total": round(total, 2),
