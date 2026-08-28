@@ -34,12 +34,14 @@ function _renderFlowSignal(c, item) {
   el.dataset.signal     = signal;
   el.dataset.total      = item.share_total ?? '';
   el.dataset.chg1w      = item.share_chg_1w ?? '';
-  el.dataset.chg2w      = item.share_chg_2w ?? '';
-  el.dataset.chg3w      = item.share_chg_3w ?? '';
   el.dataset.streak     = item.share_streak ?? '';
   el.dataset.shareDate  = item.share_date ?? '';
   el.dataset.etfName    = item.name ?? '';
   el.dataset.etf        = item.etf ?? '';
+  // 存储完整历史数据供 Canvas 迷你图使用
+  if (item.share_history && item.share_history.length > 0) {
+    el.dataset.history = JSON.stringify(item.share_history);
+  }
   el.style.cursor       = signal ? 'help' : '';
 }
 
@@ -512,44 +514,69 @@ function initMa60Tooltip() {
 
 initMa60Tooltip();
 
-// ── 资金流 tooltip ──────────────────────────────────────────
-function _buildFlowTooltip(el) {
+// ── 资金流 Canvas 迷你图 tooltip ─────────────────────────────
+
+function _drawFlowChart(canvas, history) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = 300, H = 190;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+  const pad = { top: 6, right: 10, bottom: 44, left: 46 };
+  const cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+  const shares = history.map(h => h.shares);
+  const maxS = Math.max(...shares) * 1.1;
+  const n = history.length;
+  const barW = Math.max(12, Math.min(28, (cw - (n-1)*4) / n));
+  const gap = (cw - barW * n) / (n + 1);
+  ctx.fillStyle = '#8892a4'; ctx.font = '10px SF Mono,monospace'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = maxS * (1 - i/4), y = pad.top + (i/4) * ch;
+    ctx.fillText(val >= 100 ? Math.round(val) : val.toFixed(1), pad.left-6, y+3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath();
+    ctx.moveTo(pad.left, y); ctx.lineTo(W-pad.right, y); ctx.stroke();
+  }
+  for (let i = 0; i < n; i++) {
+    const h = history[i], x = pad.left + gap + i*(barW+gap);
+    const barH = (h.shares/maxS)*ch, y = pad.top+ch-barH;
+    let color = '#8892a4';
+    if (i > 0) { const p = history[i-1].shares; if (h.shares > p*1.001) color = '#22c55e'; else if (h.shares < p*0.999) color = '#ef4444'; }
+    ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x,y,barW,barH,2); ctx.fill();
+    if (h.subscribe != null && h.redeem != null) {
+      const mx = x+barW/2, by = pad.top+ch+4;
+      const sH = Math.min(8, Math.max(3, h.subscribe/maxS*ch*0.5));
+      ctx.fillStyle = 'rgba(34,197,94,0.7)'; ctx.beginPath(); ctx.moveTo(mx-3,by+sH); ctx.lineTo(mx+3,by+sH); ctx.lineTo(mx,by); ctx.fill();
+      const rH = Math.min(8, Math.max(3, h.redeem/maxS*ch*0.5));
+      ctx.fillStyle = 'rgba(239,68,68,0.7)'; const ry = by+sH+2; ctx.beginPath(); ctx.moveTo(mx-3,ry); ctx.lineTo(mx+3,ry); ctx.lineTo(mx,ry+rH); ctx.fill();
+    }
+    ctx.fillStyle = '#8892a4'; ctx.font = '9px SF Mono,monospace'; ctx.textAlign = 'center';
+    ctx.fillText(h.date.slice(2,7), x+barW/2, H-4);
+  }
+  ctx.font = '9px SF Mono,monospace'; ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(34,197,94,0.7)'; ctx.fillText('▲ 申购', pad.left+2, H-16);
+  ctx.fillStyle = 'rgba(239,68,68,0.7)'; ctx.fillText('▼ 赎回', pad.left+50, H-16);
+  ctx.fillStyle = '#8892a4'; ctx.fillText('亿份', pad.left-4, pad.top);
+}
+
+function _buildFlowTooltipHtml(el) {
   const signal = el.dataset.signal;
   if (!signal) return null;
-  const total  = el.dataset.total;
-  const chg1w  = parseFloat(el.dataset.chg1w);
-  const chg2w  = parseFloat(el.dataset.chg2w);
-  const chg3w  = parseFloat(el.dataset.chg3w);
+  const name = el.dataset.etfName || '';
+  const total = el.dataset.total;
+  const chg = parseFloat(el.dataset.chg1w);
   const streak = parseInt(el.dataset.streak, 10);
-  const date   = el.dataset.shareDate;
-  const name   = el.dataset.etfName;
-  const etf    = el.dataset.etf;
-
-  const fmtChg = (v) => {
-    if (isNaN(v)) return '–';
-    const s = (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
-    const c = v > 0 ? 'var(--green)' : v < 0 ? 'var(--red)' : 'var(--text-dim)';
-    return `<span style="color:${c};font-weight:700">${s}</span>`;
-  };
-  const fmtTotal = (v) => {
-    if (!v) return '–';
-    const n = parseFloat(v);
-    if (isNaN(n)) return v;
-    return n >= 100 ? n.toFixed(1) + ' 亿份' : n.toFixed(2) + ' 亿份';
-  };
-  const streakText = isNaN(streak) || streak === 0 ? ''
-    : streak > 0 ? `<span style="color:var(--green)">↑ 连续${streak}周流入</span>`
-    : `<span style="color:var(--red)">↓ 连续${Math.abs(streak)}周流出</span>`;
-
+  const date = el.dataset.shareDate || '';
+  const hasHist = !!el.dataset.history;
   const [sigColor] = _FLOW_SIG_CFG[signal] || ['var(--text-dim)'];
-  return `<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:${sigColor}">${name || ''} ETF 份额周变化</div>`
-    + `<div style="border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:6px">`
-    + `<div>本周: <span style="font-weight:600">${fmtTotal(total)}</span> (${fmtChg(chg1w)})</div>`
-    + `<div>上周: ${fmtChg(chg2w)}</div>`
-    + `<div>2周前: ${fmtChg(chg3w)}</div>`
-    + `</div>`
-    + (streakText ? `<div style="margin-bottom:4px">${streakText}</div>` : '')
-    + (date ? `<div style="color:var(--text-dim);font-size:11px">数据时间: ${date}</div>` : '');
+  const fT = total ? (parseFloat(total) >= 100 ? parseFloat(total).toFixed(1)+' 亿份' : parseFloat(total).toFixed(2)+' 亿份') : '–';
+  const cS = !isNaN(chg) ? `<span style="color:${chg>0?'var(--green)':chg<0?'var(--red)':'var(--text-dim)'};font-weight:700">${chg>0?'+':''}${(chg*100).toFixed(1)}%</span>` : '';
+  const sS = isNaN(streak)||streak===0 ? '' : streak>0 ? `<span style="color:var(--green);font-size:12px">↑ 连续${streak}季增长</span>` : `<span style="color:var(--red);font-size:12px">↓ 连续${Math.abs(streak)}季减少</span>`;
+  return `<div style="font-weight:700;margin-bottom:6px;font-size:13px;color:${sigColor}">${name} · 份额趋势（近2年）</div>`
+    + (hasHist ? '<canvas id="flow-chart-canvas" style="display:block;margin:4px 0 6px"></canvas>' : '')
+    + `<div style="border-top:1px solid var(--border);padding-top:6px;font-size:12px">`
+    + `<span style="font-weight:600">${fT}</span> ${cS} ${sS}`
+    + (date ? `<span style="color:var(--text-dim);margin-left:8px">${date}(季报)</span>` : '') + `</div>`;
 }
 
 (function initFlowTooltip() {
@@ -557,27 +584,40 @@ function _buildFlowTooltip(el) {
   tip.id = 'flow-tooltip';
   tip.style.cssText = 'position:fixed;z-index:9999;display:none;pointer-events:none;'
     + 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;'
-    + 'padding:12px 14px;font-size:13px;line-height:1.7;max-width:280px;'
+    + 'padding:10px 12px;font-size:13px;line-height:1.5;'
     + 'box-shadow:0 4px 20px rgba(0,0,0,.5)';
   document.body.appendChild(tip);
+  let _activeEl = null;
 
   document.addEventListener('mouseover', (e) => {
     const el = e.target.closest('[id^="mdtfr-flow-"]');
     if (!el || !el.dataset.signal) return;
-    const html = _buildFlowTooltip(el);
+    if (_activeEl === el) return;
+    _activeEl = el;
+    const html = _buildFlowTooltipHtml(el);
     if (!html) return;
     tip.innerHTML = html;
     tip.style.display = 'block';
+    const canvas = tip.querySelector('#flow-chart-canvas');
+    if (canvas && el.dataset.history) {
+      try {
+        const hist = JSON.parse(el.dataset.history);
+        if (hist.length >= 2) _drawFlowChart(canvas, hist);
+      } catch(_) { /* ignore */ }
+    }
   });
   document.addEventListener('mousemove', (e) => {
     if (tip.style.display === 'none') return;
     const x = e.clientX + 14, y = e.clientY + 14;
     const tw = tip.offsetWidth, th = tip.offsetHeight;
-    tip.style.left = (x + tw > window.innerWidth  ? e.clientX - tw - 10 : x) + 'px';
+    tip.style.left = (x + tw > window.innerWidth ? e.clientX - tw - 10 : x) + 'px';
     tip.style.top  = (y + th > window.innerHeight ? e.clientY - th - 10 : y) + 'px';
   });
   document.addEventListener('mouseout', (e) => {
-    if (e.target.closest('[id^="mdtfr-flow-"]')) tip.style.display = 'none';
+    if (e.target.closest('[id^="mdtfr-flow-"]')) {
+      tip.style.display = 'none';
+      _activeEl = null;
+    }
   });
 })();
 

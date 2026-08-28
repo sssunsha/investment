@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-ETF 份额周变化数据抓取模块
+ETF 份额数据抓取模块
 
-从东方财富 pingzhongdata 接口获取 ETF/基金总份额及申赎数据。
+从东方财富 FundArchivesDatas (gmbd) 接口获取 ETF/基金历史份额及申赎数据。
 数据粒度为季度（公募基金报告期），缓存于 ~/.investment/etf_shares.json。
 
-数据源：东方财富 pingzhongdata 接口
-  - Data_buySedemption: 总份额、期间申购、期间赎回（季度级）
-  - Data_fluctuationScale: 基金规模（亿元）及环比变化（季度级）
+数据源：https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=gmbd&code=XXXXXX
+  - 季度级，可追溯 30+ 期（场外基金）或 70+ 期（场内 ETF）
+  - 含 总份额（亿份）、期间申购（亿份）、期间赎回（亿份）
 """
 import json
 import logging
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -58,26 +59,27 @@ def _is_cache_fresh(cache: dict, etf_code: str, max_age_hours: int = 24) -> bool
 
 _RESULT_KEYS = (
     "share_total", "share_chg_1w", "share_chg_2w", "share_chg_3w",
-    "share_streak", "share_signal", "share_date",
+    "share_streak", "share_signal", "share_date", "share_history",
 )
 
 
 def fetch_etf_shares(etf_code: str, force: bool = False) -> Optional[dict]:
     """
-    获取单只 ETF 的份额数据（含最近 3 期变化）。
-
-    数据粒度为季度（公募基金季报公布总份额），字段名用 "1w/2w/3w"
-    是为了与前端展示统一（实际为最近 1/2/3 个季度的环比变化）。
+    获取单只 ETF 的份额数据（含近 8 季度历史 + 申购赎回）。
 
     返回:
         {
-            "share_total": 189.15,       # 最新总份额（亿份）
-            "share_chg_1w": -0.578,      # 最近一期份额变化率
-            "share_chg_2w": -0.495,      # 上一期变化率
-            "share_chg_3w": -0.009,      # 再上一期变化率
-            "share_streak": -3,          # 连续增/减期数
-            "share_signal": "大幅流出",   # 综合信号
-            "share_date": "2026-06-30",  # 数据日期
+            "share_total": 189.15,
+            "share_chg_1w": -0.578,
+            "share_chg_2w": -0.495,
+            "share_chg_3w": -0.009,
+            "share_streak": -3,
+            "share_signal": "大幅流出",
+            "share_date": "2026-06-30",
+            "share_history": [
+                {"date":"2024-09-30","shares":850.6,"subscribe":69.0,"redeem":112.3},
+                ...  # 最近 8 期
+            ]
         }
     """
     cache = _load_cache()
@@ -85,7 +87,7 @@ def fetch_etf_shares(etf_code: str, force: bool = False) -> Optional[dict]:
         entry = cache[etf_code]
         return {k: entry[k] for k in _RESULT_KEYS if k in entry}
 
-    raw = _fetch_share_history(etf_code)
+    raw = _fetch_gmbd(etf_code)
     if not raw or len(raw) < 2:
         logger.warning("ETF 份额数据不足: %s (获取 %d 条)", etf_code, len(raw) if raw else 0)
         return None
@@ -97,122 +99,66 @@ def fetch_etf_shares(etf_code: str, force: bool = False) -> Optional[dict]:
     return result
 
 
-def _fetch_share_history(etf_code: str) -> list[dict]:
+def _fetch_gmbd(etf_code: str) -> list[dict]:
     """
-    从东方财富 pingzhongdata 获取基金份额历史。
+    从东方财富 FundArchivesDatas gmbd 接口获取份额历史。
 
-    优先使用 Data_buySedemption（含总份额），回退到 Data_fluctuationScale（基金规模）。
-    返回: [{"date": "YYYY-MM-DD", "shares": float}, ...] 按日期升序
+    返回 HTML 表格解析后的列表，按日期升序：
+    [{"date":"2024-09-30","shares":850.6,"subscribe":69.0,"redeem":112.3}, ...]
     """
-    url = f"http://fund.eastmoney.com/pingzhongdata/{etf_code}.js"
+    url = (
+        f"https://fundf10.eastmoney.com/FundArchivesDatas.aspx"
+        f"?type=gmbd&code={etf_code}&rt={int(time.time() * 1000)}"
+    )
     try:
         resp = _SESSION.get(url, timeout=15)
         resp.raise_for_status()
-        content = resp.text
-        if not content:
+        text = resp.text
+        if not text:
             return []
 
-        # 优先: Data_buySedemption — 含「总份额」（亿份）
-        result = _parse_buy_redemption(content)
-        if result and len(result) >= 2:
-            return result
+        rows = re.findall(
+            r"<tr><td>([\d-]+)</td>"
+            r"<td[^>]*>([\d.,\-]+)</td>"
+            r"<td[^>]*>([\d.,\-]+)</td>"
+            r"<td[^>]*>([\d.,\-]+)</td>",
+            text
+        )
+        if not rows:
+            return []
 
-        # 回退: Data_fluctuationScale — 含基金规模（亿元）
-        result = _parse_fluctuation_scale(content)
-        if result and len(result) >= 2:
-            return result
+        result = []
+        for date_str, subscribe_s, redeem_s, total_s in rows:
+            total = _parse_num(total_s)
+            if total is None or total <= 0:
+                continue
+            result.append({
+                "date": date_str,
+                "shares": total,
+                "subscribe": _parse_num(subscribe_s),
+                "redeem": _parse_num(redeem_s),
+            })
 
-        return []
+        result.sort(key=lambda x: x["date"])
+        return result
 
     except Exception as e:
-        logger.debug("pingzhongdata 获取失败 %s: %s", etf_code, e)
+        logger.debug("gmbd 份额获取失败 %s: %s", etf_code, e)
         return []
 
 
-def _parse_buy_redemption(content: str) -> list[dict]:
-    """
-    解析 Data_buySedemption 变量。
-    格式: {
-      "series": [
-        {"name":"期间申购","data":[...]},
-        {"name":"期间赎回","data":[...]},
-        {"name":"总份额","data":[897.16, 888.3, 448.29, 189.15]}
-      ],
-      "categories": ["2025-09-30","2025-12-31","2026-03-31","2026-06-30"]
-    }
-    """
-    m = re.search(
-        r'var\s+Data_buySedemption\s*=\s*(\{.*?\})\s*;',
-        content, re.DOTALL
-    )
-    if not m:
-        return []
+def _parse_num(s: str) -> Optional[float]:
+    s = s.replace(",", "").strip()
+    if not s or s == "---":
+        return None
     try:
-        data = json.loads(m.group(1))
-    except (json.JSONDecodeError, ValueError):
-        return []
-
-    categories = data.get("categories", [])
-    series_list = data.get("series", [])
-    if not categories or not series_list:
-        return []
-
-    # 找到「总份额」系列
-    share_series = None
-    for s in series_list:
-        if isinstance(s, dict) and s.get("name") == "总份额":
-            share_series = s.get("data", [])
-            break
-
-    if not share_series:
-        return []
-
-    result = []
-    for i, cat in enumerate(categories):
-        if i < len(share_series) and share_series[i] is not None:
-            try:
-                result.append({"date": str(cat), "shares": float(share_series[i])})
-            except (ValueError, TypeError):
-                continue
-    return result
-
-
-def _parse_fluctuation_scale(content: str) -> list[dict]:
-    """
-    解析 Data_fluctuationScale 变量（回退方案，使用基金规模）。
-    格式: {"categories":["2025-06-30",...], "series":[{"y":3747.04,"mom":"10.62%"},..]}
-    """
-    m = re.search(
-        r'var\s+Data_fluctuationScale\s*=\s*(\{.*?\})\s*;',
-        content, re.DOTALL
-    )
-    if not m:
-        return []
-    try:
-        data = json.loads(m.group(1))
-    except (json.JSONDecodeError, ValueError):
-        return []
-
-    categories = data.get("categories", [])
-    series = data.get("series", [])
-    if not categories or not series:
-        return []
-
-    result = []
-    for i, cat in enumerate(categories):
-        if i < len(series):
-            val = series[i]
-            y = val.get("y") if isinstance(val, dict) else val
-            if y is not None:
-                try:
-                    result.append({"date": str(cat), "shares": float(y)})
-                except (ValueError, TypeError):
-                    continue
-    return result
+        return float(s)
+    except (ValueError, TypeError):
+        return None
 
 
 def _calc_share_changes(records: list[dict]) -> Optional[dict]:
-    """根据份额历史记录计算变化率和信号。"""
+    """根据份额历史记录计算变化率、信号，返回最近 8 期历史。"""
     if len(records) < 2:
         return None
 
@@ -221,7 +167,6 @@ def _calc_share_changes(records: list[dict]) -> Optional[dict]:
     date_str = latest["date"]
 
     def _chg(idx):
-        """计算 records[-(idx+1)] 相对 records[-(idx+2)] 的变化率"""
         if idx + 2 > len(records):
             return None
         cur = records[-(idx + 1)]["shares"]
@@ -234,7 +179,6 @@ def _calc_share_changes(records: list[dict]) -> Optional[dict]:
     chg_2w = _chg(1)
     chg_3w = _chg(2)
 
-    # 连续增/减期数
     streak = 0
     for i in range(len(records) - 1, 0, -1):
         cur = records[i]["shares"]
@@ -257,6 +201,9 @@ def _calc_share_changes(records: list[dict]) -> Optional[dict]:
 
     signal = _classify_signal(chg_1w, streak)
 
+    # 取最近 8 期作为迷你图数据
+    history = records[-8:]
+
     return {
         "share_total": round(total, 2),
         "share_chg_1w": chg_1w,
@@ -265,14 +212,14 @@ def _calc_share_changes(records: list[dict]) -> Optional[dict]:
         "share_streak": streak,
         "share_signal": signal,
         "share_date": date_str,
+        "share_history": history,
     }
 
 
 def _classify_signal(chg_1w: Optional[float], streak: int) -> Optional[str]:
     """根据最近一期变化率和连续趋势生成信号词。
 
-    注意：数据粒度为季度，变化率通常比周频大很多。
-    阈值按季度级别调整：±20% 为大幅，±5% 为中等，±2% 为温和。
+    数据粒度为季度，阈值按季度级别调整。
     """
     if chg_1w is None:
         return None
