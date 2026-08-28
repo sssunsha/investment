@@ -45,18 +45,6 @@ def _save_cache(data: dict):
     CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
 
 
-def _get_trading_days_baostock(start_date: str, end_date: str) -> list[str]:
-    """通过 BaoStock 获取交易日历（需在已登录的上下文中调用）。"""
-    import baostock as bs
-    rs = bs.query_trade_dates(start_date=start_date, end_date=end_date)
-    days = []
-    while rs.error_code == '0' and rs.next():
-        row = rs.get_row_data()
-        if row[1] == '1':
-            days.append(row[0])
-    return days
-
-
 def _fridays_in_range(start_date: str, end_date: str) -> list[str]:
     """生成日期范围内所有周五的列表。"""
     d = datetime.strptime(start_date, "%Y-%m-%d")
@@ -70,15 +58,15 @@ def _fridays_in_range(start_date: str, end_date: str) -> list[str]:
     return result
 
 
-def _resolve_friday_to_trading_day(friday: str, trading_set: set) -> Optional[str]:
-    """周五 → 最近交易日：如果周五非交易日，向后顺延最多 4 天。"""
-    if friday in trading_set:
-        return friday
+def _resolve_friday_to_workday(friday: str) -> str:
+    """周五 → 工作日：如果周五本身即工作日直接返回，否则向后顺延跳过周末（最多 +4 天到下周二）。
+    注意：不处理法定节假日，节假日靠 SSE API 返回空数据来兜底。"""
     d = datetime.strptime(friday, "%Y-%m-%d")
-    for offset in range(1, 5):
-        candidate = (d + timedelta(days=offset)).strftime("%Y-%m-%d")
-        if candidate in trading_set:
-            return candidate
+    for offset in range(0, 5):
+        candidate = d + timedelta(days=offset)
+        if candidate.weekday() < 5:  # 0-4 = Mon-Fri
+            return candidate.strftime("%Y-%m-%d")
+    return friday  # fallback
 
 
 def _fetch_sse_all_etf_shares(stat_date: str) -> dict[str, float]:
@@ -135,7 +123,7 @@ def fetch_weekly_shares(etf_codes: list[str], weeks: int = 52) -> dict:
             ],
         }
 
-    需在 BaoStock 已登录的上下文中调用。
+    不依赖 BaoStock，完全自治（SSE API + 本地缓存）。
     """
     cache = _load_cache()
     weeks_data = cache.get("weeks", {})
@@ -145,18 +133,11 @@ def fetch_weekly_shares(etf_codes: list[str], weeks: int = 52) -> dict:
     start_date = start.strftime("%Y-%m-%d")
     end_date = today.strftime("%Y-%m-%d")
 
-    trading_days = _get_trading_days_baostock(start_date, end_date)
-    if not trading_days:
-        logger.warning("交易日历获取为空，无法获取 SSE 周份额数据")
-        return {}
-    trading_set = set(trading_days)
-
     fridays = _fridays_in_range(start_date, end_date)
-    sample_dates = []
-    for fri in fridays:
-        td = _resolve_friday_to_trading_day(fri, trading_set)
-        if td:
-            sample_dates.append(td)
+    # 将每个周五映射为最近工作日（跳过周末），法定节假日由 SSE 空数据兜底
+    sample_dates = [_resolve_friday_to_workday(f) for f in fridays]
+    # 不取未来日期
+    sample_dates = [d for d in sample_dates if d <= end_date]
     sample_dates = sample_dates[-weeks:]
 
     missing_dates = [d for d in sample_dates if d not in weeks_data]

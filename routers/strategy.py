@@ -323,17 +323,16 @@ async def mdtfr_pool_stream(
                        "share_chg_3w": None, "share_streak": None, "share_signal": None,
                        "share_date": None, "share_history": None}
 
-        # 预取沪市 ETF 周份额数据（一次性拉取，按需补缺）
+        # 预取沪市 ETF 周份额数据（不依赖 BaoStock，SSE API 自治）
         _sse_weekly_cache = {}
-        if bs_ok:
-            sh_codes = [e.get("code", "")[-6:] for e in etfs_to_process if e.get("code", "").startswith("sh.")]
-            if sh_codes:
-                ev({"type": "progress", "name": "系统", "msg": "获取上交所 ETF 周份额数据..."})
-                try:
-                    _sse_weekly_cache = fetch_weekly_shares(sh_codes, weeks=52)
-                    ev({"type": "progress", "name": "系统", "msg": f"SSE 周份额：{len(_sse_weekly_cache)} 只 ETF 数据就绪"})
-                except Exception as _we:
-                    ev({"type": "progress", "name": "系统", "msg": f"SSE 周份额获取失败: {_we}"})
+        sh_codes = [e.get("code", "")[-6:] for e in etfs_to_process if e.get("code", "").startswith("sh.")]
+        if sh_codes:
+            ev({"type": "progress", "name": "系统", "msg": "获取上交所 ETF 周份额数据..."})
+            try:
+                _sse_weekly_cache = fetch_weekly_shares(sh_codes, weeks=52)
+                ev({"type": "progress", "name": "系统", "msg": f"SSE 周份额：{len(_sse_weekly_cache)} 只 ETF 数据就绪"})
+            except Exception as _we:
+                ev({"type": "progress", "name": "系统", "msg": f"SSE 周份额获取失败: {_we}"})
 
         def _build_share_stats_from_weekly(weekly_hist):
             """从周份额历史构建 share_stats 字典。"""
