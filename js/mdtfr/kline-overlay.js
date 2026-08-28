@@ -21,14 +21,15 @@ function _imgUrl(etf, period) {
 
 /**
  * 计算浮层的视口坐标（fixed 定位用）。
- * 左边界对齐「20日均量」列（ths[4]），右边界对齐「份额」列（ths[14]）。
+ * 左边界对齐「近10日涨跌」列（ths[4]），右边界对齐「份额」列（ths[11]）。
  * 顶部对齐 thead 底部（不遮挡表头）。
+ * 当前列序：[0]☉ [1]排名 [2]名称 [3]20d [4]10d [5]5d [6]1d [7]量信号 [8]资金流 [9]MA20 [10]MA60 [11]份额 [12]金额 [13]持仓%
  */
 function _calcPosition(wrap) {
   const ths = wrap.querySelectorAll('thead th');
-  if (ths.length < 15) return null;
+  if (ths.length < 12) return null;
   const leftRect  = ths[4].getBoundingClientRect();
-  const rightRect = ths[14].getBoundingClientRect();
+  const rightRect = ths[11].getBoundingClientRect();
   const thead     = wrap.querySelector('thead');
   const theadBottom = thead ? thead.getBoundingClientRect().bottom : leftRect.bottom;
   return {

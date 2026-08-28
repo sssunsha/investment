@@ -19,6 +19,7 @@ from pathlib import Path
 from session import run_bs
 from services.fund_nav import fetch_fund_nav_series
 from services.strategy_calc import _calc_ma60, _fetch_close_series
+from services.etf_shares import fetch_etf_shares
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +318,9 @@ async def mdtfr_pool_stream(
 
         _vol_null = {"vol_1d": None, "vol_avg_5d": None, "vol_avg_10d": None,
                      "vol_avg_20d": None, "vol_signal": None, "vol_ratio": None}
+        _share_null = {"share_total": None, "share_chg_1w": None, "share_chg_2w": None,
+                       "share_chg_3w": None, "share_streak": None, "share_signal": None,
+                       "share_date": None}
 
         try:
             for etf in etfs_to_process:
@@ -326,7 +330,7 @@ async def mdtfr_pool_stream(
                     rows = fetch_fund_nav_series(etf["code_c"], start_date, end_date)
                     n = len(rows)
                     if n < 21:
-                        ev({"type": "item", **etf, **_vol_null,
+                        ev({"type": "item", **etf, **_vol_null, **_share_null,
                             "error": f"数据不足（{n} 条，需至少 21 条）",
                             "latest_close": None, "prev_close": None, "latest_date": None})
                         continue
@@ -347,6 +351,17 @@ async def mdtfr_pool_stream(
                         if vol_map:
                             vol_stats = _calc_vol_stats(rows, vol_map)
 
+                    # 资金流：ETF 份额周变化（使用场内 ETF 代码）
+                    share_stats = _share_null
+                    etf_code_6 = etf.get("code", "")[-6:] if etf.get("code") else None
+                    if etf_code_6:
+                        try:
+                            share_data = fetch_etf_shares(etf_code_6)
+                            if share_data:
+                                share_stats = share_data
+                        except Exception as se:
+                            logger.debug("ETF 份额获取失败 %s: %s", etf_code_6, se)
+
                     ev({"type": "item", **etf,
                         "latest_close": round(closes[-1], 3),
                         "prev_close":   round(closes[-2], 3),
@@ -364,10 +379,11 @@ async def mdtfr_pool_stream(
                         "ma60_above_avg":  ma60_above_avg,
                         "ma60_avg5":       ma60_avg5,
                         **vol_stats,
+                        **share_stats,
                         "error": None})
                     time.sleep(0.2)
                 except Exception as e:
-                    ev({"type": "item", **etf, **_vol_null, "error": str(e),
+                    ev({"type": "item", **etf, **_vol_null, **_share_null, "error": str(e),
                         "latest_close": None, "prev_close": None, "latest_date": None})
         finally:
             if bs_ok:
