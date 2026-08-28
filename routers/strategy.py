@@ -320,7 +320,7 @@ async def mdtfr_pool_stream(
                      "vol_avg_20d": None, "vol_signal": None, "vol_ratio": None}
         _share_null = {"share_total": None, "share_chg_1w": None, "share_chg_2w": None,
                        "share_chg_3w": None, "share_streak": None, "share_signal": None,
-                       "share_date": None}
+                       "share_date": None, "share_history": None}
 
         try:
             for etf in etfs_to_process:
