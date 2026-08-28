@@ -628,7 +628,7 @@ function mdtfrRowComplete(item) {
   if (item.ma60_trend == null) return false;  // MA60 趋势未计算（数据不足）
   if (item.vol_1d == null) return false;
   // 资金流字段缺失时标记为不完整，触发 SSE 补全
-  if (!('share_signal' in item)) return false;
+  if (!('share_signal' in item) || !item.share_history) return false;
   return true;
 }
 
