@@ -83,7 +83,7 @@ function mdtfrInitTable(skeleton = false) {
           <th class="sortable ret-vol-th" data-sort="ret_5d">近5日涨跌 <span class="sort-icon">⇅</span><br><span class="th-vol-sub">均量</span></th>
           <th id="mdtfr-th-ret1" class="sortable ret-vol-th" data-sort="ret_1d">上一日涨跌 <span class="sort-icon">⇅</span><br><span class="th-vol-sub">量</span></th>
           <th class="sortable" data-sort="vol_ratio">量信号 <span class="sort-icon">⇅</span></th>
-          <th class="sortable" data-sort="share_signal">资金流 <span class="sort-icon">⇅</span></th>
+          <th class="sortable" data-sort="share_signal"><a href="https://zhangting.center/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted;text-underline-offset:3px">资金流</a> <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="above_ma20">收盘/MA20 <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="ma60_trend">MA60趋势 <span class="sort-icon">⇅</span></th>
           <th class="sortable" data-sort="shares">份额 <span class="sort-icon">⇅</span></th>
